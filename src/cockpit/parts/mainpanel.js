@@ -28,9 +28,11 @@ export function gearIndicator(M, A) {
   return buildPanel({ w: 0.12, h: 0.05, name: 'gearInd', items }, M, A);
 }
 export function autobrakePanel(M, A) {
-  const items = [{ t: 'text', x: 0, y: 0.012, s: 'AUTO/BRK', size: 0.0034 }];
-  [['LO', -0.034], ['MED', 0], ['MAX', 0.034]].forEach(([s, x]) => items.push({ t: 'pb', x, y: -0.004, w: 0.02, h: 0.016, legends: ['DECEL', s], id: 'abrk' + s }));
-  return buildPanel({ w: 0.12, h: 0.036, name: 'autobrake', items }, M, A);
+  // AUTO BRK LO/MED/MAX with the A/SKID & N/W STRG switch to its right (as on the neo)
+  const items = [{ t: 'text', x: -0.022, y: 0.014, s: 'AUTO BRK', size: 0.0034 }, { t: 'line', pts: [[-0.062, 0.02], [0.062, 0.02]], w: 0.0006 }];
+  [['LO', -0.046], ['MED', -0.022], ['MAX', 0.006]].forEach(([s, x]) => items.push({ t: 'text', x, y: 0.007, s, size: 0.0026 }, { t: 'pb', x, y: -0.006, w: 0.02, h: 0.015, legends: ['DECEL', ''], id: 'abrk' + s }));
+  items.push({ t: 'text', x: 0.042, y: 0.014, s: 'A/SKID &', size: 0.0026 }, { t: 'text', x: 0.042, y: 0.008, s: 'N/W STRG', size: 0.0026 }, { t: 'toggle', x: 0.04, y: -0.007, id: 'askid' }, { t: 'text', x: 0.054, y: -0.001, s: 'ON', size: 0.0024 }, { t: 'text', x: 0.054, y: -0.014, s: 'OFF', size: 0.0024 });
+  return buildPanel({ w: 0.13, h: 0.036, name: 'autobrake', items }, M, A);
 }
 export function brakeSwitchPanel(M, A) {
   const items = [

@@ -26,6 +26,7 @@ export function makeMaterials() {
     seam: std(0x2b3236, 0.8),
     glare: std(0x1d2023, 0.78),           // anti-glare finish
     fcu: std(0x6e828c, 0.6),
+    consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x8a9faa, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
@@ -399,7 +400,6 @@ function buildMainPanel(M, refs) {
   on(MP.terrPanel(M, refs.atlas, -1), -0.2, 0.648, 0.0); on(MP.terrPanel(M, refs.atlas, 1), 0.245, 0.648, 0.0);
   // centre-right: LDG GEAR indicator, AUTO/BRK, A/SKID & BRK FAN, gear lever, triple brake indicator
   on(MP.gearIndicator(M, refs.atlas), 0.168, 0.8, 0.0); on(MP.autobrakePanel(M, refs.atlas), 0.168, 0.755, 0.0);
-  on(MP.brakeSwitchPanel(M, refs.atlas), 0.168, 0.7, 0.0);
   on(MP.gearLeverPanel(M, refs.atlas), 0.135, 0.572, 0.0);
   const lever = new THREE.Group();
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.06, 12), M.metal); shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.03; lever.add(shaft);
@@ -740,26 +740,26 @@ function buildConsolesAndSeats(M, refs) {
     const conMat = M.panelDark.clone(); conMat.side = THREE.DoubleSide;
     const con = new THREE.Mesh(conGeo, conMat); con.castShadow = con.receiveShadow = true; grp.add(con);
     const topSh = new THREE.Shape(plan.map(([x, z]) => new THREE.Vector2(s * x, -z)));
-    const top = new THREE.Mesh(new THREE.ExtrudeGeometry(topSh, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelOffset: -0.003, bevelSegments: 2 }).rotateX(-Math.PI / 2), M.module);
+    const top = new THREE.Mesh(new THREE.ExtrudeGeometry(topSh, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelOffset: -0.003, bevelSegments: 2 }).rotateX(-Math.PI / 2), M.consoleTop);
     top.position.y = C.topY; top.receiveShadow = true; grp.add(top);
     // raised sidestick housing with a sloped front, the stick mounted on its top
     const hous = new THREE.Group(); hous.position.set(s * D.SIDESTICK.x, C.topY + 0.01, D.SIDESTICK.z); grp.add(hous);
     const hb = rbox(0.17, 0.05, 0.24, 0.012, M.panelDark); hb.position.set(0, 0.025, 0.01); hous.add(hb);
     const ramp = rbox(0.17, 0.05, 0.08, 0.012, M.panelDark); ramp.position.set(0, 0.012, -0.12); ramp.rotation.x = 0.5; hous.add(ramp);
-    const deck = rbox(0.15, 0.006, 0.2, 0.003, M.module); deck.position.set(0, 0.051, 0.01); hous.add(deck);
+    const deck = rbox(0.15, 0.006, 0.2, 0.003, M.consoleTop); deck.position.set(0, 0.051, 0.01); hous.add(deck);
     // sidestick
     const st = makeSidestick(M, s);
     st.position.set(s * D.SIDESTICK.x, C.topY + 0.064, D.SIDESTICK.z); grp.add(st);
     refs[s < 0 ? 'sidestickCpt' : 'sidestickFo'] = st;
     // nosewheel steering tiller, outboard and slightly forward of the sidestick
-    const til = makeTiller(M); til.position.set(s * (D.TILLER.x + 0.05), C.topY + 0.012, D.TILLER.z - 0.04); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
+    const til = makeTiller(M); til.position.set(s * (D.TILLER.x + 0.04), C.topY + 0.012, D.SIDESTICK.z + 0.06); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
     const clip = rbox(0.22, 0.01, 0.02, 0.003, M.metal); clip.position.set(s * 0.82, C.topY - 0.05, -0.1); grp.add(clip);
     // aft lateral console beside the seat: cup holder, ashtray, stowage
     const az0 = C.z1, az1 = 1.32, ain = 0.86, aout = hullHW((az0 + az1) / 2, 0.45) + 0.05, aTop = 0.46;
     const acon = rbox(aout - ain, aTop, az1 - az0, 0.02, M.panelDark); acon.position.set(s * (ain + aout) / 2, aTop / 2, (az0 + az1) / 2); grp.add(acon);
-    const atop = rbox(aout - ain - 0.02, 0.01, az1 - az0 - 0.02, 0.004, M.module); atop.position.set(s * (ain + aout) / 2, aTop + 0.005, (az0 + az1) / 2); grp.add(atop);
+    const atop = rbox(aout - ain - 0.02, 0.01, az1 - az0 - 0.02, 0.004, M.consoleTop); atop.position.set(s * (ain + aout) / 2, aTop + 0.005, (az0 + az1) / 2); grp.add(atop);
     const cup = cyl(0.04, 0.04, 0.012, new THREE.MeshStandardMaterial({ color: 0x0f1011, roughness: 0.8 }), 28); cup.position.set(s * (ain + 0.08), aTop + 0.006, az0 + 0.12); grp.add(cup);
     const cupR = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.004, 8, 28), M.metal); cupR.rotation.x = Math.PI / 2; cupR.position.set(s * (ain + 0.08), aTop + 0.012, az0 + 0.12); grp.add(cupR);
     const ash = rbox(0.08, 0.012, 0.06, 0.004, M.metal); ash.position.set(s * (ain + 0.2), aTop + 0.012, az0 + 0.12); grp.add(ash);

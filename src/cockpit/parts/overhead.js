@@ -80,7 +80,7 @@ export const PANELS = {
   },
   hyd: (w, h) => ({ title: 'HYD', items: [
     { t: 'text', x: -0.12, y: 0.022, s: 'GREEN', size: 0.0034, boxed: true }, { t: 'text', x: -0.02, y: 0.022, s: 'BLUE', size: 0.0034, boxed: true }, { t: 'text', x: 0.1, y: 0.022, s: 'YELLOW', size: 0.0034, boxed: true }, { t: 'line', pts: [[-0.12, 0.016], [-0.12, 0.004]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.02, 0.016], [-0.02, 0.004]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.1, 0.016], [0.1, 0.004]], w: 0.0008, col: '#5ccf98' },
-    ...pbRow(w, -0.012, [['ENG 1\nPUMP', 'FAULT', 'OFF'], ['RAT MAN ON', '', '', { guard: 'grey' }], ['ELEC PUMP', 'FAULT', 'OFF'], ['PTU', 'FAULT', 'OFF'], ['ENG 2\nPUMP', 'FAULT', 'OFF'], ['ELEC PUMP', 'FAULT', 'ON']], { cap: 0.0032, line: true }),
+    ...pbRow(w, -0.012, [['ENG 1\nPUMP', 'FAULT', 'OFF'], ['RAT MAN ON', '', '', { guard: 'red' }], ['ELEC PUMP', 'FAULT', 'OFF'], ['PTU', 'FAULT', 'OFF'], ['ENG 2\nPUMP', 'FAULT', 'OFF'], ['ELEC PUMP', 'FAULT', 'ON']], { cap: 0.0032, line: true }),
   ] }),
   fuel: (w, h) => ({ title: 'FUEL', items: [
     { t: 'text', x: -0.115, y: 0.034, s: 'L TK PUMPS', size: 0.0034, boxed: true }, { t: 'text', x: 0, y: 0.034, s: 'CTR TK PUMPS', size: 0.0034, boxed: true }, { t: 'text', x: 0.115, y: 0.034, s: 'R TK PUMPS', size: 0.0034, boxed: true }, { t: 'line', pts: [[0, 0.012], [0, -0.03]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.135, -0.03], [0.135, -0.03]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.135, -0.03], [-0.135, 0.012]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.135, -0.03], [0.135, 0.012]], w: 0.0008, col: '#5ccf98' },
@@ -182,6 +182,39 @@ const tg = (x, y, c, id) => [cap(x, y + 0.0135, c, 0.0023), { t: 'toggle', x, y,
 const rb = (x, y, c, r = 0.0045) => [...(c ? [cap(x, y + r + 0.005, c, 0.0024)] : []), { t: 'rbtn', x, y, r }];
 const kn = (x, y, c, r = 0.0085, id) => [...(c ? [cap(x, y + r + 0.006, c, 0.0025)] : []), { t: 'knob', x, y, r, id }];
 Object.assign(PANELS, {
+  fuel: () => ({ title: 'FUEL', items: [
+    { t: 'text', x: -0.09, y: 0.027, s: 'ENG 1', size: 0.0026, boxed: true }, { t: 'text', x: -0.035, y: 0.027, s: 'APU', size: 0.0026, boxed: true }, { t: 'text', x: 0.09, y: 0.027, s: 'ENG 2', size: 0.0026, boxed: true },
+    ...pb(0, 0.02, 'X FEED', 'OPEN', 'ON'),
+    { t: 'line', pts: [[-0.09, 0.022], [-0.09, 0.01], [-0.008, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.008, 0.01], [0.09, 0.01], [0.09, 0.022]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.035, 0.022], [-0.035, 0.01]], w: 0.0008, col: '#5ccf98' },
+    { t: 'line', pts: [[-0.09, 0.01], [-0.09, 0.0], [-0.122, 0.0], [-0.122, -0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.09, 0.0], [-0.092, 0.0], [-0.092, -0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.09, 0.01], [0.09, 0.0], [0.122, 0.0], [0.122, -0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.09, 0.0], [0.092, -0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.035, 0.01], [-0.035, -0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.035, 0.01], [0.035, -0.006]], w: 0.0008, col: '#5ccf98' },
+    { t: 'text', x: -0.107, y: 0.004, s: 'L TK PUMPS', size: 0.0024 }, { t: 'text', x: 0.107, y: 0.004, s: 'R TK PUMPS', size: 0.0024 },
+    ...pb(-0.122, -0.018, '1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(-0.092, -0.018, '2', 'FAULT', 'OFF', { cs: 0.0022 }),
+    ...pb(-0.035, -0.018, 'CTR TK PUMP 1', 'FAULT', 'OFF', { cs: 0.0021 }), ...pb(0, -0.018, 'MODE SEL', 'FAULT', 'MAN', { cs: 0.0021 }), ...pb(0.035, -0.018, 'CTR TK PUMP 2', 'FAULT', 'OFF', { cs: 0.0021 }),
+    ...pb(0.092, -0.018, '1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.122, -0.018, '2', 'FAULT', 'OFF', { cs: 0.0022 }),
+  ] }),
+  elec: () => ({ title: 'ELEC', items: [
+    { t: 'text', x: -0.09, y: 0.052, s: 'DC BUS 1', size: 0.0026, boxed: true }, { t: 'text', x: 0.09, y: 0.052, s: 'DC BUS 2', size: 0.0026, boxed: true }, { t: 'text', x: -0.075, y: 0.006, s: 'AC BUS 1', size: 0.0026, boxed: true }, { t: 'text', x: 0, y: 0.006, s: 'AC ESS BUS', size: 0.0026, boxed: true }, { t: 'text', x: 0.075, y: 0.006, s: 'AC BUS 2', size: 0.0026, boxed: true },
+    ...pb(-0.124, 0.032, 'COMMERCIAL', '', 'OFF', { cs: 0.0021 }), { t: 'annun', x: -0.062, y: 0.032, w: 0.03, h: 0.012, s: 'BAT 1 V' }, ...pb(-0.016, 0.032, 'BAT 1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.016, 0.032, 'BAT 2', 'FAULT', 'OFF', { cs: 0.0022 }),
+    { t: 'annun', x: 0.062, y: 0.032, w: 0.03, h: 0.012, s: 'BAT 2 V' }, ...pb(0.124, 0.032, 'AC ESS FEED', 'FAULT', 'ALTN', { cs: 0.0021 }),
+    ...pb(-0.124, 0.0, 'GALY & CAB', 'FAULT', 'OFF', { cs: 0.0021 }),
+    { t: 'line', pts: [[-0.09, 0.046], [-0.09, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.09, 0.046], [0.09, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.058, 0.006], [-0.02, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.02, 0.006], [0.058, 0.006]], w: 0.0008, col: '#5ccf98' },
+    { t: 'line', pts: [[-0.085, 0.0], [-0.085, -0.034]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.085, 0.0], [0.085, -0.034]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.085, -0.018], [-0.01, -0.018]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.01, -0.018], [0.085, -0.018]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.035, -0.034], [-0.035, -0.026], [0.035, -0.026], [0.035, -0.034]], w: 0.0008, col: '#5ccf98' },
+    ...pb(0, -0.018, 'BUS TIE', '', 'OFF', { cs: 0.0022 }),
+    ...pb(-0.125, -0.044, 'IDG 1', 'FAULT', '', { guard: 'grey', cs: 0.0022 }), ...pb(-0.085, -0.044, 'GEN 1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(-0.035, -0.044, 'APU GEN', 'FAULT', 'OFF', { cs: 0.0022 }),
+    ...pb(0.035, -0.044, 'EXT PWR', 'AVAIL', 'ON', { cs: 0.0022 }), ...pb(0.085, -0.044, 'GEN 2', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.125, -0.044, 'IDG 2', 'FAULT', '', { guard: 'grey', cs: 0.0022 }),
+  ] }),
+  airCond: () => ({ title: 'AIR COND', items: [
+    { t: 'text', x: -0.112, y: 0.052, s: 'PACK FLOW', size: 0.0024 }, { t: 'text', x: -0.128, y: 0.036, s: 'LO', size: 0.0021 }, { t: 'text', x: -0.096, y: 0.036, s: 'HI', size: 0.0021 }, { t: 'knob', x: -0.112, y: 0.03, r: 0.0085, id: 'packFlow' },
+    ...[['COCKPIT', -0.05], ['FWD CABIN', 0.005], ['AFT CABIN', 0.06]].flatMap(([s, x]) => [{ t: 'text', x, y: 0.05, s, size: 0.0024, boxed: true }, { t: 'text', x: x - 0.017, y: 0.02, s: 'COLD', size: 0.002 }, { t: 'text', x: x + 0.017, y: 0.02, s: 'HOT', size: 0.002 }, { t: 'knob', x, y: 0.03, r: 0.0095, id: 't' + s }]),
+    ...pb(0.122, 0.034, 'HOT AIR', 'FAULT', 'OFF', { cs: 0.0022 }),
+    { t: 'line', pts: [[-0.05, 0.02], [-0.05, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.005, 0.02], [0.005, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.06, 0.02], [0.06, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.095, 0.01], [0.105, 0.01]], w: 0.0008, col: '#5ccf98' },
+    { t: 'text', x: -0.095, y: 0.004, s: 'PACK 1', size: 0.0026, boxed: true }, { t: 'text', x: 0.105, y: 0.004, s: 'PACK 2', size: 0.0026, boxed: true },
+    ...pb(-0.112, -0.012, '', 'FAULT', 'OFF', { id: 'pack1' }), ...pb(0.122, -0.012, '', 'FAULT', 'OFF', { id: 'pack2' }),
+    { t: 'line', pts: [[-0.095, 0.0], [-0.095, -0.027], [0.1, -0.027], [0.1, 0.0]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.01, -0.027], [-0.01, -0.034]], w: 0.0008, col: '#5ccf98' },
+    ...pb(-0.1, -0.044, 'ENG 1 BLEED', 'FAULT', 'OFF', { cs: 0.0021 }), ...pb(-0.055, -0.044, 'RAM AIR', '', 'ON', { guard: 'grey', cs: 0.0021 }), ...pb(-0.01, -0.044, 'APU BLEED', 'FAULT', 'ON', { cs: 0.0021 }),
+    { t: 'text', x: 0.045, y: -0.026, s: 'X BLEED', size: 0.0022 }, { t: 'text', x: 0.028, y: -0.038, s: 'SHUT', size: 0.002 }, { t: 'text', x: 0.045, y: -0.032, s: 'AUTO', size: 0.002 }, { t: 'text', x: 0.062, y: -0.038, s: 'OPEN', size: 0.002 }, { t: 'knob', x: 0.045, y: -0.046, r: 0.0085, id: 'xbleed' },
+    ...pb(0.1, -0.044, 'ENG 2 BLEED', 'FAULT', 'OFF', { cs: 0.0021 }),
+  ] }),
   paVideo: () => ({ title: '', items: [...pb(-0.035, -0.004, 'PA', '', ''), { t: 'line', pts: [[0.0, 0.022], [0.0, -0.022]], w: 0.0006 }, ...pb(0.04, -0.004, 'COCKPIT DOOR VIDEO', '', 'OFF', { cs: 0.0023 })] }),
   adirs: () => ({ title: 'ADIRS', items: [
     { t: 'annun', x: 0, y: 0.056, w: 0.03, h: 0.009, s: 'ON BAT' },

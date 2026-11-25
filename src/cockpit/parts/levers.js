@@ -179,17 +179,17 @@ export function makeThrustQuadrant(M, atlas) {
   const levers = [];
   const btnMat = new THREE.MeshStandardMaterial({ color: 0x9a2b22, roughness: 0.45 });
   for (const s of [-1, 1]) {
-    const pivot = new THREE.Group(); pivot.position.set(s * 0.028, 0, pivotZ); g.add(pivot);
+    const pivot = new THREE.Group(); pivot.position.set(s * 0.0285, 0, pivotZ); g.add(pivot);
     const arm = rbox(0.009, 0.03, armLen, 0.004, M.metal);   // broad lever blade running in the gate slot arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
-    const handle = rbox(0.0545, 0.03, 0.026, 0.01, new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.18, metalness: 0.1 })); handle.position.set(-s * 0.0008, 0.003, armLen + 0.008); pivot.add(handle);
-    const grip = rbox(0.0545, 0.012, 0.012, 0.004, M.panelDark); grip.position.set(-s * 0.0008, 0.017, armLen + 0.004); pivot.add(grip);
-    const face = rbox(0.05, 0.005, 0.02, 0.002, M.panelDark); face.position.set(-s * 0.0008, -0.014, armLen + 0.008); pivot.add(face);
+    const handle = rbox(0.05, 0.034, 0.03, 0.011, new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.18, metalness: 0.1 })); handle.position.set(0, 0.003, armLen + 0.01); pivot.add(handle);
+    const grip = rbox(0.05, 0.012, 0.012, 0.004, M.panelDark); grip.position.set(0, 0.019, armLen + 0.006); pivot.add(grip);
+    const face = rbox(0.05, 0.005, 0.02, 0.002, M.panelDark); face.position.set(0, -0.016, armLen + 0.01); pivot.add(face);
     // A/THR instinctive disconnect pushbutton on the outboard side
     const b = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 20).rotateZ(Math.PI / 2), btnMat));
-    b.position.set(s * 0.0275, 0.003, armLen + 0.008); pivot.add(b);
+    b.position.set(s * 0.026, 0.003, armLen + 0.01); pivot.add(b);
     // reverse thrust latch lever in front of the handle
-    const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(-s * 0.004, 0.02, armLen - 0.012); latch.rotation.x = 0.5; pivot.add(latch);
+    const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(0, 0.02, armLen - 0.012); latch.rotation.x = 0.5; pivot.add(latch);
     pivot.rotation.x = 0; levers.push(pivot);
   }
   const set = (deg) => levers.forEach((l) => (l.rotation.x = -THREE.MathUtils.degToRad(deg)));

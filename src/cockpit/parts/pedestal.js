@@ -56,9 +56,9 @@ export function acpPanel(M, A) {
   ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB'].forEach((s, i) => {
     const x = -0.054 + i * 0.018;
     items.push({ t: 'pb', x, y: 0.035, w: 0.015, h: 0.012, legends: ['CALL', s], id: 'tx' + s },
-      { t: 'knob', x, y: 0.012, r: 0.0058, pointer: false, ring: false });
+      { t: 'knob', x, y: 0.012, r: 0.0058, pointer: false, ring: false, dark: true });
   });
-  ['VOR1', 'VOR2', 'MKR', 'ILS', 'ADF1', 'ADF2'].forEach((s, i) => items.push({ t: 'text', x: -0.054 + i * 0.021, y: -0.007, s, size: 0.0032 }, { t: 'knob', x: -0.054 + i * 0.021, y: -0.018, r: 0.0055, pointer: false, ring: false }));
+  ['VOR1', 'VOR2', 'MKR', 'ILS', 'ADF1', 'ADF2'].forEach((s, i) => items.push({ t: 'text', x: -0.054 + i * 0.021, y: -0.007, s, size: 0.0032 }, { t: 'knob', x: -0.054 + i * 0.021, y: -0.018, r: 0.0055, pointer: false, ring: false, dark: true }));
   items.push({ t: 'pb', x: -0.05, y: -0.038, w: 0.016, h: 0.011, legends: ['INT', 'RAD'] }, { t: 'pb', x: 0.0, y: -0.038, w: 0.016, h: 0.011, legends: ['VOICE', ''] }, { t: 'pb', x: 0.05, y: -0.038, w: 0.016, h: 0.011, legends: ['RESET', ''] });
   return buildPanel({ w: 0.138, h: 0.098, items }, M, A);
 }

@@ -9,7 +9,7 @@ const FCU_DARK = '#30373c';   // FCU and EFIS control panels are dark charcoal
 function lcd(text, w, h) {
   const cv = document.createElement('canvas'); cv.width = Math.round(w * 6000); cv.height = Math.round(h * 6000); const c = cv.getContext('2d');
   c.fillStyle = '#0d1610'; c.fillRect(0, 0, cv.width, cv.height);
-  c.fillStyle = '#ffb02e'; c.font = `600 ${cv.height * 0.7}px "B612 Mono", monospace`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cv.width / 2, cv.height * 0.54);
+  c.fillStyle = '#ffb02e'; let fs = cv.height * 0.7; c.font = `600 ${fs}px "B612 Mono", monospace`; while (c.measureText(text).width > cv.width * 0.95 && fs > 6) { fs -= 1; c.font = `600 ${fs}px "B612 Mono", monospace`; } c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cv.width / 2, cv.height * 0.54);
   const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
   return new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.3 });
 }
@@ -18,52 +18,56 @@ const fit = (items, sx, sy) => items.map((i) => ({ ...i, x: (i.x || 0) * sx, y: 
 
 export function fcuPanel(M, A) {
   const W = 0.24, H = 0.076, SX = 0.96, SY = 0.76;
-  const win = [['SPD', -0.094, 'MACH'], ['HDG', -0.04, 'TRK'], ['ALT', 0.037, ''], ['V/S', 0.096, 'FPA']];
-  const items = [];
-  for (const [t, x, alt] of win) {
-    items.push({ t: 'text', x: x - 0.011, y: 0.042, s: t, size: 0.0042 });
-    if (alt) items.push({ t: 'text', x: x + 0.011, y: 0.042, s: alt, size: 0.0042 });
-    items.push({ t: 'knob', x, y: 0.0, r: 0.0112, style: 'fcu', ring: false, id: 'k' + t });
-  }
-  items.push({ t: 'text', x: -0.004, y: 0.042, s: 'LAT', size: 0.0042 }, { t: 'text', x: 0.066, y: 0.042, s: 'LVL/CH', size: 0.0042 },
-    { t: 'line', pts: [[0.022, 0.042], [0.048, 0.042]] },
-    { t: 'rbtn', x: -0.067, y: 0.003, id: 'spdMach' },
-    { t: 'key', x: -0.067, y: -0.03, w: 0.018, h: 0.011, s: 'LOC', id: 'LOC', bar: true },
-    { t: 'rbtn', x: -0.012, y: 0.012, id: 'hdgvs' }, { t: 'text', x: -0.024, y: 0.016, s: 'HDG', size: 0.0028 }, { t: 'text', x: -0.024, y: 0.009, s: 'TRK', size: 0.0028 }, { t: 'text', x: 0.0, y: 0.016, s: 'V/S', size: 0.0028 }, { t: 'text', x: 0.0, y: 0.009, s: 'FPA', size: 0.0028 },
-    { t: 'rbtn', x: 0.066, y: 0.008, id: 'metric' }, { t: 'text', x: 0.066, y: -0.004, s: 'METRIC ALT', size: 0.0026 },
-    { t: 'key', x: -0.024, y: -0.03, w: 0.018, h: 0.011, s: 'AP1', id: 'AP1', bar: true },
-    { t: 'key', x: 0.0, y: -0.03, w: 0.018, h: 0.011, s: 'AP2', id: 'AP2', bar: true },
-    { t: 'key', x: -0.012, y: -0.044, w: 0.018, h: 0.011, s: 'A/THR', id: 'ATHR', bar: true },
-    { t: 'key', x: 0.037, y: -0.03, w: 0.018, h: 0.011, s: 'EXPED', id: 'EXPED', bar: true },
-    { t: 'key', x: 0.096, y: -0.03, w: 0.018, h: 0.011, s: 'APPR', id: 'APPR', bar: true },
-    { t: 'text', x: 0.037, y: -0.044, s: '100     1000', size: 0.0034 });
+  // positions measured from the photographed FCU (fractions of the panel), design units before fit()
+  const items = [
+    { t: 'rbtn', x: -0.113, y: 0.011, id: 'spdMach' }, { t: 'text', x: -0.113, y: -0.003, s: 'SPD', size: 0.0028 }, { t: 'text', x: -0.113, y: -0.008, s: 'MACH', size: 0.0028 },
+    { t: 'knob', x: -0.088, y: -0.006, r: 0.0115, style: 'fcu', id: 'kSPD' },
+    { t: 'knob', x: -0.048, y: -0.006, r: 0.0115, style: 'fcu', id: 'kHDG' },
+    { t: 'key', x: -0.048, y: -0.039, w: 0.018, h: 0.011, s: 'LOC', id: 'LOC', bar: true },
+    { t: 'line', pts: [[-0.023, 0.016], [-0.023, -0.044]], w: 0.0007, col: '#d9963f' },
+    { t: 'rbtn', x: 0.0, y: 0.011, id: 'hdgvs' }, { t: 'text', x: -0.013, y: 0.015, s: 'HDG', size: 0.0027 }, { t: 'text', x: -0.013, y: 0.009, s: 'TRK', size: 0.0027 }, { t: 'text', x: 0.013, y: 0.015, s: 'V/S', size: 0.0027 }, { t: 'text', x: 0.013, y: 0.009, s: 'FPA', size: 0.0027 },
+    { t: 'key', x: -0.011, y: -0.0136, w: 0.018, h: 0.012, s: 'AP1', id: 'AP1', bar: true },
+    { t: 'key', x: 0.011, y: -0.0136, w: 0.018, h: 0.012, s: 'AP2', id: 'AP2', bar: true },
+    { t: 'key', x: 0.0, y: -0.039, w: 0.018, h: 0.012, s: 'A/THR', id: 'ATHR', bar: true },
+    { t: 'line', pts: [[0.025, 0.016], [0.025, -0.044]], w: 0.0007, col: '#d9963f' },
+    { t: 'text', x: 0.044, y: 0.013, s: '100   1000', size: 0.003 },
+    { t: 'knob', x: 0.044, y: -0.006, r: 0.0115, style: 'fcu', id: 'kALT' },
+    { t: 'key', x: 0.044, y: -0.039, w: 0.018, h: 0.011, s: 'EXPED', id: 'EXPED', bar: true },
+    { t: 'rbtn', x: 0.069, y: 0.011, id: 'metric' }, { t: 'text', x: 0.069, y: -0.003, s: 'METRIC', size: 0.0026 }, { t: 'text', x: 0.069, y: -0.008, s: 'ALT', size: 0.0026 },
+    { t: 'text', x: 0.095, y: 0.013, s: 'UP', size: 0.003 }, { t: 'text', x: 0.095, y: -0.024, s: 'DN', size: 0.003 },
+    { t: 'knob', x: 0.095, y: -0.006, r: 0.0115, style: 'fcu', id: 'kVS' },
+    { t: 'text', x: 0.116, y: 0.002, s: 'PUSH', size: 0.0024 }, { t: 'text', x: 0.116, y: -0.004, s: 'TO LEVEL', size: 0.0024 }, { t: 'text', x: 0.116, y: -0.01, s: 'OFF', size: 0.0024 },
+    { t: 'key', x: 0.095, y: -0.039, w: 0.018, h: 0.011, s: 'APPR', id: 'APPR', bar: true },
+  ];
   const p = buildPanel({ w: W, h: H, items: fit(items, SX, SY), bg: FCU_DARK, name: 'FCU' }, M, A);
-  // dark LCD windows above each knob
-  p.userData.windows = {};
-  for (const [t, x] of win) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(t === 'ALT' ? 0.04 : 0.034, 0.016), lcd({ SPD: '250', HDG: '---  ●', ALT: '05000', 'V/S': '-----' }[t], t === 'ALT' ? 0.04 : 0.034, 0.016));
-    w.position.set(x * SX, 0.026 * SY, 0.0008); w.name = 'fcu' + t; p.add(w); p.userData.windows[t] = w;
-  }
+  // one continuous display window across the top: SPD | HDG LAT | V/S ALT LVL/CH V/S
+  const dw = 0.207 * SX, dh = 0.016;
+  const disp = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), lcd('SPD 250   HDG ---  LAT  |  V/S  ALT 05000 -----', dw, dh));
+  disp.position.set(0, 0.033 * SY, 0.0008); disp.name = 'fcuDisplay'; p.add(disp); p.userData.windows = { all: disp };
   return p;
 }
 
 export function efisPanel(M, A, side) {
+  // captain layout measured from the photo; the F/O panel is its mirror image
+  const m = side === 1 || side < 0 ? 1 : -1;   // 1 = captain, 2 = F/O (mirrored)
   const items = [
-    { t: 'text', x: -0.07, y: 0.042, s: 'QNH', size: 0.0042 }, { t: 'text', x: -0.085, y: 0.028, s: 'inHg', size: 0.0034 }, { t: 'text', x: -0.055, y: 0.028, s: 'hPa', size: 0.0034 },
-    { t: 'knob', x: -0.07, y: 0.012, r: 0.0105, style: 'fcu', ring: false, id: 'baro' },
-    { t: 'text', x: -0.07, y: -0.004, s: 'PULL STD', size: 0.0032 },
-    { t: 'key', x: -0.081, y: -0.028, w: 0.018, h: 0.013, s: 'FD', id: 'FD', bar: true }, { t: 'key', x: -0.058, y: -0.028, w: 0.018, h: 0.013, s: 'LS', id: 'LS', bar: true },
-    { t: 'text', x: 0.002, y: 0.042, s: 'CSTR  WPT  VOR.D  NDB  ARPT', size: 0.0034 },
+    { t: 'text', x: -0.07, y: 0.004, s: 'inHg', size: 0.003 }, { t: 'text', x: -0.042, y: 0.004, s: 'hPa', size: 0.003 },
+    { t: 'knob', x: -0.056, y: -0.0076, r: 0.0105, style: 'fcu', id: 'baro' },
+    { t: 'key', x: -0.069, y: -0.036, w: 0.018, h: 0.012, s: 'FD', id: 'FD', bar: true }, { t: 'key', x: -0.045, y: -0.036, w: 0.018, h: 0.012, s: 'LS', id: 'LS', bar: true },
+    { t: 'line', pts: [[-0.031, 0.012], [-0.031, -0.044]], w: 0.0007, col: '#d9963f' },
+    { t: 'text', x: -0.012, y: 0.008, s: 'ROSE', size: 0.0026 }, { t: 'text', x: 0.005, y: 0.013, s: 'NAV', size: 0.0026 }, { t: 'text', x: 0.022, y: 0.008, s: 'ARC', size: 0.0026 },
+    { t: 'text', x: -0.018, y: -0.005, s: 'LS', size: 0.0026 }, { t: 'text', x: 0.026, y: -0.005, s: 'PLAN', size: 0.0026 },
+    { t: 'knob', x: 0.005, y: -0.0045, r: 0.0105, id: 'ndMode' },
+    { t: 'text', x: 0.05, y: 0.0, s: '10', size: 0.0026 }, { t: 'text', x: 0.058, y: 0.01, s: '20', size: 0.0026 }, { t: 'text', x: 0.066, y: 0.013, s: '40', size: 0.0026 }, { t: 'text', x: 0.075, y: 0.01, s: '80', size: 0.0026 }, { t: 'text', x: 0.083, y: 0.0, s: '160', size: 0.0026 }, { t: 'text', x: 0.079, y: -0.013, s: '320', size: 0.0026 },
+    { t: 'knob', x: 0.066, y: -0.0045, r: 0.0105, id: 'ndRange' },
+    { t: 'text', x: -0.012, y: -0.032, s: 'INOP', size: 0.0026 }, { t: 'toggle', x: 0.002, y: -0.032, id: 'nav1' }, { t: 'text', x: 0.014, y: -0.032, s: 'VOR', size: 0.0026 }, { t: 'text', x: 0.002, y: -0.045, s: 'OFF', size: 0.0026 },
+    { t: 'text', x: 0.05, y: -0.032, s: 'INOP', size: 0.0026 }, { t: 'toggle', x: 0.064, y: -0.032, id: 'nav2' }, { t: 'text', x: 0.076, y: -0.032, s: 'VOR', size: 0.0026 }, { t: 'text', x: 0.064, y: -0.045, s: 'OFF', size: 0.0026 },
   ];
-  ['CSTR', 'WPT', 'VORD', 'NDB', 'ARPT'].forEach((s, i) => items.push({ t: 'key', x: -0.024 + i * 0.0135, y: 0.032, w: 0.011, h: 0.009, s: '', id: s, bar: true }));
-  items.push(
-    { t: 'text', x: 0.012, y: 0.016, s: 'LS VOR NAV ARC PLAN', size: 0.003 }, { t: 'knob', x: 0.012, y: 0.0, r: 0.0105, id: 'ndMode', ticks: [-60, -30, 0, 30, 60] },
-    { t: 'text', x: 0.06, y: 0.016, s: 'RANGE NM', size: 0.0032 }, { t: 'knob', x: 0.06, y: 0.0, r: 0.0105, id: 'ndRange', ticks: [-75, -45, -15, 15, 45, 75] },
-    { t: 'text', x: 0.012, y: -0.02, s: 'ADF   VOR', size: 0.0032 }, { t: 'text', x: 0.06, y: -0.02, s: 'ADF   VOR', size: 0.0032 },
-    { t: 'toggle', x: 0.012, y: -0.034, id: 'nav1' }, { t: 'toggle', x: 0.06, y: -0.034, id: 'nav2' },
-    { t: 'text', x: 0.012, y: -0.046, s: '1', size: 0.0036 }, { t: 'text', x: 0.06, y: -0.046, s: '2', size: 0.0036 });
-  const p = buildPanel({ w: 0.16, h: 0.076, items: fit(items, 0.84, 0.76), bg: FCU_DARK, name: 'EFIS' + side }, M, A);
-  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.012), lcd('1013', 0.034, 0.012)); w.position.set(-0.07 * 0.84, 0.034 * 0.76, 0.0008); w.name = 'baroWin'; p.add(w);
+  ['CSTR', 'WPT', 'VOR.D', 'NDB', 'ARPT'].forEach((s, i) => items.push({ t: 'key', x: -0.013 + i * 0.024, y: 0.029, w: 0.019, h: 0.011, s, id: s, bar: true }));
+  const mir = items.map((i) => ({ ...i, x: (i.x || 0) * m, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x * m, y]) } : {}) }));
+  const p = buildPanel({ w: 0.16, h: 0.076, items: fit(mir, 0.84, 0.76), bg: FCU_DARK, name: 'EFIS' + side }, M, A);
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.013), lcd('1013', 0.03, 0.013)); w.position.set(-0.055 * m * 0.84, 0.021 * 0.76, 0.0008); w.name = 'baroWin'; p.add(w);
+  const q = A.mesh('QNH', 0.004, { px: 32, weight: 600, color: '#ffb02e' }, 0.02); q.position.set(-0.05 * m * 0.84, 0.024 * 0.76 + 0.004, 0.001); p.add(q);
   return p;
 }
 
