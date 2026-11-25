@@ -24,7 +24,7 @@ export function makeMaterials() {
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x6b7f89, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x1d2023, 0.78),           // anti-glare finish
+    glare: std(0x46535c, 0.72),          // glareshield hood: darker blue-grey, smooth           // anti-glare finish
     fcu: std(0x6e828c, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x8a9faa, 0.85),         // upper sidewall lining
@@ -438,7 +438,7 @@ function buildGlareshield(M, refs) {
   const zr = (ax) => (ax <= 0.62 ? G.strip.faceZ - 0.006 : G.strip.faceZ - 0.006 + ((ax - 0.62) / (xEnd - 0.62)) * 0.06);
   const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03;                 // top at the glass, following the pane's lower edge
   const yT = (t, ax) => {                                                      // rises to the crest, rolls over to the rear face
-    const crest = G.topY - Math.max(0, ax - 0.55) * 0.12;
+    const crest = G.topY - 0.03 - Math.max(0, ax - 0.55) * 0.12;   // low, smooth hood
     const r = yF(ax) + (crest - yF(ax)) * Math.sin(Math.min(t / 0.8, 1) * Math.PI / 2);
     return t > 0.8 ? r - 0.032 * ((t - 0.8) / 0.2) ** 2 : r;
   };
@@ -459,10 +459,6 @@ function buildGlareshield(M, refs) {
   };
   const gm = M.glare.clone(); gm.side = THREE.DoubleSide;
   grp.add(grid(top, gm), grid(rear, gm), grid(under, gm));
-  {
-    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2 * G.strip.half - 0.02, 32).rotateZ(Math.PI / 2), addGrain(new THREE.MeshStandardMaterial({ color: 0x1d2023, roughness: 0.6 }), 'matte'));
-    roll.scale.set(1, 1.35, 1); roll.position.set(0, G.topY - 0.006, G.strip.faceZ - 0.012); roll.castShadow = true; grp.add(roll);
-  }
   // the control strip: a housing that stands proud of the rear face, panels on its face
   const S = G.strip; const half = S.half;
   const housing = rbox(half * 2, S.h + 0.006, 0.05, 0.008, M.fcu);
@@ -474,6 +470,14 @@ function buildGlareshield(M, refs) {
   // outboard ends of the strip
   const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
   for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
+  for (const s of [-1, 1]) {   // angled end section: from the strip end back toward the corner post, same face colour
+    const p0 = new THREE.Vector3(s * half, S.y, S.faceZ + 0.002), p1 = new THREE.Vector3(s * 0.862, S.y, S.faceZ + 0.055);
+    const len = p0.distanceTo(p1); const ang = Math.atan2(p1.z - p0.z, Math.abs(p1.x - p0.x));
+    const wing = new THREE.Group(); wing.position.copy(p0); wing.rotation.y = -s * ang; grp.add(wing);
+    const face = rbox(len, S.h, 0.012, 0.003, M.fcu); face.position.set(s * len / 2, 0, -0.006); wing.add(face);
+    const sq = rbox(0.016, 0.016, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.35 })); sq.position.set(s * len * 0.55, 0.008, 0.001); wing.add(sq);
+    const under = rbox(len, 0.012, 0.06, 0.004, gm); under.position.set(s * len / 2, -S.h / 2 - 0.004, -0.03); wing.add(under);
+  }
 
   return grp;
 }
@@ -564,7 +568,14 @@ function buildOverheadSurround(M) {
       let x = hullHW(p.z, y) - 0.01; if (x < edgeX + 0.05) x = edgeX + 0.05;
       A.push(a); B.push(new THREE.Vector3(s * x, y, p.z));
     }
-    grp.add(stripMesh(A, B, ceil));
+    // curved fairing (bulges slightly into the cockpit), with panel seams
+    const Mid = A.map((a, i) => a.clone().lerp(B[i], 0.5).add(new THREE.Vector3(-s * 0.012, -0.02, 0)));
+    grp.add(stripMesh(A, Mid, ceil), stripMesh(Mid, B, ceil));
+    const seamM = new THREE.MeshStandardMaterial({ color: 0x3c4a53, roughness: 0.7 });
+    for (const k of [8, 16]) { const sA = A[k].clone().lerp(Mid[k], 0.02), sB = B[k]; const pts = [A[k], Mid[k], B[k]];
+      for (let j = 0; j < 2; j++) { const u = pts[j], v = pts[j + 1]; const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, u.distanceTo(v), 6), seamM); sm.position.copy(u).add(v).multiplyScalar(0.5); sm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().sub(u).normalize()); grp.add(sm); } }
+    if (s > 0) { const dl = rbox(0.11, 0.3, 0.01, 0.012, new THREE.MeshStandardMaterial({ color: 0xe4e6e3, roughness: 0.4, emissive: 0x222222 })); const c = Mid[18].clone().lerp(B[18], 0.3); dl.position.copy(c); dl.lookAt(c.clone().add(new THREE.Vector3(-1, -1.2, 0))); grp.add(dl); }
+    { const pl = rbox(0.09, 0.022, 0.003, 0.002, new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.5 })); const c = Mid[12].clone().lerp(B[12], 0.45); pl.position.copy(c); pl.lookAt(c.clone().add(new THREE.Vector3(-s, -1.2, 0))); grp.add(pl); }
     // dark padded rail along each long edge of the overhead
     const r0 = P(0).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0)), r1 = P(1).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0));
     const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, r0.distanceTo(r1), 16), dark);
@@ -594,7 +605,8 @@ function buildOverheadSurround(M) {
     const back = rbox(Math.min(2 * hw, 1.0), y1 - y0, 0.012, 0.01, ceil); back.position.set(0, (y0 + y1) / 2, z); grp.add(back);
     const dl = rbox(0.16, 0.06, 0.012, 0.012, new THREE.MeshStandardMaterial({ color: 0xd9d4c4, roughness: 0.5 })); dl.position.set(0, (y0 + y1) / 2, z - 0.008); grp.add(dl); }
   // forward end of the overhead: dark lower lip running across to the windshield header
-  { const lip = rbox(2 * edgeX + 0.02, 0.03, 0.06, 0.012, dark); lip.position.set(0, O.front[1] - 0.012, O.front[0] - 0.01); grp.add(lip); }
+  { const lip = rbox(2 * edgeX + 0.02, 0.022, 0.045, 0.01, dark); lip.position.set(0, O.front[1] - 0.008, O.front[0] - 0.008); grp.add(lip);
+    const lip2 = rbox(2 * edgeX + 0.02, 0.022, 0.045, 0.01, dark); lip2.position.set(0, O.rear[1] - 0.008, O.rear[0] + 0.004); grp.add(lip2); }
   return grp;
 }
 let refs_smoke = null;
@@ -609,7 +621,7 @@ function buildOverhead(M, refs) {
   const frame = panelFrame(front.clone().add(rear).multiplyScalar(0.5), along);
   // with Y along the slope towards the rear, Z = X × Y already points down and aft, at the crew
   // housing
-  const housing = rbox(O.halfWidth * 2 + 0.06, len + 0.04, 0.09, 0.015, M.panelDark);
+  const housing = rbox(O.halfWidth * 2 + 0.06, len + 0.04, 0.09, 0.015, M.panel);
   housing.position.set(0, 0, -0.045 - 0.006); frame.add(housing);
   refs.overhead = frame;
   // real A320 system panels: three columns, aft at the top as read; they fill the forward
