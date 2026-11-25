@@ -322,33 +322,43 @@ function buildWindowFrames(M) {
   const up = new THREE.Vector3(0, -0.7, 0.7).normalize();
   grp.add(bar(new THREE.Vector3(0, WS.innerBottom[1] - 0.01, WS.innerBottom[2] + 0.012), new THREE.Vector3(0, WS.innerTop[1] + 0.02, WS.innerTop[2] + 0.02), 0.04, 0.035, f, up));
 
-  // side window frames: a band around each opening, lying on the shell, plus an inner lip
-  const ring = (poly, s, w) => {
-    const pts = []; const step = 0.02; const skip = poly === D.SIDE_WINDOWS.w2 ? poly.length - 1 : -1;   // w2's front edge is the corner post
+  // side window frames: one moulded frame round each opening, the same piece all the way round
+  // (header, both posts, and the bottom running down onto the sill). Profile, out from the glass: a reveal
+  // into the window, a rolled inner lip, a flat face, a raised outer bead, then down onto the lining.
+  const wf = addGrain(new THREE.MeshStandardMaterial({ color: 0x7d919b, roughness: 0.62, side: THREE.DoubleSide }), 'paint');
+  const frameRing = (poly, s, W, zClamp) => {
+    const pts = []; const step = 0.015; const skip = poly === D.SIDE_WINDOWS.w2 ? poly.length - 1 : -1;
     for (let i = 0; i < poly.length; i++) {
       if (i === skip) continue;
       const [z0, y0] = poly[i], [z1, y1] = poly[(i + 1) % poly.length]; const n = Math.max(1, Math.ceil(Math.hypot(z1 - z0, y1 - y0) / step));
       for (let k = 0; k < n; k++) pts.push([z0 + (z1 - z0) * k / n, y0 + (y1 - y0) * k / n]);
     }
     pts.push(skip >= 0 ? poly[skip] : pts[0]);
-    // outward offset in (z, y) using the polygon's centroid
-    const cz = poly.reduce((a, p) => a + p[0], 0) / poly.length, cy = poly.reduce((a, p) => a + p[1], 0) / poly.length;
-    const inner = [], outer = [];
+    const cz = poly.reduce((a2, p) => a2 + p[0], 0) / poly.length, cy = poly.reduce((a2, p) => a2 + p[1], 0) / poly.length;
+    const PROF = [[-0.003, 0.0], [0.006, 0.044], [0.012, 0.055], [0.022, 0.058], [0.034, 0.054], [W - 0.026, 0.048], [W - 0.015, 0.056], [W - 0.006, 0.053], [W, 0.036], [W + 0.009, 0.004]];
+    const rings = PROF.map(() => []);
     for (const [z, y] of pts) {
-      const dz = z - cz, dy = y - cy, l = Math.hypot(dz, dy);
-      let ww = w; while (ww > 0.006 && shellCell(s * hullHW(z + dz / l * ww, y + dy / l * ww), y + dy / l * ww, z + dz / l * ww) === 'open') ww *= 0.6;   // don't run into the windshield gap
-      inner.push(onHull(s, z - dz / l * 0.004, y - dy / l * 0.004, 0.012)); outer.push(onHull(s, z + dz / l * ww, y + dy / l * ww, 0.004));
+      const dz = z - cz, dy = y - cy, l = Math.hypot(dz, dy), uz = dz / l, uy = dy / l;
+      let lim = W + 0.006; while (lim > 0.012 && shellCell(s * hullHW(z + uz * lim, y + uy * lim), y + uy * lim, z + uz * lim) === 'open') lim *= 0.8;
+      PROF.forEach(([o, d], k) => {
+        let oo = Math.min(o, lim), zz = z + uz * oo, yy = y + uy * oo, dd = d;
+        let clamped = false;
+        if (zClamp && (zClamp[1] > 0 ? zz > zClamp[0] : zz < zClamp[0])) { zz = zClamp[0]; clamped = true; }
+        if (yy < 0.802) { yy = 0.802; clamped = true; }   // the bottom runs down onto the sill
+        if (clamped && k >= PROF.length - 2) dd = 0.048;  // a merged edge stays at face level
+        rings[k].push(onHull(s, zz, yy, dd));
+      });
     }
-    const lip = inner.map((p) => p.clone().add(new THREE.Vector3(-p.x, 1.1 - p.y, 0).normalize().multiplyScalar(0.035)));   // reveal, square to the wall
-    grp.add(stripMesh(inner, outer, f), stripMesh(lip, inner, f));
+    for (let k = 0; k < rings.length - 1; k++) { const m = stripMesh(rings[k], rings[k + 1], wf); m.castShadow = m.receiveShadow = true; grp.add(m); }
   };
-  for (const s of [-1, 1]) { ring(D.SIDE_WINDOWS.w2, s, 0.04); ring(D.SIDE_WINDOWS.w3, s, 0.035); }
-  // fairing from the windshield header back to the front of the overhead panel
-  const O = D.OVERHEAD; const hw = O.halfWidth + 0.04;
-  const hz = (ax) => wsTopZ(ax) + 0.03; const hy = (ax) => WS.innerTop[1] + (ax / WS.outerTop[0]) * (WS.outerTop[1] - WS.innerTop[1]) + 0.035;
-  const Fa = [], Fb = [];
-  for (let i = 0; i <= 12; i++) { const x = -hw + (2 * hw * i) / 12; Fa.push(new THREE.Vector3(x, hy(Math.abs(x)), hz(Math.abs(x)))); Fb.push(new THREE.Vector3(x, O.front[1] + 0.04, O.front[0] - 0.02)); }
-  const fm = M.frame.clone(); fm.side = THREE.DoubleSide; grp.add(stripMesh(Fa, Fb, fm));
+  for (const s of [-1, 1]) {
+    frameRing(D.SIDE_WINDOWS.w2, s, 0.1, [1.02, 1]); frameRing(D.SIDE_WINDOWS.w3, s, 0.09, [1.02, -1]);
+    // air outlet slot in the header above the sliding window, and the oval fitting on the aft post
+    const blk = new THREE.MeshStandardMaterial({ color: 0x15181b, roughness: 0.5 });
+    grp.add(onShell(rbox(0.13, 0.011, 0.006, 0.005, blk), s, 0.8, 1.445, [1, 0], 0.05));
+    const ov = rbox(0.05, 0.1, 0.01, 0.024, blk); grp.add(onShell(ov, s, 1.02, 1.12, [0, 1], 0.049));
+    const dot = new THREE.Mesh(new THREE.CircleGeometry(0.004, 16), new THREE.MeshStandardMaterial({ color: 0x050505 })); dot.position.z = 0.0052; ov.add(dot);
+  }
   return grp;
 }
 
@@ -669,6 +679,26 @@ function buildOverhead(M, refs) {
   for (const { panel, x, yFromTop, key } of makeOverheadPanels(M, refs.atlas, O.systemLen)) {
     panel.position.set(x, sysTop - yFromTop, 0.0); frame.add(panel); refs.overheadPanels[key] = panel;
   }
+  // forward of the system panels: blank fillers step the panel field forward in a V (centre deepest),
+  // backed by the housing, and a dark rubber band closes the V from that edge to the windshield header
+  { const rub = new THREE.MeshStandardMaterial({ color: 0x1b222c, roughness: 0.85, side: THREE.DoubleSide });
+    const dOf = (ax) => (ax < 0.1475 ? 0.062 : 0.034);
+    for (const [x, w, d] of [[0, 0.29, 0.062], [-0.235, 0.17, 0.034], [0.235, 0.17, 0.034]]) {
+      const fp = buildPanel({ w, h: d, items: [], name: 'ovFill', bg: '#7d919b' }, M, refs.atlas); fp.position.set(x, -len / 2 - 0.003 - d / 2, 0); frame.add(fp);
+      const hx = rbox(w + 0.006, d + 0.008, 0.09, 0.006, rub); hx.position.set(x, -len / 2 - d / 2 - 0.002, -0.051); frame.add(hx);
+    }
+    frame.updateMatrixWorld(true);
+    const WS = D.WINDSHIELD; const hwB = O.halfWidth + 0.04;
+    const xs = []; for (let i = 0; i <= 48; i++) xs.push(-hwB + (2 * hwB * i) / 48);
+    for (const e of [-0.1475, 0.1475]) { xs.push(e - 0.0001, e + 0.0001); } xs.sort((p, q) => p - q);
+    const Fa = [], Fb = [];
+    for (const x of xs) { const ax = Math.abs(x);
+      const hz = wsTopZ(ax) + 0.03, hy = WS.innerTop[1] + (ax / WS.outerTop[0]) * (WS.outerTop[1] - WS.innerTop[1]) + 0.035;
+      Fa.push(frame.worldToLocal(new THREE.Vector3(x, hy, hz)));
+      Fb.push(new THREE.Vector3(Math.max(-0.352, Math.min(0.352, x)), -len / 2 - dOf(ax) - 0.006, -0.004)); }
+    const band = stripMesh(Fa, Fb, rub); band.receiveShadow = true; frame.add(band);
+    // a rolled rubber edge along the stepped front of the panel field
+    for (const [x, w, d] of [[0, 0.296, 0.062], [-0.235, 0.176, 0.034], [0.235, 0.176, 0.034]]) { const ed = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, w, 16).rotateZ(Math.PI / 2), rub); ed.position.set(x, -len / 2 - d - 0.006, -0.002); frame.add(ed); } }
   const aftLen = len / 2 - sysTop - 0.006 - 0.004;
   for (const { panel, x, key } of makeAftPanels(M, refs.atlas, aftLen)) {
     panel.position.set(x, sysTop + 0.006 + aftLen / 2, 0.0); frame.add(panel); refs.overheadPanels[key] = panel;
