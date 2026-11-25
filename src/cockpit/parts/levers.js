@@ -29,7 +29,7 @@ function gripGeometry() {
   const sm = (k) => k * k * (3 - 2 * k);
   const lerp = (t, arr, cols) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const k = sm((t - arr[i - 1][0]) / (arr[i][0] - arr[i - 1][0])); return cols.map((c) => arr[i - 1][c] + (arr[i][c] - arr[i - 1][c]) * k); } return cols.map((c) => arr[arr.length - 1][c]); };
   // half-width (side to side) and half-thickness (perpendicular to the spine, in the y-z plane)
-  const S = [[0, 0.0175, 0.0165], [0.15, 0.016, 0.015], [0.45, 0.0165, 0.0158], [0.62, 0.0195, 0.0185], [0.8, 0.0235, 0.022], [1, 0.0215, 0.02]];  // neck widens gradually into the head
+  const S = [[0, 0.0175, 0.0165], [0.15, 0.016, 0.015], [0.45, 0.0165, 0.0158], [0.62, 0.0195, 0.0185], [0.8, 0.0235, 0.022], [0.92, 0.021, 0.02], [1, 0.0165, 0.0175]];  // neck widens into the head, which tapers to the nose
   const rings = 64, seg = 48; const pos = []; const idx = [];
   const thumb = (t) => Math.max(0, Math.min(1, (t - 0.62) / 0.2));   // thumb shelf grows out on the inboard side of the head
   const frame = (t) => {
@@ -45,7 +45,7 @@ function gripGeometry() {
       const ex = cn > 0 ? 0.85 - 0.4 * head : 0.85;   // the top of the head is flatter (pad seat)
       const sx = Math.sign(cx) * Math.pow(Math.abs(cx), ex), sn = Math.sign(cn) * Math.pow(Math.abs(cn), ex);
       // normal in the y-z plane, perpendicular to the spine: (-tz, ty) points up/back on the curve
-      let rn = sn * d; if (cn < 0 && t > 0.6) rn *= 0.92;            // underside of the head slightly flatter
+      let rn = sn * d; if (cn < 0 && t > 0.62) rn *= 1 - 0.3 * head * Math.pow(-cn, 2);   // hollowed underside of the head
       const inb = cx > 0 ? 1 + 0.45 * thumb(t) * Math.pow(cx, 1.5) : 1;   // +x = inboard for the captain's stick
       const px = (sx * w * inb + 0.004 * thumb(t)) * scale, pn = rn * scale;
       pos.push(px, y + (-tz) * pn + ty * adv, z + ty * pn + tz * adv);
@@ -53,7 +53,7 @@ function gripGeometry() {
   };
   for (let i = 0; i <= rings; i++) section(i / rings);
   // rounded nose: sections shrink while advancing along the spine direction
-  const caps = 9, noseLen = 0.02;
+  const caps = 9, noseLen = 0.017;
   for (let r = 1; r <= caps; r++) { const k = r / caps; section(1, Math.cos(k * Math.PI / 2) * 0.999 + 0.001, Math.sin(k * Math.PI / 2) * noseLen); }
   const total = rings + caps;
   for (let i = 0; i < total; i++) for (let j = 0; j < seg; j++) {
