@@ -25,11 +25,11 @@ function curvedStrip(x0, x1, r, a0, a1, pivotZ, seg = 48) {
 // rounded head (~5 cm long, ~4.5 cm wide) that points forward; the head ends in a rounded nose.
 function gripGeometry() {
   // spine [t, y, z]  (z negative = forward)
-  const spine = [[0, 0, 0], [0.3, 0.05, 0.002], [0.55, 0.085, -0.006], [0.72, 0.105, -0.024], [0.86, 0.117, -0.046], [1, 0.121, -0.068]];
+  const spine = [[0, 0, 0], [0.3, 0.05, 0.002], [0.55, 0.086, -0.006], [0.72, 0.106, -0.024], [0.86, 0.114, -0.046], [1, 0.110, -0.068]];  // nose dips at the end
   const sm = (k) => k * k * (3 - 2 * k);
   const lerp = (t, arr, cols) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const k = sm((t - arr[i - 1][0]) / (arr[i][0] - arr[i - 1][0])); return cols.map((c) => arr[i - 1][c] + (arr[i][c] - arr[i - 1][c]) * k); } return cols.map((c) => arr[arr.length - 1][c]); };
   // half-width (side to side) and half-thickness (perpendicular to the spine, in the y-z plane)
-  const S = [[0, 0.0175, 0.0165], [0.15, 0.016, 0.015], [0.55, 0.016, 0.0155], [0.7, 0.019, 0.0195], [0.85, 0.021, 0.0225], [1, 0.02, 0.021]];
+  const S = [[0, 0.0175, 0.0165], [0.15, 0.016, 0.015], [0.45, 0.0165, 0.0158], [0.62, 0.0195, 0.0185], [0.8, 0.0235, 0.022], [1, 0.0215, 0.02]];  // neck widens gradually into the head
   const rings = 64, seg = 48; const pos = []; const idx = [];
   const thumb = (t) => Math.max(0, Math.min(1, (t - 0.62) / 0.2));   // thumb shelf grows out on the inboard side of the head
   const frame = (t) => {
@@ -41,7 +41,9 @@ function gripGeometry() {
     const { y, z, ty, tz } = frame(t); const [w, d] = lerp(t, S, [1, 2]);
     for (let j = 0; j < seg; j++) {
       const a = (j / seg) * Math.PI * 2; const cx = Math.cos(a), cn = Math.sin(a);
-      const sx = Math.sign(cx) * Math.pow(Math.abs(cx), 0.85), sn = Math.sign(cn) * Math.pow(Math.abs(cn), 0.85);
+      const head = Math.max(0, Math.min(1, (t - 0.6) / 0.2));
+      const ex = cn > 0 ? 0.85 - 0.4 * head : 0.85;   // the top of the head is flatter (pad seat)
+      const sx = Math.sign(cx) * Math.pow(Math.abs(cx), ex), sn = Math.sign(cn) * Math.pow(Math.abs(cn), ex);
       // normal in the y-z plane, perpendicular to the spine: (-tz, ty) points up/back on the curve
       let rn = sn * d; if (cn < 0 && t > 0.6) rn *= 0.92;            // underside of the head slightly flatter
       const inb = cx > 0 ? 1 + 0.45 * thumb(t) * Math.pow(cx, 1.5) : 1;   // +x = inboard for the captain's stick
@@ -72,10 +74,25 @@ export function makeSidestick(M, side = -1) {
   const top = rbox(0.046, 0.004, 0.046, 0.002, M.rubber); top.position.y = yy + 0.002; g.add(top); yy += 0.004;
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: 0.55 });
   const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);
-  // red takeover / AP disconnect button: on the head, near the nose, on the thumb (inboard) side
+  // find surface points on the head to mount the button and the pad exactly on the grip
+  const gp = grip.geometry.attributes.position, gn = grip.geometry.attributes.normal;
+  let inb = null, topP = null; const vtx = new THREE.Vector3();
+  for (let i = 0; i < gp.count; i++) {
+    vtx.fromBufferAttribute(gp, i);
+    if (vtx.z < -0.05 && vtx.z > -0.066 && vtx.y > 0.095 && vtx.y < 0.112 && (!inb || -side * vtx.x > -side * inb.p.x)) inb = { p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
+    if (vtx.z < -0.035 && vtx.z > -0.06 && (!topP || vtx.y > topP.p.y)) topP = { p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
+  }
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });
-  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.004, 28), btnMat));
-  btn.position.set(-side * 0.019, yy + 0.136, -0.074); btn.rotation.set(-0.15, 0, side * 0.35); g.add(btn);
+  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 28), btnMat));
+  btn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), inb.n.clone().normalize());
+  btn.position.copy(inb.p).addScaledVector(inb.n, 0.0015); btn.position.y += yy; g.add(btn);
+  const pad = rbox(0.026, 0.005, 0.026, 0.005, gripMat);
+  const up = topP.n.clone().normalize(); pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up); pad.rotateY(Math.PI / 4);
+  pad.position.copy(topP.p).addScaledVector(up, -0.0012); pad.position.y += yy; g.add(pad);   // seated into the top
+  for (const k of [-1, 1]) {
+    const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.0016, 0.001, 10), M.screw);
+    sc.quaternion.copy(pad.quaternion); sc.position.copy(pad.position).addScaledVector(up, 0.0027).add(new THREE.Vector3(0, 0, k * 0.008).applyQuaternion(pad.quaternion)); g.add(sc);
+  }
   // radio transmit trigger under the head, for the index finger
   const trig = rbox(0.012, 0.012, 0.014, 0.004, gripMat); trig.position.set(0, yy + 0.098, -0.05); trig.rotation.x = -0.5; g.add(trig);
   g.userData.button = btn;

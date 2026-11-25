@@ -15,5 +15,5 @@ const part=new URLSearchParams(location.search).get('part')||'sidestick';
 const obj= part==='sidestick'? L.makeSidestick(M,-1) : part==='tiller'? L.makeTiller(M) : L.makeSidestick(M,-1);
 s.add(obj);
 window.ortho=(p,t,up,half)=>{const o=new THREE.OrthographicCamera(-half*1.5,half*1.5,half,-half,0.001,50);o.position.set(...p);o.up.set(...up);o.lookAt(...t);r.render(s,o);return r.domElement.toDataURL('image/jpeg',0.9)};
-window.ready=true;
+window.obj=obj; window.THREE=THREE; window.ready=true;
 </script></body></html>
