@@ -109,6 +109,17 @@ function isis() {
   return cv;
 }
 
+function seg(text, w, h, col = '#ffb02e', bg = '#0a0f0c') {   // segmented-display window texture
+  const cv = document.createElement('canvas'); cv.width = Math.round(w * 6000); cv.height = Math.round(h * 6000); const c = cv.getContext('2d');
+  c.fillStyle = bg; c.fillRect(0, 0, cv.width, cv.height); let fs = cv.height * 0.72; c.font = `600 ${fs}px "B612 Mono", monospace`;
+  while (c.measureText(text).width > cv.width * 0.92 && fs > 6) { fs -= 1; c.font = `600 ${fs}px "B612 Mono", monospace`; }
+  c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cv.width / 2, cv.height * 0.54); return cv;
+}
+function dcdu() {
+  const [cv, c] = canvas(256); c.fillStyle = '#06080a'; c.fillRect(0, 0, 256, 256);
+  txt(c, 'NO ACTIVE ATC', 128, 40, C.w, 18); c.strokeStyle = C.w; c.lineWidth = 2; c.strokeRect(70, 26, 116, 28);
+  txt(c, 'MSG -/-', 210, 230, C.w, 16); return cv;
+}
 export function paintDisplays(scene, refs) {
   const apply = (mesh, cv, bright = 1.0) => {
     if (!mesh) return; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
@@ -117,4 +128,11 @@ export function paintDisplays(scene, refs) {
   const S = refs.screens || {};
   apply(S.PFD1, pfd(-1)); apply(S.PFD2, pfd(1)); apply(S.ND1, nd()); apply(S.ND2, nd()); apply(S.EWD, ewd()); apply(S.SD, sd()); apply(S.ISIS, isis(), 0.9);
   scene.traverse((o) => { if (o.name === 'mcduScreen') apply(o, mcdu(), 0.85); });
+  // small windows: RMP frequencies, rudder trim, clock, DCDUs
+  scene.traverse((o) => {
+    if (o.name === 'rmpWin') apply(o, seg(o.position.x < 0 ? '123.125' : '121.825', 0.05, 0.013), 0.7);
+    if (o.name === 'rudTrimWin') apply(o, seg('R 0.0', 0.04, 0.013), 0.7);
+  });
+  if (refs.clock) { const scr = refs.clock.children.filter((c) => c.isMesh && c.geometry.type === 'PlaneGeometry'); const T = ['', '09:27 28', '']; scr.forEach((m, i) => apply(m, seg(T[i] || '', 0.04, 0.016, '#e8f0f4', '#0b1220'), 0.6)); }
+  (refs.dcdu || []).forEach((u) => u.children.forEach((m) => { if (m.isMesh && m.geometry.type === 'PlaneGeometry') apply(m, dcdu(), 0.7); }));
 }

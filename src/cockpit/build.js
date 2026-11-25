@@ -753,6 +753,11 @@ function buildFittings(M, refs) {
     const es = new THREE.Mesh(new THREE.PlaneGeometry(0.225, 0.16), new THREE.MeshStandardMaterial({ map: etx, emissiveMap: etx, emissive: 0x777777, roughness: 0.25 })); es.position.z = 0.0375; efb.add(es);
     const arm = rbox(0.03, 0.03, 0.04, 0.008, M.metal); arm.position.z = 0.012; efb.add(arm);
     grp.add(onShell(efb, s, 0.42, 1.0, [1, 0], 0.06));
+    // moulded sidewall panel below the side windows: light lining with a dark recessed grip and armrest ledge (as photographed)
+    { const mp = new THREE.Group(); const body = rbox(0.16, 0.62, 0.05, 0.03, M.frame); body.position.z = 0.025; mp.add(body);   // long side runs fore-aft
+      const rec = rbox(0.06, 0.28, 0.03, 0.012, new THREE.MeshStandardMaterial({ color: 0x1b1f24, roughness: 0.6 })); rec.position.set(0.01, 0.04, 0.042); mp.add(rec);
+      const ledge = rbox(0.025, 0.62, 0.08, 0.01, M.frame); ledge.position.set(-0.085, 0, 0.04); mp.add(ledge);
+      grp.add(onShell(mp, s, 0.78, 0.78, [1, 0], 0.0)); }
     // map / document pocket and flashlight on the sidewall beside the seat
     const pocket = new THREE.Group(); const pk = rbox(0.3, 0.16, 0.05, 0.01, M.panelDark); pk.position.z = 0.025; pocket.add(pk);
     const lip = rbox(0.3, 0.02, 0.06, 0.006, M.module); lip.position.set(0, 0.075, 0.03); pocket.add(lip); grp.add(onShell(pocket, s, 1.0, 0.68, [1, 0], 0.0));
