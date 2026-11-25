@@ -573,16 +573,23 @@ function buildOverheadSurround(M) {
   const n = R.clone().sub(F).normalize().cross(new THREE.Vector3(1, 0, 0)).normalize(); if (n.y < 0) n.negate();
   for (const s of [-1, 1]) {
     // side fairing: from the overhead edge, angled up and outboard into the ceiling, full length of the overhead
-    const A = [], B = [];
+    // side ceiling as on the aircraft: from the overhead edge it arches up and outboard, then rounds down onto
+    // the leather band above the side windows (a smooth barrel curve, 12 rows)
+    const NR = 12; const rows = Array.from({ length: NR + 1 }, () => []);
     for (let i = 0; i <= 24; i++) {
-      const p = P(i / 24); const a = new THREE.Vector3(s * (O.halfWidth + 0.03), p.y, p.z).add(n.clone().multiplyScalar(0.012));   // starts at the panel edge
-      let y = a.y + 0.1; const lim = crownAt(p.z) - 0.02; if (y > lim) y = lim;
-      let x = hullHW(p.z, y) - 0.01; if (x < edgeX + 0.05) x = edgeX + 0.05;
-      A.push(a); B.push(new THREE.Vector3(s * x, y, p.z));
+      const p = P(i / 24); const a = new THREE.Vector3(s * (O.halfWidth + 0.03), p.y, p.z).add(n.clone().multiplyScalar(0.012));
+      const yB = Math.min(crownAt(p.z) - 0.03, Math.max(1.5, a.y + 0.04)); const xB = Math.max(hullHW(p.z, yB) - 0.006, O.halfWidth + 0.12);
+      const b = new THREE.Vector3(s * xB, yB, p.z);
+      const c = new THREE.Vector3(s * (Math.abs(a.x) + (xB - Math.abs(a.x)) * 0.7), Math.min(crownAt(p.z) - 0.012, Math.max(a.y, yB) + 0.07), p.z);
+      for (let k = 0; k <= NR; k++) { const u = k / NR; rows[k].push(a.clone().multiplyScalar((1 - u) ** 2).add(c.clone().multiplyScalar(2 * u * (1 - u))).add(b.clone().multiplyScalar(u * u))); }
     }
-    // curved fairing (bulges slightly into the cockpit), with panel seams
-    const Mid = A.map((a, i) => a.clone().lerp(B[i], 0.35).add(new THREE.Vector3(0, -0.015, 0)));   // rounded shoulder from the panel up into the ceiling
-    grp.add(stripMesh(A, Mid, ceil), stripMesh(Mid, B, ceil));
+    for (let k = 0; k < NR; k++) grp.add(stripMesh(rows[k], rows[k + 1], ceil));
+    const A = rows[0], Mid = rows[NR / 2], B = rows[NR];
+    // thin dark guard rail along the overhead edge, running its full length from the windshield header to the aft end
+    { const dir = R.clone().sub(F).normalize(); const r0 = F.clone().sub(dir.clone().multiplyScalar(0.18)), r1 = R.clone().add(dir.clone().multiplyScalar(0.04));
+      for (const r of [r0, r1]) { r.x = s * (O.halfWidth + 0.022); r.add(n.clone().multiplyScalar(-0.012)); }
+      const rail = rbox(0.022, r0.distanceTo(r1), 0.026, 0.006, dark); rail.position.copy(r0).add(r1).multiplyScalar(0.5);
+      rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.castShadow = true; grp.add(rail); }
     const seamM = new THREE.MeshStandardMaterial({ color: 0x3c4a53, roughness: 0.7 });
     for (const k of [8, 16]) { const sA = A[k].clone().lerp(Mid[k], 0.02), sB = B[k]; const pts = [A[k], Mid[k], B[k]];
       for (let j = 0; j < 2; j++) { const u = pts[j], v = pts[j + 1]; const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, u.distanceTo(v), 6), seamM); sm.position.copy(u).add(v).multiplyScalar(0.5); sm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().sub(u).normalize()); grp.add(sm); } }
