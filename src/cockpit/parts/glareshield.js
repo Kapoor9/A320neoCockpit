@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { buildPanel } from './panel.js';
 
-const FCU_BG = '#6e828c';
+const FCU_BG = '#7d919b';
 const FCU_DARK = '#30373c';   // FCU and EFIS control panels are dark charcoal
 // amber LCD window (powered, idle values)
 function lcd(text, w, h) {

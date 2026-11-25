@@ -69,7 +69,7 @@ export function buildPanel(spec, M, atlas) {
   const cw = Math.round(w * PX_PER_M), ch = Math.round(h * PX_PER_M);
   const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
   const c = cv.getContext('2d');
-  c.fillStyle = spec.bg || '#72868f'; c.fillRect(0, 0, cw, ch);
+  c.fillStyle = spec.bg || '#7d919b'; c.fillRect(0, 0, cw, ch);
   const P = (x, y) => [(x + w / 2) * PX_PER_M, (h / 2 - y) * PX_PER_M];
   {
     let seed = 0; for (const ch of String(spec.name || 'p')) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;

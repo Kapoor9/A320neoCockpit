@@ -20,14 +20,14 @@ export function makeMaterials() {
   const std = (color, roughness, metalness = 0, extra = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
   return {
-    panel: std(0x72868f, 0.6),          // instrument panel blue-grey
+    panel: std(0x7a8e98, 0.6),          // instrument panel blue-grey
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
-    module: std(0x6b7f89, 0.58),         // individual 146 mm system panels
+    module: std(0x7a8e98, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
     glare: std(0x30363c, 0.78),          // thin dark glareshield cap           // anti-glare finish
-    fcu: std(0x6e828c, 0.6),
+    fcu: std(0x7a8e98, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
-    lining: std(0x8a9faa, 0.85),         // upper sidewall lining
+    lining: std(0x7a8e98, 0.8),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
@@ -379,15 +379,16 @@ function buildMainPanel(M, refs) {
   // display units
   refs.screens = {};
   for (const [name, [x, y]] of Object.entries(D.DU_POS)) {
-    const b = rbox(D.DU.bezel, D.DU.bezel, D.DU.depth, 0.008, M.bezel);
-    b.position.set(x, y, D.DU.depth / 2 - 0.004); frame.add(b);
+    // integrated in the panel: a flush dark surround with a shallow recess; only the glass shows
+    const b = rbox(D.DU.bezel, D.DU.bezel, 0.004, 0.004, M.bezel); b.position.set(x, y, 0.0); frame.add(b);
+    const well = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen + 0.008, D.DU.screen + 0.008), new THREE.MeshBasicMaterial({ color: 0x050607 })); well.position.set(x, y, 0.0021); frame.add(well);
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen, D.DU.screen), M.screen.clone());
-    scr.position.set(x, y, D.DU.depth - 0.002); scr.name = name; frame.add(scr);
+    scr.position.set(x, y, 0.0024); scr.name = name; frame.add(scr);
     refs.screens[name] = scr;
-    addScrews(frame, corners(x, y, D.DU.bezel, D.DU.bezel, D.DU.depth - 0.003, 0.009), M);
+    addScrews(frame, corners(x, y, D.DU.bezel, D.DU.bezel, 0.0022, 0.009), M);
     // the brightness knob in the bezel corner
     const k = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 20), M.rubber);
-    k.rotation.x = Math.PI / 2; k.position.set(x + D.DU.bezel / 2 - 0.016, y - D.DU.bezel / 2 + 0.016, D.DU.depth + 0.004); frame.add(k);
+    k.rotation.x = Math.PI / 2; k.scale.set(0.7, 0.4, 0.7); k.position.set(x + D.DU.bezel / 2 - 0.012, y - D.DU.bezel / 2 + 0.012, 0.004); frame.add(k);
   }
   // measured layout of the centre columns and outboard panels (panel-local, y along the face)
   const Y = D.PANEL_Y; const on = (o, x, y, z = 0.001) => { o.position.set(x, Y(y), z); frame.add(o); return o; };
@@ -403,9 +404,9 @@ function buildMainPanel(M, refs) {
     on(clk, 0.152, 0.645); refs.clock = clk; }
   // datalink control and display units (DCDU) at the foot of both centre columns
   refs.dcdu = [];
-  for (const s of [-1, 1]) { const u = new THREE.Group(); const b = rbox(0.12, 0.085, 0.014, 0.006, M.bezel); b.position.z = 0.007; u.add(b);
-    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.055), M.screen); sc.position.z = 0.0145; u.add(sc);
-    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const key = rbox(0.012, 0.008, 0.004, 0.0015, M.trim); key.position.set(sx * 0.05, 0.024 - k * 0.016, 0.0155); u.add(key); }
+  for (const s of [-1, 1]) { const u = new THREE.Group(); const b = rbox(0.12, 0.085, 0.004, 0.004, M.bezel); b.position.z = 0.0; u.add(b);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.055), M.screen); sc.position.z = 0.0024; u.add(sc);
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const key = rbox(0.012, 0.008, 0.004, 0.0015, M.trim); key.position.set(sx * 0.05, 0.024 - k * 0.016, 0.003); u.add(key); }
     on(u, s * 0.155, 0.5); refs.dcdu.push(u); }
   on(MP.terrPanel(M, refs.atlas, -1), -0.2, 0.648, 0.0); on(MP.terrPanel(M, refs.atlas, 1), 0.245, 0.648, 0.0);
   // centre-right: LDG GEAR indicator, AUTO/BRK, A/SKID & BRK FAN, gear lever, triple brake indicator
@@ -439,7 +440,7 @@ function buildGlareshield(M, refs) {
   const drop = (ax) => Math.max(0, ax - 0.29) * 0.1;   // outer sections slope down toward the posts
   const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03 - drop(ax);                 // top at the glass, following the pane's lower edge
   const yT = (t, ax) => {                                                      // rises to the crest, rolls over to the rear face
-    const crest = G.topY - 0.035 - drop(ax);   // thin cap, same arch as the strip
+    const crest = G.strip.y + G.strip.h / 2 + 0.03 - drop(ax);   // thin cap, its lip just clears the top of the strip
     const r = yF(ax) + (crest - yF(ax)) * Math.sin(Math.min(t / 0.8, 1) * Math.PI / 2);
     return t > 0.8 ? r - 0.022 * ((t - 0.8) / 0.2) ** 2 : r;
   };
@@ -449,8 +450,9 @@ function buildGlareshield(M, refs) {
     const row = []; for (let k = 0; k <= nt; k++) { const tt = k / nt; row.push(new THREE.Vector3(x, yT(tt, ax), f0 + (r0 - f0) * tt)); }
     top.push(row);
     const yb = Math.min(G.underY, G.strip.y - drop(ax) - G.strip.h / 2 - 0.004);
-    rear.push([row[nt], new THREE.Vector3(x, yb, r0 - 0.03)]);
-    under.push([new THREE.Vector3(x, yb, r0 - 0.03), new THREE.Vector3(x, yb, f0)]);
+    const zb = G.strip.faceZ - 0.05;   // behind the panel housing
+    rear.push([row[nt], new THREE.Vector3(x, row[nt].y, zb), new THREE.Vector3(x, yb, zb)]);
+    under.push([new THREE.Vector3(x, yb, zb), new THREE.Vector3(x, yb, f0)]);
   }
   const grid = (rows, mat) => {
     const p = [], ix = []; const m = rows[0].length;
@@ -564,7 +566,7 @@ function buildOverheadSurround(M) {
   const grp = new THREE.Group(); const O = D.OVERHEAD;
   const F = new THREE.Vector3(0, O.front[1], O.front[0]), R = new THREE.Vector3(0, O.rear[1], O.rear[0]);
   const P = (t) => F.clone().lerp(R, t);
-  const ceil = addGrain(new THREE.MeshStandardMaterial({ color: 0x7c909a, roughness: 0.7, side: THREE.DoubleSide }), 'lining');   // same family as the panels
+  const ceil = addGrain(new THREE.MeshStandardMaterial({ color: 0x7a8e98, roughness: 0.7, side: THREE.DoubleSide }), 'lining');   // one blue-grey with the panels
   const dark = new THREE.MeshStandardMaterial({ color: 0x1f2329, roughness: 0.55 });
   const edgeX = O.halfWidth + 0.035;
   // up-dip from overhead plane to its housing top (overhead plane normal)
