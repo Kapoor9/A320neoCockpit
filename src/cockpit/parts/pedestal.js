@@ -1,7 +1,7 @@
 // Centre pedestal system panels (A320 layout). Each returns a panel group (see panel.js).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
-import { buildPanel } from './panel.js';
+import { buildPanel, korryFace } from './panel.js';
 
 const rbox = (w, h, d, r, mat) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2) * 0.98), mat); m.castShadow = true; m.receiveShadow = true; return m; };
 
@@ -223,3 +223,6 @@ export function genericPanel(M, A, w, h, title, rows) {
   rows.forEach((r, i) => r.forEach((s, j) => items.push({ t: 'pb', x: -w / 2 + (w / (r.length + 1)) * (j + 1), y: h / 2 - 0.022 - i * 0.022, w: 0.015, h: 0.013, legends: [s, ''] })));
   return buildPanel({ w, h, title, items }, M, A);
 }
+
+// a fixed annunciator lens (legend dark until lit), for lights set straight into a housing
+export function korryLens(top, col) { return korryFace(top, '', 1, [col, col]); }

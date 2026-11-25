@@ -33,7 +33,7 @@ export const DU_POS = {          // panel-local x, along-face y
 export const GLARE = {
   underY: 0.905, topY: 1.012, frontZ: -0.29, rearZ: 0.27,
   strip: { y: 0.952, faceZ: 0.30, half: 0.67, h: 0.08 },   // measured: face 0.915-0.99, x +-0.67, z 0.30
-  fcu: { x: 0, w: 0.24 }, efis: { x: 0.205, w: 0.16 }, warn: { x: 0.405, w: 0.1 },
+  fcu: { x: 0, w: 0.24 }, efis: { x: 0.194, w: 0.139 }, warn: { x: 0.405, w: 0.1 },
 };
 
 export const PEDESTAL = {
