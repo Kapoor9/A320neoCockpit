@@ -715,7 +715,11 @@ function buildConsolesAndSeats(M, refs) {
     }
     seat.position.set(s * D.SEAT_X, 0, 0.885); grp.add(seat);
 
-    // rudder pedals: Blender-modelled, added by detail.js
+    // rudder pedals under the panel
+    for (const p of [-1, 1]) {
+      const pedal = rbox(0.07, 0.17, 0.02, 0.008, M.panelDark);
+      pedal.position.set(s * D.SEAT_X + p * 0.11, 0.18, -0.05); pedal.rotation.x = -0.45; grp.add(pedal);
+    }
   }
   return grp;
 }
