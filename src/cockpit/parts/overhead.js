@@ -175,20 +175,80 @@ export const AFT = {
 
 // Layout: three columns; each entry [panelKey, design height]; rows run aft (top) to forward.
 // Design heights are scaled so each column fills the measured system-panel length.
+// ---- layout as photographed on the aircraft (aft at the top as read) ----
+const cap = (x, y, s, size = 0.0026) => ({ t: 'text', x, y, s, size });
+const pb = (x, y, c, top, bot, o = {}) => [...(c ? [cap(x, y + (o.h || 0.015) / 2 + 0.0055, c, o.cs || 0.0025)] : []), { t: 'pb', x, y, w: o.w || 0.015, h: o.h || 0.015, legends: [top, bot], guard: o.guard, id: o.id, cols: o.cols }];
+const tg = (x, y, c, id) => [cap(x, y + 0.0135, c, 0.0023), { t: 'toggle', x, y, id }];
+const rb = (x, y, c, r = 0.0045) => [...(c ? [cap(x, y + r + 0.005, c, 0.0024)] : []), { t: 'rbtn', x, y, r }];
+const kn = (x, y, c, r = 0.0085, id) => [...(c ? [cap(x, y + r + 0.006, c, 0.0025)] : []), { t: 'knob', x, y, r, id }];
+Object.assign(PANELS, {
+  paVideo: () => ({ title: '', items: [...pb(-0.035, -0.004, 'PA', '', ''), { t: 'line', pts: [[0.0, 0.022], [0.0, -0.022]], w: 0.0006 }, ...pb(0.04, -0.004, 'COCKPIT DOOR VIDEO', '', 'OFF', { cs: 0.0023 })] }),
+  adirs: () => ({ title: 'ADIRS', items: [
+    { t: 'annun', x: 0, y: 0.056, w: 0.03, h: 0.009, s: 'ON BAT' },
+    ...[['IR 1', -0.052], ['IR 3', 0], ['IR 2', 0.052]].flatMap(([n, x]) => [...pb(x, 0.03, n, 'FAULT', 'ALIGN'), cap(x - 0.017, -0.002, 'OFF', 0.0022), cap(x, 0.014, 'NAV', 0.0022), cap(x + 0.017, 0.006, 'ATT', 0.0022), { t: 'knob', x, y: -0.008, r: 0.0095, id: 'ir' + n }, ...pb(x, -0.052, 'ADR ' + n.slice(3), 'FAULT', 'OFF')]),
+  ] }),
+  blank: () => ({ title: '', items: [] }),
+  fltCtl1: (w) => ({ title: 'FLT CTL', items: [...pb(-0.05, -0.006, 'ELAC 1', 'FAULT', 'OFF'), ...pb(0, -0.006, 'SEC 1', 'FAULT', 'OFF'), ...pb(0.05, -0.006, 'FAC 1', 'FAULT', 'OFF')] }),
+  fltCtl2: (w) => ({ title: 'FLT CTL', items: [...pb(-0.06, -0.006, 'ELAC 2', 'FAULT', 'OFF'), ...pb(-0.02, -0.006, 'SEC 2', 'FAULT', 'OFF'), ...pb(0.02, -0.006, 'SEC 3', 'FAULT', 'OFF'), ...pb(0.06, -0.006, 'FAC 2', 'FAULT', 'OFF')] }),
+  evac: () => ({ title: 'EVAC', items: [...pb(-0.05, -0.006, 'COMMAND', 'EVAC', 'ON', { guard: 'grey' }), ...rb(0.0, -0.006, 'HORN SHUT OFF'), ...tg(0.052, -0.008, 'CAPT & PURS')] }),
+  emerElec: () => ({ title: 'EMER ELEC PWR', items: [...pb(-0.062, -0.008, 'EMER GEN TEST', '', '', { guard: 'grey', cs: 0.0021 }), ...pb(-0.02, -0.008, 'GEN 1 LINE', '', 'OFF'), ...pb(0.02, -0.008, 'RAT & EMER GEN', 'FAULT', ''), ...pb(0.06, -0.008, 'MAN ON', '', '', { guard: 'red' })] }),
+  gpws: () => ({ title: 'GPWS', items: [['TERR', 'FAULT', 'OFF'], ['SYS', 'FAULT', 'OFF'], ['G/S MODE', '', 'OFF'], ['FLAP MODE', '', 'OFF'], ['LDG FLAP 3', '', 'ON']].flatMap(([c, a, b], i) => pb(-0.064 + i * 0.032, -0.008, c, a, b, { cs: 0.0022 })) }),
+  rcdr: () => ({ title: 'RCDR', items: [...pb(-0.045, -0.006, 'GND CTL', '', 'ON'), ...rb(0.0, -0.006, 'CVR ERASE'), ...rb(0.045, -0.006, 'CVR TEST')] }),
+  oxygen: () => ({ title: 'OXYGEN', items: [...pb(-0.05, -0.008, 'MASK MAN ON', '', '', { guard: 'red' }), ...pb(0.0, -0.008, 'PASSENGER', 'SYS ON', ''), ...pb(0.05, -0.008, 'CREW SUPPLY', '', 'OFF')] }),
+  callsWiper: () => ({ title: 'CALLS', items: [
+    ...['MECH', 'ALL', 'FWD', 'AFT'].flatMap((c, i) => rb(-0.066 + i * 0.03, 0.02, c)), ...pb(0.062, 0.02, 'EMER', 'CALL', 'ON', { guard: 'grey' }),
+    { t: 'line', pts: [[-0.08, 0.003], [0.08, 0.003]], w: 0.0006 },
+    ...rb(-0.04, -0.022, 'RAIN RPLNT'), cap(0.03, -0.006, 'WIPER'), cap(0.016, -0.018, 'OFF', 0.0022), cap(0.046, -0.022, 'SLOW', 0.0022), cap(0.046, -0.034, 'FAST', 0.0022), { t: 'knob', x: 0.03, y: -0.026, r: 0.009, id: 'wiperL' },
+  ] }),
+  wiperR: () => ({ title: 'WIPER', items: [...rb(0.04, -0.008, 'RAIN RPLNT'), cap(-0.03, 0.012, 'OFF', 0.0022), cap(-0.012, 0.0, 'SLOW', 0.0022), cap(-0.012, -0.014, 'FAST', 0.0022), { t: 'knob', x: -0.03, y: -0.008, r: 0.009, id: 'wiperR' }] }),
+  fire: () => {
+    const items = [];
+    [['ENG 1', -0.093], ['APU', 0], ['ENG 2', 0.093]].forEach(([n, x]) => {
+      items.push(cap(x, 0.04, n, 0.0045), { t: 'pb', x, y: 0.012, w: 0.044, h: 0.03, legends: ['FIRE', 'PUSH'], cols: ['#b8402e', '#c9ccc8'], guard: 'red', id: 'fire' + n.replace(' ', '') });
+      if (n === 'APU') { items.push(...pb(-0.022, -0.03, '', 'SQUIB', 'DISCH'), cap(-0.022, -0.043, 'AGENT', 0.0024), ...rb(0.026, -0.03, 'TEST')); }
+      else for (const s of [-1, 1]) items.push(...pb(x + s * 0.037, 0.018, 'AGENT ' + (s < 0 ? 1 : 2), 'SQUIB', 'DISCH', { cs: 0.0022 }));
+      if (n !== 'APU') items.push(...rb(x + (n === 'ENG 1' ? -0.037 : 0.037), -0.02, 'TEST'));
+    });
+    items.push({ t: 'line', pts: [[-0.049, 0.045], [-0.049, -0.045]], w: 0.0006 }, { t: 'line', pts: [[0.049, 0.045], [0.049, -0.045]], w: 0.0006 });
+    return { title: '', items };
+  },
+  antiIce: () => ({ title: 'ANTI ICE', items: [...pb(-0.032, -0.006, 'WING', 'FAULT', 'ON'), ...pb(0.0, -0.006, 'ENG 1', 'FAULT', 'ON'), ...pb(0.032, -0.006, 'ENG 2', 'FAULT', 'ON')] }),
+  probeHeat: () => ({ title: 'PROBE/WINDOW HEAT', items: pb(0, -0.008, '', '', 'ON') }),
+  cabPress: () => ({ title: 'CABIN PRESS', items: [...tg(-0.045, -0.008, 'MAN V/S CTL'), ...pb(-0.014, -0.006, 'MODE SEL', 'FAULT', 'MAN'), ...kn(0.017, -0.008, 'LDG ELEV', 0.0075, 'ldgElev'), ...pb(0.048, -0.006, 'DITCHING', '', 'ON', { guard: 'grey' })] }),
+  extLt: () => ({ title: 'EXT LT', items: [
+    ...[['STROBE', -0.045], ['BEACON', -0.015], ['WING', 0.015], ['NAV & LOGO', 0.045]].flatMap(([c, x]) => tg(x, 0.006, c)),
+    ...[['RWY TURN OFF', -0.045], ['LAND', -0.015], ['', 0.015], ['NOSE', 0.045]].flatMap(([c, x]) => tg(x, -0.022, c)),
+  ] }),
+  apu: () => ({ title: 'APU', items: [...pb(0, 0.006, 'MASTER SW', 'FAULT', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuMaster' }), ...pb(0, -0.019, 'START', 'AVAIL', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuStart' })] }),
+  signsIntLt: () => ({ title: 'INT LT', items: [
+    ...kn(-0.042, 0.006, 'OVHD INTEG LT', 0.0068, 'ovhdInteg'), ...tg(-0.012, 0.006, 'ICE IND & STBY COMPASS'), ...tg(0.016, 0.006, 'DOME'), ...tg(0.042, 0.006, 'ANN LT'),
+    cap(-0.028, -0.009, 'SIGNS', 0.003), ...tg(-0.034, -0.024, 'SEAT BELTS'), ...tg(-0.004, -0.024, 'NO SMOKING'), ...tg(0.034, -0.024, 'EMER EXIT LT'),
+  ] }),
+  acp: () => {
+    const T = ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB']; const items = [];
+    T.forEach((s, i) => { const x = -0.066 + i * 0.022; items.push({ t: 'key', x, y: 0.05, w: 0.017, h: 0.009, s: '', id: 'acpT' + s }, cap(x, 0.035, s, 0.0026), { t: 'knob', x, y: 0.022, r: 0.0055, dark: true, pointer: false }); });
+    items.push(...tg(-0.062, -0.006, 'INT'), cap(-0.062, -0.018, 'RAD', 0.0024), { t: 'key', x: -0.022, y: -0.004, w: 0.02, h: 0.01, s: 'VOICE' }, { t: 'key', x: 0.002, y: -0.004, w: 0.02, h: 0.01, s: 'RESET' }, { t: 'knob', x: 0.036, y: -0.004, r: 0.0055, dark: true, pointer: false }, cap(0.05, 0.002, 'PA', 0.0024), { t: 'key', x: 0.064, y: -0.004, w: 0.017, h: 0.011, s: '' });
+    ['VOR1', 'VOR2', 'MKR', 'LS', 'ADF1', 'ADF2', ''].forEach((s, i) => { const x = -0.066 + i * 0.022; items.push(cap(x, -0.022, s, 0.0024), { t: 'knob', x, y: -0.036, r: 0.0055, dark: true, pointer: false }); });
+    return { title: '', items };
+  },
+  cargoVent: () => ({ title: 'CARGO VENT', items: [{ t: 'line', pts: [[0.0, 0.018], [-0.01, -0.03]], w: 0.0006 }, ...pb(0.05, -0.002, 'AFT ISOL VALVE', 'FAULT', 'OFF', { cs: 0.0022 })] }),
+  cargoSmoke: () => ({ title: 'CARGO SMOKE', items: [...pb(-0.064, -0.006, 'DISCH', 'DISCH', '', { guard: 'red' }), ...pb(-0.03, -0.006, 'FWD', 'SMOKE', ''), ...rb(0.0, -0.006, 'TEST'), ...pb(0.03, -0.006, 'AFT', 'SMOKE', ''), ...pb(0.064, -0.006, 'DISCH', 'DISCH', '', { guard: 'red' })] }),
+  vent: () => ({ title: 'VENTILATION', items: [...pb(-0.05, -0.007, 'BLOWER', 'FAULT', 'OVRD'), ...pb(-0.012, -0.007, 'EXTRACT', 'FAULT', 'OVRD'), ...pb(0.055, -0.007, 'CAB FANS', '', 'OFF')] }),
+  engMan: () => ({ title: 'ENG', items: [cap(-0.04, 0.008, 'MAN START', 0.0024), ...pb(-0.056, -0.01, '1', '', 'ON'), ...pb(-0.024, -0.01, '2', '', 'ON'), cap(0.04, 0.008, 'N1 MODE', 0.0024), ...pb(0.024, -0.01, '1', '', 'ON'), ...pb(0.056, -0.01, '2', '', 'ON')] }),
+});
 export const LAYOUT = {
-  left: { w: 0.155, rows: [['fltCtl1', 0.085], ['evac', 0.072], ['emerElec', 0.085], ['gpws', 0.1], ['rcdr', 0.065], ['oxygen', 0.07], ['calls', 0.08], ['wiperL', 0.075]] },
-  centre: { w: 0.32, rows: [['adirs', 0.105], ['fire', 0.095], ['hyd', 0.075], ['fuel', 0.095], ['elec', 0.135], ['airCond', 0.13], [['antiIce', 'cabPress'], 0.085], ['extLt', 0.075], [['apu', 'signs', 'intLt'], 0.075]] },
-  right: { w: 0.155, rows: [['fltCtl2', 0.085], ['cargoSmoke', 0.08], ['vent', 0.075], ['cargoHeat', 0.075], ['engManStart', 0.065], ['wiperR', 0.075]], fill: false },
+  left: { w: 0.17, rows: [['paVideo', 0.065], ['adirs', 0.17], ['blank', 0.04], ['fltCtl1', 0.048], ['evac', 0.046], ['emerElec', 0.06], ['gpws', 0.044], ['rcdr', 0.04], ['oxygen', 0.046], ['callsWiper', 0.08]] },
+  centre: { w: 0.29, rows: [['blank', 0.07], ['fire', 0.1], ['hyd', 0.08], ['fuel', 0.07], ['elec', 0.12], ['airCond', 0.12], [['antiIce', 'probeHeat', 'cabPress'], 0.04], [['extLt', 'apu', 'signsIntLt'], 0.058]] },
+  right: { w: 0.17, rows: [['acp', 0.13], ['blank', 0.07], ['blank', 0.08], ['fltCtl2', 0.05], ['cargoVent', 0.065], ['cargoSmoke', 0.05], ['vent', 0.045], ['engMan', 0.045], ['wiperR', 0.05]] },
 };
-
+const WEIGHT = { antiIce: 0.38, probeHeat: 0.18, cabPress: 0.44, extLt: 0.44, apu: 0.12, signsIntLt: 0.44 };
 const GAP = 0.003;
-const COLX = { left: -0.32 + 0.155 / 2, centre: 0, right: 0.32 - 0.155 / 2 };
+const COLX = { left: -0.32 + 0.17 / 2, centre: 0, right: 0.32 - 0.17 / 2 };
 
-// returns panels with x and yFromTop (distance from the aft edge of the system section)
 export function makeOverheadPanels(M, A, systemLen = 0.65) {
   const out = [];
   const make = (key, w, hd, f) => {
-    const def = key === 'wiperL' ? PANELS.wiper(-1) : key === 'wiperR' ? PANELS.wiper(1) : PANELS[key];
+    const def = PANELS[key];
     const spec = def(w, hd);
     const items = spec.items.map((i) => ({ ...i, y: i.y * f, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x, y * f]) } : {}) }));
     return buildPanel({ w, h: hd * f, name: key, bg: '#5d7380', ...spec, items }, M, A);
@@ -202,8 +262,8 @@ export function makeOverheadPanels(M, A, systemLen = 0.65) {
     for (const [key, hd] of rows) {
       const h = hd * f;
       if (Array.isArray(key)) {
-        const n = key.length; const sw = (w - GAP * (n - 1)) / n;
-        key.forEach((k, i) => out.push({ panel: make(k, sw, hd, f), x: COLX[col] - w / 2 + sw / 2 + i * (sw + GAP), yFromTop: y + h / 2, key: k }));
+        const n = key.length; const tw = key.reduce((s, k) => s + (WEIGHT[k] || 1), 0); let x0 = COLX[col] - w / 2;
+        key.forEach((k) => { const sw = (w - GAP * (n - 1)) * (WEIGHT[k] || 1) / tw; out.push({ panel: make(k, sw, hd, f), x: x0 + sw / 2, yFromTop: y + h / 2, key: k }); x0 += sw + GAP; });
       } else out.push({ panel: make(key, w, hd, f), x: COLX[col], yFromTop: y + h / 2, key });
       y += h + GAP;
     }
@@ -214,7 +274,7 @@ export function makeOverheadPanels(M, A, systemLen = 0.65) {
 export function makeAftPanels(M, A, len) {
   const h = len; const out = [];
   for (const [key, col] of [['audio', 'left'], ['cb', 'centre'], ['maint', 'right']]) {
-    const w = col === 'centre' ? 0.32 : 0.155;
+    const w = col === 'centre' ? 0.29 : 0.17;
     out.push({ panel: buildPanel({ w, h, name: key, bg: '#5d7380', ...AFT[key](w, h) }, M, A), x: COLX[col], key });
   }
   return out;
