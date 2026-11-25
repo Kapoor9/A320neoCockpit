@@ -164,7 +164,7 @@ and special messages, white = titles and labels. ✅
 
 ## 6. Sidesticks
 - Red takeover/AP disconnect pushbutton, radio transmit trigger
-- One press: cavalry charge (≤ 1.5 s), MASTER WARN (≤ 3 s) and red "AP OFF" on ECAM (≤ 9 s) ✅
+- One press: the owner's full disconnect recording (cavalry charge + three following tones), MASTER WARN (≤ 3 s) and red "AP OFF" on ECAM (≤ 9 s)
 - Second press stops the aural, light and message at once ✅
 - Disconnect any other way (involuntary): cavalry charge keeps going until cancelled ✅
 
@@ -257,9 +257,9 @@ FMA, top of PFD, five columns × three rows ✅
 
 ## 11. Open questions for the owner
 
-1. **AP disconnect clip:** after the cavalry charge there are 3 short tones (~1 s later). Are they part of the disconnect, or something else captured in the recording? For now only the charge plays.
+1. ~~AP disconnect clip~~ — resolved: the owner confirmed all six tones are part of it; the full recording plays.
 2. **APU BLEED light colour:** sources differ (white vs blue) — will confirm against cockpit photos.
-3. **Startup clip:** your 63-second recording starts with ~13 s of steady cabin noise before the engine turns. I start the sound where the engine begins to spin. OK?
+3. ~~Startup clip~~ — resolved: the full 63-second recording plays, including the build-up before the engine turns.
 4. **TOGA, idle taxi and shutdown recordings** — still welcome whenever you have them.
 
 ---
