@@ -384,18 +384,28 @@ function buildMainPanel(M, refs) {
   const plate = rbox(0.09, 0.02, 0.003, 0.002, M.trim); on(plate, -0.152, 0.806, 0.0015);
   const pl = refs.atlas.mesh('A320neo', 0.011, { px: 40, weight: 600, color: '#1f2427' }, 0.08); on(pl, -0.152, 0.806, 0.0032);
   const st = MP.isis(M, 0.078); on(st, -0.142, 0.70); refs.screens.ISIS = st.userData.screen;
-  on(MP.roundInstrument(M, 0.062), -0.142, 0.618);
-  const clk = MP.roundInstrument(M, 0.058); on(clk, -0.16, 0.5); refs.clock = clk;
+  { const rec = rbox(0.06, 0.07, 0.006, 0.012, M.panelDark); on(rec, -0.142, 0.615, -0.001); }   // recessed blank below the ISIS
+  // digital clock in the right column (CHR / UTC / ET)
+  { const clk = new THREE.Group(); const b = rbox(0.064, 0.078, 0.014, 0.006, M.bezel); b.position.z = 0.007; clk.add(b);
+    for (const [y, h] of [[0.022, 0.014], [0.0, 0.02], [-0.024, 0.014]]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.04, h), M.screen); s.position.set(0, y, 0.0145); clk.add(s); }
+    for (const [x, y] of [[-0.026, 0.026], [0.026, 0.026], [-0.026, -0.006], [0.026, -0.006], [0.026, -0.026]]) { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.004, 12).rotateX(Math.PI / 2), M.trim); k.position.set(x, y, 0.016); clk.add(k); }
+    on(clk, 0.152, 0.645); refs.clock = clk; }
+  // datalink control and display units (DCDU) at the foot of both centre columns
+  refs.dcdu = [];
+  for (const s of [-1, 1]) { const u = new THREE.Group(); const b = rbox(0.12, 0.085, 0.014, 0.006, M.bezel); b.position.z = 0.007; u.add(b);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.055), M.screen); sc.position.z = 0.0145; u.add(sc);
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const key = rbox(0.012, 0.008, 0.004, 0.0015, M.trim); key.position.set(sx * 0.05, 0.024 - k * 0.016, 0.0155); u.add(key); }
+    on(u, s * 0.155, 0.5); refs.dcdu.push(u); }
   on(MP.terrPanel(M, refs.atlas, -1), -0.2, 0.648, 0.0); on(MP.terrPanel(M, refs.atlas, 1), 0.245, 0.648, 0.0);
   // centre-right: LDG GEAR indicator, AUTO/BRK, A/SKID & BRK FAN, gear lever, triple brake indicator
   on(MP.gearIndicator(M, refs.atlas), 0.168, 0.8, 0.0); on(MP.autobrakePanel(M, refs.atlas), 0.168, 0.755, 0.0);
   on(MP.brakeSwitchPanel(M, refs.atlas), 0.168, 0.7, 0.0);
-  on(MP.gearLeverPanel(M, refs.atlas), 0.135, 0.585, 0.0);
+  on(MP.gearLeverPanel(M, refs.atlas), 0.135, 0.572, 0.0);
   const lever = new THREE.Group();
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.06, 12), M.metal); shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.03; lever.add(shaft);
   const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.018, 28), M.trim); wheel.rotation.z = Math.PI / 2; wheel.position.z = 0.062; lever.add(wheel);
-  on(lever, 0.135, 0.56, 0.004); refs.gearLever = lever;
-  on(MP.roundInstrument(M, 0.056), 0.205, 0.585);
+  on(lever, 0.135, 0.548, 0.004); refs.gearLever = lever;
+  on(MP.roundInstrument(M, 0.052), 0.205, 0.575);   // triple brake pressure indicator
   // outboard lighting / loudspeaker panels
   on(MP.lightingPanel(M, refs.atlas, -1), -0.69, 0.75, 0.0); on(MP.lightingPanel(M, refs.atlas, 1), 0.69, 0.75, 0.0);
   // the lip under the PFD/ND pairs
@@ -491,7 +501,8 @@ function buildPedestal(M, refs) {
   for (const s of [-1, 1]) {
     at(PED.rmpPanel(M, A, s < 0 ? 1 : 2), s * 0.185, 0.455);
     at(PED.acpPanel(M, A), s * 0.185, 0.556);
-    at(PED.genericPanel(M, A, 0.138, 0.075, s < 0 ? 'LIGHTING' : 'WX RADAR', [['FLOOD', 'INTEG', 'CONSOLE'], ['SYS 1', 'SYS 2', 'GAIN']]), s * 0.181, 0.646);
+    at(s < 0 ? PED.genericPanel(M, A, 0.138, 0.05, 'FLOOD LT   INTEG LT', [['MAIN PNL & PED', 'MAIN PNL & PED']]) : PED.genericPanel(M, A, 0.138, 0.05, 'FLOOD LT   AIDS   DFDR', [['PED', 'PRINT', 'EVENT']]), s * 0.181, 0.632);
+    at(s < 0 ? PED.genericPanel(M, A, 0.138, 0.08, 'MULTISCAN   GCS   TILT', [['GAIN', 'MODE', 'TILT'], ['SYS 1', 'PWS', 'AUTO']]) : PED.genericPanel(M, A, 0.138, 0.08, 'ATC / TCAS', [['1', '2', '3', 'STBY'], ['4', '5', '6', 'AUTO'], ['7', '0', 'CLR', 'TA/RA']]), s * 0.181, 0.705);
   }
   // thrust quadrant flanked by the pitch trim wheels
   const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.525); refs.thrust = tq;
@@ -503,9 +514,17 @@ function buildPedestal(M, refs) {
   refs.speedBrake = at(PED.speedBrakePanel(M, A), -0.125, 0.82);
   refs.rudTrim = at(PED.rudderTrimPanel(M, A), 0, 0.81);
   refs.flaps = at(PED.flapsPanel(M, A), 0.125, 0.82);
-  refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.955);
-  at(PED.genericPanel(M, A, 0.12, 0.085, 'COCKPIT DOOR', [['LOCK', 'UNLOCK'], ['VIDEO']]), -0.175, 0.955);
-  at(PED.genericPanel(M, A, 0.12, 0.085, 'ATC / TCAS', [['STBY', 'AUTO', 'ON'], ['IDENT', 'TA', 'TA/RA']]), 0.175, 0.955);
+  refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.94);
+  at(PED.genericPanel(M, A, 0.125, 0.075, 'COCKPIT DOOR', [['UNLOCK', 'NORM', 'LOCK'], ['VIDEO']]), -0.13, 0.935);
+  // printer on the right, blank panels on the left, gravity gear extension handle in the middle, stowage handle and SLEW key aft right
+  { const pr = PED.genericPanel(M, A, 0.125, 0.075, '', []); at(pr, 0.13, 0.935); const slot = rbox(0.1, 0.022, 0.012, 0.003, new THREE.MeshStandardMaterial({ color: 0x121416, roughness: 0.5 })); slot.position.z = 0.006; pr.add(slot); }
+  for (const z of [0.99, 1.06]) at(PED.genericPanel(M, A, 0.125, 0.065, '', []), -0.13, z);
+  { const p = PED.genericPanel(M, A, 0.125, 0.13, '', []); at(p, 0.13, 1.025);
+    const h = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.005, 10, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x141618, roughness: 0.45 })); h.position.set(0, 0.0, 0.004); h.rotation.x = Math.PI / 2; p.add(h);
+    const k = rbox(0.016, 0.01, 0.004, 0.002, M.trim); k.position.set(-0.03, -0.045, 0.004); p.add(k); }
+  { const g = PED.genericPanel(M, A, 0.1, 0.13, 'GEAR', []); at(g, 0, 1.03);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.008, 40).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 })); disc.position.z = 0.004; g.add(disc);
+    const hnd = rbox(0.024, 0.06, 0.022, 0.004, new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.45 })); hnd.position.set(0, -0.01, 0.017); g.add(hnd); refs.gravityGear = hnd; }
   // padded side rails along the pedestal edges and the ribbed rubber bumper across its rear (as photographed)
   const pad = new THREE.MeshStandardMaterial({ color: 0x252c38, roughness: 0.55 });
   for (const s of [-1, 1]) for (const [z0, z1, hw, y] of [[P.profile[0][0] + 0.05, P.aftZ, P.halfWidth, P.profile[1][1]], [P.aftZ, P.rearZ - 0.03, P.aftHalfWidth, P.profile[2][1]]]) {

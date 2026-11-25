@@ -39,10 +39,10 @@ export const GLARE = {
 export const PEDESTAL = {
   halfWidth: 0.265,      // forward section: MCDUs, radio panels, thrust quadrant (measured)
   aftHalfWidth: 0.205,   // aft section behind z 0.68: speed brake, flaps, parking brake, door
-  aftZ: 0.68,
+  aftZ: 0.765,
   // side profile [z, y] from the panel face back to the rear face
-  profile: [[0.13, 0.45], [0.40, 0.38], [1.02, 0.38]],
-  rearZ: 1.04,
+  profile: [[0.13, 0.45], [0.40, 0.38], [1.1, 0.38]],
+  rearZ: 1.12,
 };
 
 export const OVERHEAD = { halfWidth: 0.32, front: [0.473, 1.384], rear: [1.516, 1.749], systemLen: 0.65 };
