@@ -460,7 +460,7 @@ function buildGlareshield(M, refs) {
   const gm = M.glare.clone(); gm.side = THREE.DoubleSide;
   grp.add(grid(top, gm), grid(rear, gm), grid(under, gm));
   {
-    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2 * G.strip.half + 0.1, 32).rotateZ(Math.PI / 2), addGrain(new THREE.MeshStandardMaterial({ color: 0x1d2023, roughness: 0.6 }), 'matte'));
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2 * G.strip.half - 0.02, 32).rotateZ(Math.PI / 2), addGrain(new THREE.MeshStandardMaterial({ color: 0x1d2023, roughness: 0.6 }), 'matte'));
     roll.scale.set(1, 1.35, 1); roll.position.set(0, G.topY - 0.006, G.strip.faceZ - 0.012); roll.castShadow = true; grp.add(roll);
   }
   // the control strip: a housing that stands proud of the rear face, panels on its face
@@ -474,12 +474,7 @@ function buildGlareshield(M, refs) {
   // outboard ends of the strip
   const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
   for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
-  for (const s of [-1, 1]) {   // the strip turns aft at x 0.67 and runs on to the corner post
-    const wing = new THREE.Group(); const ww = 0.15;
-    const face = rbox(ww, S.h, 0.03, 0.006, M.fcu); face.position.set(s * ww / 2, 0, -0.015); wing.add(face);
-    const lt = rbox(0.012, 0.008, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.3 })); lt.position.set(s * 0.05, 0.004, 0.002); wing.add(lt);
-    wing.position.set(s * half, S.y, S.faceZ); wing.rotation.y = -s * 0.62; grp.add(wing);
-  }
+
   return grp;
 }
 
@@ -747,19 +742,9 @@ function buildFittings(M, refs) {
     // air outlets near the windows and on the ceiling edge
     grp.add(onShell(gasper(M), s, 0.5, 1.5, [1, 0], 0.012)); grp.add(onShell(gasper(M), s, 1.2, 1.56, [1, 0], 0.012));
     // reading light on the sidewall above the console
-    grp.add(onShell(readingLight(), s, 0.42, 0.92, [1, 0], 0.0));
     // stowed sun visor, flat against the lining above the sliding window
     const visor = rbox(0.3, 0.17, 0.006, 0.012, new THREE.MeshPhysicalMaterial({ color: 0x2d3a33, roughness: 0.25, transparent: true, opacity: 0.7 }));
     grp.add(onShell(visor, s, 0.62, 1.47, [1, 0], 0.012));
-    // tablet (EFB) in its mount at the forward edge of the sliding window
-    const efb = new THREE.Group(); const ef = rbox(0.25, 0.18, 0.014, 0.012, new THREE.MeshStandardMaterial({ color: 0x1b1d1f, roughness: 0.4 })); ef.position.z = 0.03; efb.add(ef);
-    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 184; const c2 = cv.getContext('2d'); c2.fillStyle = '#dfe6ea'; c2.fillRect(0, 0, 256, 184);
-    c2.strokeStyle = '#8fb3c9'; c2.lineWidth = 6; for (let k = 0; k < 7; k++) { c2.beginPath(); c2.moveTo(0, 20 + k * 26); c2.lineTo(256, 8 + k * 30); c2.stroke(); }
-    c2.fillStyle = '#e3b23c'; for (let k = 0; k < 9; k++) { c2.beginPath(); c2.arc(20 + k * 27, 40 + (k % 3) * 45, 5, 0, 7); c2.fill(); }
-    const etx = new THREE.CanvasTexture(cv); etx.colorSpace = THREE.SRGBColorSpace;
-    const es = new THREE.Mesh(new THREE.PlaneGeometry(0.225, 0.16), new THREE.MeshStandardMaterial({ map: etx, emissiveMap: etx, emissive: 0x777777, roughness: 0.25 })); es.position.z = 0.0375; efb.add(es);
-    const arm = rbox(0.03, 0.03, 0.04, 0.008, M.metal); arm.position.z = 0.012; efb.add(arm);
-    grp.add(onShell(efb, s, 0.42, 1.0, [1, 0], 0.06));
     // side moulding under the side windows (as on the aircraft): a wide sill shelf carrying the sliding-window rail,
     // a large face sloping down and outboard onto the side console with a recessed pocket and a long slot, closed at the front
     {
