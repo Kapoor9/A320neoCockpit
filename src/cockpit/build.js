@@ -6,7 +6,7 @@ import * as D from './dims.js';
 import { addGrain } from './surface.js';
 import { LabelAtlas } from './labels.js';
 import { makeMCDU } from './parts/mcdu.js';
-import { makeSidestick, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
+import { makeSidestick, makeTiller, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
 import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
 import * as PED from './parts/pedestal.js';
 
@@ -306,7 +306,7 @@ function buildPedestal(M, refs) {
   // thrust quadrant flanked by the pitch trim wheels
   const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.55); refs.thrust = tq;
   refs.trimWheels = [];
-  for (const s of [-1, 1]) { const w = makeTrimWheel(M, s); w.position.set(s * 0.101, 0.31, 0.565); grp.add(w); refs.trimWheels.push(w); }
+  for (const s of [-1, 1]) { const w = makeTrimWheel(M, s); w.position.set(s * 0.097, 0.33, 0.565); grp.add(w); refs.trimWheels.push(w); }
   // engine panel behind the levers
   refs.engPanel = at(PED.engPanel(M, A), 0, 0.705);
   // rear: speed brake | rudder trim | flaps ; door | park brake | transponder
@@ -366,16 +366,10 @@ function buildConsolesAndSeats(M, refs) {
     top.position.set(s * (C.innerX + outer) / 2, C.topY + 0.006, (C.z0 + C.z1) / 2); grp.add(top);
     // sidestick
     const st = makeSidestick(M, s);
-    st.position.set(s * D.SIDESTICK.x, C.topY + 0.012, D.SIDESTICK.z); grp.add(st);
+    st.position.set(s * D.SIDESTICK.x, C.topY + 0.002, D.SIDESTICK.z); grp.add(st);
     refs[s < 0 ? 'sidestickCpt' : 'sidestickFo'] = st;
-    // stepped housing around the sidestick
-    const step1 = rbox(0.15, 0.012, 0.16, 0.006, M.module); step1.position.set(s * D.SIDESTICK.x, C.topY + 0.004, D.SIDESTICK.z + 0.01); grp.add(step1);
-    // nosewheel steering tiller, outboard and forward of the sidestick
-    const til = new THREE.Group();
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.012, 32), M.metal); hub.position.y = 0.006; til.add(hub);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.008, 12, 40, Math.PI * 1.2), M.rubber); ring.rotation.set(-Math.PI / 2, 0, Math.PI * 0.4); ring.position.y = 0.02; ring.castShadow = true; til.add(ring);
-    const knobT = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 16), M.rubber); knobT.position.set(0, 0.035, 0.038); til.add(knobT);
-    til.position.set(s * 0.925, C.topY + 0.012, D.SIDESTICK.z - 0.17); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
+    // nosewheel steering tiller, outboard and slightly forward of the sidestick
+    const til = makeTiller(M); til.position.set(s * D.TILLER.x, C.topY + 0.004, D.TILLER.z); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
 

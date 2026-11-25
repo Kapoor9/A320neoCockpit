@@ -21,43 +21,52 @@ function curvedStrip(x0, x1, r, a0, a1, pivotZ, seg = 48) {
 // with the red takeover pushbutton under the thumb and the radio trigger at the front.
 // Built for the captain (left console); side = +1 mirrors it for the first officer.
 export function makeSidestick(M, side = -1) {
+  // Proportions (from the measured reference): ~18 cm tall overall; ribbed boot ~10 cm wide at the
+  // base and 6 cm tall; 3 cm shaft; rounded head ~5 cm wide; red takeover button on the inboard side.
   const g = new THREE.Group();
-  // base: square trim plate with a ribbed rubber bellows
-  const plate = rbox(0.105, 0.008, 0.105, 0.004, M.panelDark); plate.position.y = 0.004; g.add(plate);
-  const bellowsPts = [];
-  for (let i = 0; i <= 24; i++) { const t = i / 24; bellowsPts.push(new THREE.Vector2(0.034 - 0.012 * t + 0.0022 * Math.sin(t * Math.PI * 8), 0.008 + t * 0.04)); }
-  const bellows = shade(new THREE.Mesh(new THREE.LatheGeometry(bellowsPts, 40), M.rubber)); g.add(bellows);
-
-  // grip: a lathe profile, then bent forward and shaped
-  const prof = [];
-  const R = (h) => {            // radius along the height (0..1)
-    if (h < 0.08) return 0.023 + h * 0.03;
-    if (h < 0.55) return 0.0255 + Math.sin((h - 0.08) / 0.47 * Math.PI) * 0.004;   // palm swell
-    if (h < 0.82) return 0.0255 + (h - 0.55) * 0.03;
-    const t = (h - 0.82) / 0.18; return (0.0336) * Math.sqrt(Math.max(0, 1 - t * t)) + 0.0005;   // fuller domed head
+  // square, stepped rubber gaiter (light grey), as on the A320
+  const gaiterMat = new THREE.MeshStandardMaterial({ color: 0x8e979c, roughness: 0.85 });
+  const steps = [[0.13, 0.010], [0.112, 0.012], [0.094, 0.012], [0.076, 0.012], [0.058, 0.012], [0.04, 0.014]];
+  let yy = 0; steps.forEach(([w, h], i) => { const s = rbox(w, h, w, Math.min(0.012, w * 0.18), i === 0 ? M.panelDark : gaiterMat); s.position.y = yy + h / 2; g.add(s); yy += h - 0.001; });
+  // grip: shaft into a rounded head, leaning forward
+  const H = 0.115, y0 = 0.062;
+  const R = (h) => {
+    if (h < 0.06) return 0.0125 + h * 0.03;
+    if (h < 0.48) return 0.0145 + (h - 0.06) * 0.006;            // shaft
+    if (h < 0.62) { const k = (h - 0.48) / 0.14; return 0.017 + k * k * 0.008; }   // flares into the head
+    const k = (h - 0.62) / 0.38; return 0.0255 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, k - 0.25) / 0.75, 2))) + 0.0003; // rounded head
   };
-  for (let i = 0; i <= 40; i++) { const h = i / 40; prof.push(new THREE.Vector2(R(h), h * 0.135)); }
-  const geo = new THREE.LatheGeometry(prof, 48);
-  const p = geo.attributes.position; const v = new THREE.Vector3();
+  const prof = []; for (let i = 0; i <= 60; i++) { const h = i / 60; prof.push(new THREE.Vector2(R(h), h * H)); }
+  const geo = new THREE.LatheGeometry(prof, 56); const p = geo.attributes.position; const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i); const h = v.y / 0.135;
-    v.x *= 0.86;                                   // flatter sides
-    if (v.z > 0) v.z *= 1.0 + 0.18 * Math.sin(h * Math.PI);   // fuller at the back, under the palm
-    v.z -= Math.pow(h, 1.6) * 0.022;               // leans forward
-    v.y += 0.046;
-    p.setXYZ(i, v.x, v.y, v.z);
+    v.fromBufferAttribute(p, i); const h = v.y / H;
+    v.x *= h > 0.55 ? 0.94 : 0.9;                                   // slightly flattened sides
+    v.z *= h > 0.55 ? 1.12 : 1.0;                                   // head longer front-to-back
+    v.z -= 0.022 * Math.sin(Math.min(1, h / 0.7) * Math.PI / 2);   // neck bends forward...
+    if (h > 0.62) v.z += (h - 0.62) * 0.03;                         // ...and the head tilts back (S-curve)
+    v.y += y0; p.setXYZ(i, v.x, v.y, v.z);
   }
   geo.computeVertexNormals();
-  const grip = shade(new THREE.Mesh(geo, M.rubber)); g.add(grip);
-  // takeover / AP disconnect pushbutton (red), on the inboard top edge under the thumb
-  const btnMat = new THREE.MeshStandardMaterial({ color: 0x9a2b22, roughness: 0.45 });
-  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0062, 0.0062, 0.006, 24), btnMat));
-  btn.position.set(-side * 0.014, 0.178, -0.02); btn.rotation.z = side * 0.45; g.add(btn);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0068, 0.0012, 8, 24), M.metal);
-  ring.position.copy(btn.position); ring.rotation.set(Math.PI / 2, 0, side * 0.55); ring.translateZ(0); g.add(ring);
-  // radio transmit trigger at the front (index finger)
-  const trig = rbox(0.016, 0.022, 0.01, 0.004, M.panelDark); trig.position.set(0, 0.14, -0.036); trig.rotation.x = 0.35; g.add(trig);
+  g.add(shade(new THREE.Mesh(geo, M.rubber)));
+  // red takeover / AP disconnect button on the inboard upper side of the head
+  const btnMat = new THREE.MeshStandardMaterial({ color: 0xb0281f, roughness: 0.4 });
+  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0058, 0.006, 24), btnMat));
+  btn.rotation.z = side * Math.PI / 2 * 0.85; btn.position.set(-side * 0.0228, y0 + H * 0.8, -0.011); g.add(btn);
+  // radio transmit trigger on the front of the shaft
+  const trig = rbox(0.012, 0.022, 0.008, 0.003, M.panelDark); trig.position.set(0, y0 + H * 0.5, -0.019); trig.rotation.x = 0.25; g.add(trig);
   g.userData.button = btn;
+  return g;
+}
+
+// Nosewheel steering tiller: round base with a handle pointing forward and a grip knob at its end
+export function makeTiller(M) {
+  const g = new THREE.Group();
+  const base = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.038, 0.006, 48), M.metal)); base.position.y = 0.003; g.add(base);
+  const hub = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.018, 32), M.rubber)); hub.position.y = 0.014; g.add(hub);
+  // curved loop handle lying almost flat, open towards the pilot
+  const loop = shade(new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0075, 14, 48, Math.PI * 1.15), M.rubber));
+  loop.rotation.set(-Math.PI / 2 + 0.12, 0, Math.PI * 0.43); loop.position.set(0, 0.024, -0.018); g.add(loop);
+  const knob = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.008, 0.022, 20), M.rubber)); knob.position.set(0.0, 0.034, -0.054); g.add(knob);
   return g;
 }
 
@@ -67,14 +76,20 @@ export function makeSidestick(M, side = -1) {
 export const DETENT_DEG = { REV: -14, IDLE: 0, N45: 11, CL: 22, FLX: 33, TOGA: 45 };
 export function makeThrustQuadrant(M, atlas) {
   const g = new THREE.Group();
-  const pivotZ = -0.14, armLen = 0.255;
+  const pivotZ = -0.14, armLen = 0.255;   // arc top ~9 cm above the pedestal
   // central housing with two curved lever slots
-  const base = rbox(0.18, 0.24, 0.012, 0.004, M.panelDark); base.position.set(0, 0.04, 0.0); g.add(base);
+  const base = rbox(0.16, 0.26, 0.012, 0.004, M.panelDark); base.position.set(0, 0.04, 0.0); g.add(base);
+  // raised centre divider between the two lever tracks
+  const divShape = new THREE.Shape(); divShape.moveTo(0, 0);
+  for (let i = 0; i <= 24; i++) { const a = -0.42 + 1.37 * (i / 24); divShape.lineTo(Math.sin(a) * (armLen - 0.035), Math.cos(a) * (armLen - 0.035) + pivotZ); }
+  divShape.lineTo(Math.sin(0.95) * (armLen - 0.035), pivotZ + 0.02); divShape.lineTo(Math.sin(-0.42) * (armLen - 0.035), pivotZ + 0.02); divShape.closePath();
+  const div = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(divShape, { depth: 0.02, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelOffset: -0.002, bevelSegments: 2 }).rotateY(Math.PI / 2), M.module));
+  div.position.x = -0.01; g.add(div);
   // curved top over which the levers travel (a cylinder segment)
   const rArc = armLen - 0.045, a0 = -0.42, a1 = 0.95;
   const arcMat = M.module.clone(); arcMat.side = THREE.DoubleSide;
   // the arc surface, interrupted by the two lever slots
-  const edges = [-0.085, -0.0335, -0.0225, 0.0225, 0.0335, 0.085];
+  const edges = [-0.074, -0.0335, -0.0225, 0.0225, 0.0335, 0.074];
   // printed scale: graduations, green A/THR arc (IDLE..CL), yellow/black hatched reverse zone
   const cv = document.createElement('canvas'); cv.width = 128; cv.height = 1024; const c = cv.getContext('2d');
   c.fillStyle = '#5b676f'; c.fillRect(0, 0, 128, 1024);
@@ -95,7 +110,7 @@ export function makeThrustQuadrant(M, atlas) {
   const slotMat = new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 1, side: THREE.DoubleSide });
   for (const x of [-0.028, 0.028]) g.add(new THREE.Mesh(curvedStrip(x - 0.0055, x + 0.0055, rArc - 0.012, a0, a1, pivotZ), slotMat));
   // side cheeks of the quadrant
-  for (const x of [-0.085, 0.085]) {
+  for (const x of [-0.074, 0.074]) {
     const sh = new THREE.Shape(); sh.moveTo(0, 0);
     for (let i = 0; i <= 24; i++) { const a = a0 + (a1 - a0) * (i / 24); sh.lineTo(Math.sin(a) * rArc, Math.cos(a) * rArc + pivotZ); }
     sh.lineTo(Math.sin(a1) * rArc, pivotZ + 0.02); sh.lineTo(Math.sin(a0) * rArc, pivotZ + 0.02); sh.closePath();
@@ -111,10 +126,10 @@ export function makeThrustQuadrant(M, atlas) {
       const r = armLen - 0.044;
       const y = Math.sin(a) * r, z = pivotZ + Math.cos(a) * r;
       const tick = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.0016), tickMat);
-      tick.position.set(s * 0.074, y, z + 0.0007); tick.rotation.x = -a; g.add(tick);
+      tick.position.set(s * 0.064, y, z + 0.0007); tick.rotation.x = -a; g.add(tick);
       if (k === 'REV') continue;
       const lab = atlas.mesh(txt.split('\n'), 0.013, { px: 34, weight: 600 }, 0.022);
-      lab.position.set(s * 0.053, y, z + 0.0009); lab.rotation.x = -a; g.add(lab);
+      lab.position.set(s * 0.047, y, z + 0.0009); lab.rotation.x = -a; g.add(lab);
     }
   }
   // the two levers
@@ -141,27 +156,17 @@ export function makeThrustQuadrant(M, atlas) {
 // ------------------------------------------------------------------ pitch trim wheel
 // Large black wheel, half set into the pedestal side, white index marks on the rim.
 export function makeTrimWheel(M, side = -1) {
+  // A rounded rim (like a thick ring) with wide white bands; the web is set back inside the pedestal.
   const g = new THREE.Group();
-  const R = 0.15, T = 0.03;
-  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1d2022, roughness: 0.75 });
-  const rim = shade(new THREE.Mesh(new THREE.CylinderGeometry(R, R, T, 96).rotateZ(Math.PI / 2), wheelMat)); g.add(rim);
-  // grip ridges around the rim
-  const ridge = new THREE.BoxGeometry(T * 1.04, 0.006, 0.010);
-  const im = new THREE.InstancedMesh(ridge, wheelMat, 72); const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-  for (let i = 0; i < 72; i++) { const a = (i / 72) * Math.PI * 2; e.set(a, 0, 0); q.setFromEuler(e); m.compose(new THREE.Vector3(0, Math.cos(a) * R, Math.sin(a) * R), q, new THREE.Vector3(1, 1, 1)); im.setMatrixAt(i, m); }
-  im.castShadow = true; g.add(im);
-  // white painted index marks (three bands), so movement is visible at a glance
-  const white = new THREE.MeshStandardMaterial({ color: 0xe6e8e3, roughness: 0.6 });
+  const R = 0.162, tube = 0.0135;
+  const black = new THREE.MeshStandardMaterial({ color: 0x1b1e20, roughness: 0.6 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xe9ebe6, roughness: 0.55 });
+  const rim = shade(new THREE.Mesh(new THREE.TorusGeometry(R, tube, 20, 160).rotateY(Math.PI / 2), black)); g.add(rim);
   for (let k = 0; k < 8; k++) {
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0012, R + 0.0012, T * 1.02, 16, 1, true, (k / 8) * Math.PI * 2, 0.36).rotateZ(Math.PI / 2), white);
-    g.add(band);
-    for (const f of [-1, 1]) {   // the white blocks wrap onto both faces of the rim
-      const face = new THREE.Mesh(new THREE.RingGeometry(R - 0.018, R + 0.001, 12, 1, (k / 8) * Math.PI * 2, 0.36), white);
-      face.rotation.y = f * Math.PI / 2; face.position.x = f * (T / 2 + 0.0008); if (f < 0) face.scale.x = -1; g.add(face);
-    }
+    const band = shade(new THREE.Mesh(new THREE.TorusGeometry(R, tube + 0.0004, 20, 24, 0.36).rotateY(Math.PI / 2), white));
+    band.rotation.x = (k / 8) * Math.PI * 2; g.add(band);
   }
-  // hub on the outer face
-  const hub = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, T + 0.004, 32).rotateZ(Math.PI / 2), M.panelDark)); g.add(hub);
+  const web = shade(new THREE.Mesh(new THREE.CylinderGeometry(R - tube * 0.6, R - tube * 0.6, 0.008, 96).rotateZ(Math.PI / 2), black)); web.position.x = -side * 0.004; g.add(web);
   g.userData.radius = R;
   return g;
 }
