@@ -753,20 +753,46 @@ function buildFittings(M, refs) {
     const es = new THREE.Mesh(new THREE.PlaneGeometry(0.225, 0.16), new THREE.MeshStandardMaterial({ map: etx, emissiveMap: etx, emissive: 0x777777, roughness: 0.25 })); es.position.z = 0.0375; efb.add(es);
     const arm = rbox(0.03, 0.03, 0.04, 0.008, M.metal); arm.position.z = 0.012; efb.add(arm);
     grp.add(onShell(efb, s, 0.42, 1.0, [1, 0], 0.06));
-    // moulded sidewall panel below the side windows: light lining with a dark recessed grip and armrest ledge (as photographed)
-    { const mp = new THREE.Group(); const body = rbox(0.16, 0.62, 0.05, 0.03, M.frame); body.position.z = 0.025; mp.add(body);   // long side runs fore-aft
-      const rec = rbox(0.06, 0.28, 0.03, 0.012, new THREE.MeshStandardMaterial({ color: 0x1b1f24, roughness: 0.6 })); rec.position.set(0.01, 0.04, 0.042); mp.add(rec);
-      const ledge = rbox(0.025, 0.62, 0.08, 0.01, M.frame); ledge.position.set(-0.085, 0, 0.04); mp.add(ledge);
-      grp.add(onShell(mp, s, 0.78, 0.78, [1, 0], 0.0)); }
+    // side moulding under the side windows (as on the aircraft): a wide sill shelf carrying the sliding-window rail,
+    // a large face sloping down and outboard onto the side console with a recessed pocket and a long slot, closed at the front
+    {
+      const mould = addGrain(new THREE.MeshStandardMaterial({ color: 0x8b9ca6, roughness: 0.62, side: THREE.DoubleSide }), 'paint');
+      const darkM = new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.7, side: THREE.DoubleSide });
+      const z0 = 0.24, z1 = 1.56, N = 44, yB = D.CONSOLE.topY + 0.004;
+      const W = [], Bt = [], Si = [], So = [];
+      for (let i = 0; i <= N; i++) {
+        const z = z0 + (z1 - z0) * i / N; const yS = Math.max(0.79, sillY(z) - 0.03);
+        const xW = hullHW(z, yB) - 0.005, xI = hullHW(z, yS) - 0.19;
+        W.push(new THREE.Vector3(s * xW, yB, z));                              // foot of the face, at the wall on the console top
+        Bt.push(new THREE.Vector3(s * Math.min(xW - 0.12, hullHW(z, yB) - 0.12), yB, z));   // front edge of the foot
+        Si.push(new THREE.Vector3(s * xI, yS - 0.012, z));                    // inner edge of the shelf (top of the sloping face)
+        So.push(new THREE.Vector3(s * (hullHW(z, yS) - 0.004), yS, z));        // shelf meets the wall under the window
+      }
+      const SiT = Si.map((p) => p.clone().setY(p.y + 0.012));
+      grp.add(stripMesh(Bt, Si, mould), stripMesh(Si, SiT, mould), stripMesh(SiT, So, mould), stripMesh(W, Bt, mould));
+      // front end cap
+      { const g = new THREE.BufferGeometry().setFromPoints([W[0], Bt[0], Si[0], W[0], Si[0], So[0], Si[0], SiT[0], So[0]]); g.computeVertexNormals(); grp.add(new THREE.Mesh(g, mould)); }
+      // recessed pocket on the sloping face, aft of the sidestick
+      const face = (i, u) => Bt[i].clone().lerp(Si[i], u);
+      const nI = (i) => { const a = Si[i].clone().sub(Bt[i]), b = Bt[Math.min(i + 1, N)].clone().sub(Bt[i]); const n = a.cross(b).normalize(); return n.x * s > 0 ? n.negate() : n; };
+      const i0 = Math.round(N * (0.86 - z0) / (z1 - z0)), i1 = Math.round(N * (1.16 - z0) / (z1 - z0));
+      const PT = [], PB = []; for (let i = i0; i <= i1; i++) { const k = (i - i0) / (i1 - i0); const off = nI(i).multiplyScalar(-0.004); PT.push(face(i, 0.82 - 0.12 * k).add(off)); PB.push(face(i, 0.25 + 0.1 * k).add(off)); }
+      grp.add(stripMesh(PB, PT, darkM));
+      // long slot near the top of the face, over the sidestick
+      const j0 = Math.round(N * (0.36 - z0) / (z1 - z0)), j1 = Math.round(N * (0.78 - z0) / (z1 - z0));
+      const ST = [], SB = []; for (let i = j0; i <= j1; i++) { const off = nI(i).multiplyScalar(-0.003); ST.push(face(i, 0.8).add(off)); SB.push(face(i, 0.72).add(off)); }
+      grp.add(stripMesh(SB, ST, darkM));
+      // sliding-window rail on the shelf, and the window handle
+      const r0 = So[Math.round(N * (0.3 - z0) / (z1 - z0))].clone(), r1 = So[Math.round(N * (1.0 - z0) / (z1 - z0))].clone();
+      for (const r of [r0, r1]) { r.x -= s * 0.05; r.y += 0.012; }
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, r0.distanceTo(r1), 16), new THREE.MeshStandardMaterial({ color: 0xa08a52, roughness: 0.35, metalness: 0.7 }));
+      rail.position.copy(r0).add(r1).multiplyScalar(0.5); rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); grp.add(rail);
+      const hd = rbox(0.03, 0.022, 0.1, 0.008, mould); hd.position.copy(r0.clone().lerp(r1, 0.55)).add(new THREE.Vector3(-s * 0.02, 0.012, 0)); grp.add(hd);
+    }
     // map / document pocket and flashlight on the sidewall beside the seat
     const pocket = new THREE.Group(); const pk = rbox(0.3, 0.16, 0.05, 0.01, M.panelDark); pk.position.z = 0.025; pocket.add(pk);
     const lip = rbox(0.3, 0.02, 0.06, 0.006, M.module); lip.position.set(0, 0.075, 0.03); pocket.add(lip); grp.add(onShell(pocket, s, 1.0, 0.68, [1, 0], 0.0));
     const fls = flashlight(); grp.add(onShell(fls, s, 1.38, 0.62, [0, 1], 0.03));
-  }
-  for (const s of [-1, 1]) {
-    const L = [], R = [], Rf = [];
-    for (let i = 0; i <= 40; i++) { const z = 0.3 + 1.32 * i / 40; const y = sillY(z) - 0.02; const p = onHull(s, z, y, 0.0); L.push(p); const q = p.clone(); q.x -= s * 0.04; R.push(q); const r2 = q.clone(); r2.y -= 0.018; Rf.push(r2); }
-    const ledge = M.module.clone(); ledge.side = THREE.DoubleSide; grp.add(stripMesh(L, R, ledge), stripMesh(R, Rf, ledge));
   }
   // footwells: ribbed rudder pedals on their arms, the pedal housing with its PULL TO ADJUST handle
   { const ribTex = (() => { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; const c = cv.getContext('2d'); c.fillStyle = '#4a5560'; c.fillRect(0, 0, 64, 256); c.fillStyle = '#2b333b'; for (let y = 0; y < 256; y += 8) c.fillRect(0, y, 64, 3); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return tx; })();
