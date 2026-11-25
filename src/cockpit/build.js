@@ -504,8 +504,8 @@ function buildPedestal(M, refs) {
   for (const s of [-1, 1]) {
     at(PED.rmpPanel(M, A, s < 0 ? 1 : 2), s * 0.185, 0.455);
     at(PED.acpPanel(M, A), s * 0.185, 0.556);
-    at(s < 0 ? PED.genericPanel(M, A, 0.138, 0.05, 'FLOOD LT   INTEG LT', [['MAIN PNL & PED', 'MAIN PNL & PED']]) : PED.genericPanel(M, A, 0.138, 0.05, 'FLOOD LT   AIDS   DFDR', [['PED', 'PRINT', 'EVENT']]), s * 0.181, 0.632);
-    at(s < 0 ? PED.genericPanel(M, A, 0.138, 0.08, 'MULTISCAN   GCS   TILT', [['GAIN', 'MODE', 'TILT'], ['SYS 1', 'PWS', 'AUTO']]) : PED.genericPanel(M, A, 0.138, 0.08, 'ATC / TCAS', [['1', '2', '3', 'STBY'], ['4', '5', '6', 'AUTO'], ['7', '0', 'CLR', 'TA/RA']]), s * 0.181, 0.705);
+    at(PED.floodLtPanel(M, A, s), s * 0.181, 0.632);
+    at(s < 0 ? PED.wxPanel(M, A) : PED.atcPanel(M, A), s * 0.181, 0.705);
   }
   // thrust quadrant flanked by the pitch trim wheels
   const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.525); refs.thrust = tq;

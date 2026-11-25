@@ -34,17 +34,21 @@ export function ecamControlPanel(M, A) {
 }
 
 export function rmpPanel(M, A, n) {
+  // as photographed: ACTIVE and STBY/CRS windows with the green transfer key between; VHF1-3 / HF1, SEL, HF2, AM;
+  // concentric frequency knob and ON/OFF switch on the right; STBY NAV row (guarded NAV, VOR, ILS, GLS, MLS, ADF) at the bottom
   const items = [
-    { t: 'text', x: -0.036, y: 0.038, s: 'ACTIVE', size: 0.0036 }, { t: 'text', x: 0.036, y: 0.038, s: 'STBY/CRS', size: 0.0036 },
+    { t: 'text', x: -0.036, y: 0.042, s: 'ACTIVE', size: 0.0032 }, { t: 'text', x: 0.036, y: 0.042, s: 'STBY/CRS', size: 0.0032 },
     { t: 'key', x: 0, y: 0.028, w: 0.016, h: 0.01, s: '⇄', id: 'xfer' },
-    { t: 'text', x: -0.055, y: -0.022, s: 'NAV', size: 0.0034 },
   ];
-  ['VHF1', 'VHF2', 'VHF3', 'HF1', 'SEL', 'HF2', 'AM'].forEach((s, i) => items.push({ t: 'pb', x: -0.052 + i * 0.0173, y: 0.0065, w: 0.014, h: 0.012, legends: [s, ''], id: 'rmp' + s }));
-  ['NAV', 'VOR', 'ILS', 'MLS', 'ADF', 'BFO'].forEach((s, i) => items.push({ t: 'pb', x: -0.043 + i * 0.0173, y: -0.012, w: 0.014, h: 0.012, legends: [s, ''] }));
-  items.push({ t: 'knob', x: 0.05, y: -0.031, r: 0.0095, pointer: false, ring: false, id: 'freq' },
-    { t: 'text', x: -0.05, y: -0.034, s: 'ON', size: 0.0034 }, { t: 'toggle', x: -0.04, y: -0.034, id: 'pwr' });
-  const p = buildPanel({ w: 0.138, h: 0.098, title: `RMP ${n}`, items }, M, A);
-  // two frequency windows (dark until powered)
+  ['VHF1', 'VHF2', 'VHF3'].forEach((s, i) => items.push({ t: 'annun', x: -0.05 + i * 0.019, y: 0.016, w: 0.004, h: 0.002, s: '' }, { t: 'key', x: -0.05 + i * 0.019, y: 0.008, w: 0.016, h: 0.009, s, id: 'rmp' + s }));
+  [['HF1', -0.05], ['HF2', -0.012], ['AM', 0.007]].forEach(([s, x]) => items.push({ t: 'key', x, y: -0.007, w: 0.016, h: 0.009, s, id: 'rmp' + s }));
+  items.push({ t: 'rbtn', x: -0.031, y: -0.007, r: 0.004 }, { t: 'text', x: -0.031, y: 0.0, s: 'SEL', size: 0.0024 });
+  items.push({ t: 'text', x: -0.01, y: -0.018, s: 'STBY NAV', size: 0.0026 }, { t: 'line', pts: [[-0.06, -0.018], [-0.026, -0.018]], w: 0.0005 }, { t: 'line', pts: [[0.006, -0.018], [0.045, -0.018]], w: 0.0005 });
+  items.push({ t: 'pb', x: -0.055, y: -0.03, w: 0.014, h: 0.011, legends: ['', 'NAV'], guard: 'grey' });
+  ['VOR', 'ILS', 'GLS', 'MLS', 'ADF'].forEach((s, i) => items.push({ t: 'key', x: -0.034 + i * 0.0175, y: -0.03, w: 0.015, h: 0.009, s }));
+  items.push({ t: 'knob', x: 0.045, y: 0.002, r: 0.0105, style: 'fcu', id: 'freq' }, { t: 'knob', x: 0.045, y: 0.002, r: 0.0065, style: 'fcu' },
+    { t: 'toggle', x: 0.058, y: -0.028, id: 'pwr' }, { t: 'text', x: 0.058, y: -0.04, s: 'OFF', size: 0.0026 });
+  const p = buildPanel({ w: 0.138, h: 0.098, title: '', items }, M, A);
   for (const x of [-0.036, 0.036]) {
     const win = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.013), M.screen); win.position.set(x, 0.028, 0.0006); win.name = 'rmpWin'; p.add(win);
   }
@@ -52,15 +56,66 @@ export function rmpPanel(M, A, n) {
 }
 
 export function acpPanel(M, A) {
+  // as photographed: 7 transmission keys over 7 reception knobs; INT/RAD switch, VOICE, RESET, PA knob and key;
+  // then the navigation reception knobs
   const items = [];
   ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB'].forEach((s, i) => {
     const x = -0.054 + i * 0.018;
-    items.push({ t: 'pb', x, y: 0.035, w: 0.015, h: 0.012, legends: ['CALL', s], id: 'tx' + s },
-      { t: 'knob', x, y: 0.012, r: 0.0058, pointer: false, ring: false, dark: true });
+    items.push({ t: 'key', x, y: 0.038, w: 0.015, h: 0.009, s, id: 'tx' + s }, { t: 'text', x, y: 0.028, s, size: 0.0024 },
+      { t: 'knob', x, y: 0.017, r: 0.0058, pointer: false, ring: false, dark: true });
   });
-  ['VOR1', 'VOR2', 'MKR', 'ILS', 'ADF1', 'ADF2'].forEach((s, i) => items.push({ t: 'text', x: -0.054 + i * 0.021, y: -0.007, s, size: 0.0032 }, { t: 'knob', x: -0.054 + i * 0.021, y: -0.018, r: 0.0055, pointer: false, ring: false, dark: true }));
-  items.push({ t: 'pb', x: -0.05, y: -0.038, w: 0.016, h: 0.011, legends: ['INT', 'RAD'] }, { t: 'pb', x: 0.0, y: -0.038, w: 0.016, h: 0.011, legends: ['VOICE', ''] }, { t: 'pb', x: 0.05, y: -0.038, w: 0.016, h: 0.011, legends: ['RESET', ''] });
+  items.push({ t: 'toggle', x: -0.05, y: -0.006, id: 'intRad' }, { t: 'text', x: -0.04, y: 0.0, s: 'INT', size: 0.0024 }, { t: 'text', x: -0.04, y: -0.012, s: 'RAD', size: 0.0024 },
+    { t: 'key', x: -0.02, y: -0.004, w: 0.018, h: 0.009, s: 'VOICE' }, { t: 'key', x: 0.0, y: -0.004, w: 0.018, h: 0.009, s: 'RESET' },
+    { t: 'knob', x: 0.03, y: -0.004, r: 0.0058, pointer: false, ring: false, dark: true }, { t: 'text', x: 0.042, y: 0.002, s: 'PA', size: 0.0024 },
+    { t: 'key', x: 0.054, y: -0.004, w: 0.016, h: 0.011, s: '' });
+  ['VOR1', 'VOR2', 'MKR', 'ILS', 'ADF1', 'ADF2', ''].forEach((s, i) => items.push({ t: 'text', x: -0.054 + i * 0.018, y: -0.021, s, size: 0.0022 }, { t: 'knob', x: -0.054 + i * 0.018, y: -0.033, r: 0.0058, pointer: false, ring: false, dark: true }));
   return buildPanel({ w: 0.138, h: 0.098, items }, M, A);
+}
+
+// lighting panels, weather radar and ATC/TCAS (as photographed)
+export function floodLtPanel(M, A, side) {
+  const items = side < 0 ? [
+    { t: 'text', x: -0.03, y: 0.018, s: 'FLOOD LT', size: 0.0036 }, { t: 'text', x: -0.03, y: 0.011, s: 'MAIN PNL & PED', size: 0.0024 }, { t: 'knob', x: -0.03, y: -0.006, r: 0.0095, id: 'floodMain' },
+    { t: 'text', x: -0.048, y: -0.018, s: 'OFF', size: 0.0024 }, { t: 'text', x: -0.012, y: -0.018, s: 'BRT', size: 0.0024 },
+    { t: 'text', x: 0.03, y: 0.018, s: 'INTEG LT', size: 0.0036 }, { t: 'text', x: 0.03, y: 0.011, s: 'MAIN PNL & PED', size: 0.0024 }, { t: 'knob', x: 0.03, y: -0.006, r: 0.0095, id: 'integMain' },
+    { t: 'text', x: 0.012, y: -0.018, s: 'OFF', size: 0.0024 }, { t: 'text', x: 0.048, y: -0.018, s: 'BRT', size: 0.0024 },
+  ] : [
+    { t: 'text', x: -0.042, y: 0.018, s: 'FLOOD LT', size: 0.0036 }, { t: 'text', x: -0.042, y: 0.011, s: 'PED', size: 0.0024 }, { t: 'knob', x: -0.042, y: -0.006, r: 0.0095, id: 'floodPed' },
+    { t: 'text', x: -0.058, y: -0.018, s: 'OFF', size: 0.0024 }, { t: 'text', x: -0.026, y: -0.018, s: 'BRT', size: 0.0024 },
+    { t: 'line', pts: [[-0.016, 0.02], [-0.016, -0.02]], w: 0.0005 }, { t: 'line', pts: [[0.026, 0.02], [0.026, -0.02]], w: 0.0005 },
+    { t: 'text', x: 0.005, y: 0.018, s: 'AIDS', size: 0.0036 }, { t: 'text', x: 0.005, y: 0.011, s: 'PRINT', size: 0.0024 }, { t: 'rbtn', x: 0.005, y: -0.004, r: 0.0055 },
+    { t: 'text', x: 0.047, y: 0.018, s: 'DFDR', size: 0.0036 }, { t: 'text', x: 0.047, y: 0.011, s: 'EVENT', size: 0.0024 }, { t: 'rbtn', x: 0.047, y: -0.004, r: 0.0055 },
+  ];
+  return buildPanel({ w: 0.138, h: 0.05, items, name: 'floodLt' + side }, M, A);
+}
+export function wxPanel(M, A) {
+  const items = [
+    { t: 'text', x: -0.048, y: 0.032, s: 'GAIN', size: 0.003 }, { t: 'knob', x: -0.048, y: 0.016, r: 0.0085, dark: true, id: 'wxGain' },
+    { t: 'text', x: -0.064, y: 0.006, s: 'CAL', size: 0.0022 }, { t: 'text', x: -0.032, y: 0.006, s: '+8', size: 0.0022 },
+    { t: 'text', x: -0.008, y: 0.032, s: 'MULTISCAN', size: 0.003 }, { t: 'toggle', x: -0.014, y: 0.018, id: 'wxMulti' }, { t: 'text', x: -0.026, y: 0.018, s: 'MAN', size: 0.0022 }, { t: 'text', x: -0.001, y: 0.018, s: 'AUTO', size: 0.0022 },
+    { t: 'text', x: 0.022, y: 0.032, s: 'GCS', size: 0.003 }, { t: 'toggle', x: 0.022, y: 0.018, id: 'wxGcs' }, { t: 'text', x: 0.012, y: 0.018, s: 'OFF', size: 0.0022 }, { t: 'text', x: 0.034, y: 0.018, s: 'AUTO', size: 0.0022 },
+    { t: 'text', x: 0.052, y: 0.032, s: 'TILT', size: 0.003 }, { t: 'knob', x: 0.052, y: 0.016, r: 0.0085, dark: true, id: 'wxTilt' },
+    { t: 'text', x: 0.066, y: 0.026, s: '15 UP', size: 0.0022 }, { t: 'text', x: 0.066, y: 0.004, s: '15 DN', size: 0.0022 },
+    { t: 'text', x: -0.004, y: 0.004, s: 'MODE', size: 0.003 }, { t: 'knob', x: -0.004, y: -0.014, r: 0.0085, dark: true, id: 'wxMode' },
+    { t: 'text', x: -0.024, y: -0.008, s: 'WX+T', size: 0.0022 }, { t: 'text', x: -0.024, y: -0.02, s: 'WX', size: 0.0022 }, { t: 'text', x: 0.016, y: -0.008, s: 'MAP', size: 0.0022 },
+    { t: 'text', x: -0.052, y: -0.022, s: 'SYS', size: 0.003 }, { t: 'toggle', x: -0.052, y: -0.034, id: 'wxSys' }, { t: 'text', x: -0.064, y: -0.034, s: '1', size: 0.0024 }, { t: 'text', x: -0.04, y: -0.034, s: '2', size: 0.0024 },
+    { t: 'text', x: 0.034, y: -0.022, s: 'PWS', size: 0.003 }, { t: 'toggle', x: 0.034, y: -0.034, id: 'wxPws' }, { t: 'text', x: 0.022, y: -0.034, s: 'OFF', size: 0.0022 }, { t: 'text', x: 0.047, y: -0.034, s: 'AUTO', size: 0.0022 },
+  ];
+  return buildPanel({ w: 0.138, h: 0.08, items, name: 'wxRadar' }, M, A);
+}
+export function atcPanel(M, A) {
+  const items = [
+    ...[0.022, 0.004, -0.014].flatMap((y, i) => [{ t: 'toggle', x: -0.056, y, id: 'atcSw' + i }]),
+    { t: 'text', x: -0.044, y: 0.03, s: 'XPDR', size: 0.0024 }, { t: 'text', x: -0.044, y: 0.012, s: 'ALT RPTG', size: 0.0022 }, { t: 'text', x: -0.044, y: -0.006, s: 'SYS', size: 0.0022 },
+  ];
+  [['1', '2', '3'], ['4', '5', '6'], ['7', '0', 'CLR']].forEach((r, ri) => r.forEach((s, ci) => items.push({ t: 'key', x: -0.024 + ci * 0.016, y: 0.02 - ri * 0.016, w: 0.012, h: 0.012, s, id: 'atc' + s })));
+  items.push({ t: 'text', x: 0.044, y: 0.034, s: 'ATC', size: 0.0026 },
+    { t: 'annun', x: 0.06, y: -0.014, w: 0.004, h: 0.004, s: '' }, { t: 'text', x: 0.06, y: -0.006, s: 'FAIL', size: 0.0022 },
+    { t: 'knob', x: 0.046, y: -0.026, r: 0.0075, id: 'tcasMode' }, { t: 'text', x: 0.06, y: -0.02, s: 'STBY', size: 0.0021 }, { t: 'text', x: 0.062, y: -0.028, s: 'TA', size: 0.0021 }, { t: 'text', x: 0.062, y: -0.036, s: 'TA/RA', size: 0.0021 },
+    { t: 'key', x: 0.024, y: -0.03, w: 0.016, h: 0.01, s: 'IDENT', id: 'ident' });
+  const p = buildPanel({ w: 0.138, h: 0.08, items, name: 'atc' }, M, A);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.045, 0.022), M.screen); win.position.set(0.04, 0.016, 0.0006); win.name = 'atcWin'; p.add(win);
+  return p;
 }
 
 // ENG panel: two master switches with FIRE / FAULT lights, MODE selector in the middle

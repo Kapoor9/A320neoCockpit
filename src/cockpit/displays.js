@@ -132,6 +132,7 @@ export function paintDisplays(scene, refs) {
   scene.traverse((o) => {
     if (o.name === 'rmpWin') apply(o, seg(o.position.x < 0 ? '123.125' : '121.825', 0.05, 0.013), 0.7);
     if (o.name === 'rudTrimWin') apply(o, seg('R 0.0', 0.04, 0.013), 0.7);
+    if (o.name === 'atcWin') apply(o, seg('7000', 0.045, 0.022), 0.7);
   });
   if (refs.clock) { const scr = refs.clock.children.filter((c) => c.isMesh && c.geometry.type === 'PlaneGeometry'); const T = ['', '09:27 28', '']; scr.forEach((m, i) => apply(m, seg(T[i] || '', 0.04, 0.016, '#e8f0f4', '#0b1220'), 0.6)); }
   (refs.dcdu || []).forEach((u) => u.children.forEach((m) => { if (m.isMesh && m.geometry.type === 'PlaneGeometry') apply(m, dcdu(), 0.7); }));
