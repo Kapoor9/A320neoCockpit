@@ -97,37 +97,31 @@ def loft(name, spine, secs, material, parent, n=24, shape=None):
     o = obj_from_bm(name, bm, material, parent); subsurf(o, 2); apply_mods(o); return o
 
 # ------------------------------------------------------------------ sidestick (captain; takeover button inboard, +X)
+# Squared-off pistol grip: thick shaft, head swept forward over the fingers with a drooping nose,
+# radio trigger under the nose, on a stacked rubber boot in a square bezel.
 st = empty('Sidestick')
-spine = [(0, 0.0, 0.03), (0, 0.001, 0.062), (0, 0.005, 0.092), (0, 0.012, 0.115), (0, 0.025, 0.134), (0, 0.043, 0.148), (0, 0.060, 0.151), (0, 0.072, 0.146), (0, 0.079, 0.139)]
-secs = [(0.0158, 0.0148), (0.0150, 0.0138), (0.0153, 0.0140), (0.0166, 0.0156), (0.0195, 0.0185), (0.0212, 0.0198), (0.0205, 0.0188), (0.0165, 0.0150), (0.0095, 0.0085)]
+spine = [(0, -0.002, 0.036), (0, 0.0, 0.068), (0, 0.004, 0.098), (0, 0.012, 0.121), (0, 0.026, 0.137), (0, 0.044, 0.146), (0, 0.060, 0.145), (0, 0.073, 0.138), (0, 0.081, 0.127)]
+secs = [(0.0168, 0.0168), (0.0162, 0.0165), (0.0168, 0.0172), (0.0192, 0.0192), (0.0222, 0.0212), (0.0226, 0.0205), (0.0205, 0.0185), (0.0165, 0.0148), (0.0102, 0.0092)]
 def stick_shape(i, c, s):
-    ka, kb = 1.0, 1.0
-    if 3 <= i <= 7 and c > 0: ka *= 1 + 0.2 * c * c          # thumb rest bulging inboard
-    if i >= 4 and s > 0: kb *= 0.86                             # flatter top of the head
-    if i <= 3 and s < 0: kb *= 1.08                             # fuller front of the shaft under the fingers
+    n = 2.7                                                     # superellipse: squarer sections, like a moulded grip
+    sc = abs(c) ** (2 / n - 1) if c else 1; ss = abs(s) ** (2 / n - 1) if s else 1
+    ka, kb = sc, ss
+    if 3 <= i <= 7 and c > 0: ka *= 1 + 0.16 * c * c            # thumb rest, inboard
+    if i >= 4 and s > 0: kb *= 0.82                              # flat top of the head
     return ka, kb
 loft('StickGrip', spine, secs, M['grip'], st, shape=stick_shape)
-# radio trigger under the nose
-tr = rounded_box('StickTrigger', 0.013, 0.011, 0.03, 0.004, M['black'], st, loc=(0, 0.062, 0.122), rot=(math.radians(-38), 0, 0), sub=1)
-# takeover / AP disconnect pushbutton on the top, inboard
-bz = cylinder('StickButtonBezel', 0.0085, 0.004, M['black'], st, loc=(0.0105, 0.041, 0.1655), rot=(math.radians(-8), math.radians(24), 0), bev=0.0012)
-bt = cylinder('StickButton', 0.0066, 0.006, M['red'], st, loc=(0.0112, 0.041, 0.1675), rot=(math.radians(-8), math.radians(24), 0), bev=0.0018)
-# bellows boot
-prof = [(0.046, 0.0), (0.044, 0.004)]
-z = 0.004; r_out, r_in = 0.044, 0.036
+tr = rounded_box('StickTrigger', 0.016, 0.012, 0.032, 0.0045, M['black'], st, loc=(0, 0.066, 0.118), rot=(math.radians(-35), 0, 0), sub=1)
+cylinder('StickButtonBezel', 0.0088, 0.004, M['black'], st, loc=(0.0115, 0.044, 0.1625), rot=(math.radians(-6), math.radians(26), 0), bev=0.0012)
+cylinder('StickButton', 0.0068, 0.006, M['red'], st, loc=(0.0122, 0.044, 0.1645), rot=(math.radians(-6), math.radians(26), 0), bev=0.0018)
+# stacked rubber boot: rounded-square layers stepping in toward the grip, on a rubber core
 for k in range(6):
-    prof += [(r_in, z + 0.003), (r_out - 0.002 * k, z + 0.006)]; z += 0.007; r_out -= 0.0045; r_in -= 0.0045
-prof += [(0.0175, z + 0.006), (0.0162, z + 0.016)]
-boot = lathe('StickBoot', prof, M['rubber'], st); subsurf(boot, 1); apply_mods(boot)
-# bezel plate with the boot opening and four fasteners
-pl = rounded_box('StickPlate', 0.118, 0.118, 0.008, 0.006, M['plate'], st, loc=(0, 0, -0.004))
-hole = bpy.data.objects.new('cut', bpy.data.meshes.new('cut')); bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=48, radius1=0.047, radius2=0.047, depth=0.05); bm.to_mesh(hole.data); bm.free()
-bpy.context.collection.objects.link(hole)
-bo = pl.modifiers.new('hole', 'BOOLEAN'); bo.object = hole; bo.operation = 'DIFFERENCE'; apply_mods(pl); bpy.data.objects.remove(hole)
-ring = lathe('StickRing', [(0.047, -0.001), (0.05, 0.0015), (0.053, 0.0015), (0.054, -0.001)], M['metal'], st)
+    w = 0.098 - k * 0.009
+    rounded_box('StickBootLayer', w, w, 0.0042, 0.006 + k * 0.0008, M['rubber'], st, loc=(0, 0, 0.004 + k * 0.0062), seg=3)
+lathe('StickBootCore', [(0.022, 0.0), (0.021, 0.03), (0.018, 0.04), (0.0168, 0.046)], M['rubber'], st)
+pl = rounded_box('StickPlate', 0.122, 0.122, 0.008, 0.006, M['plate'], st, loc=(0, 0, -0.004))
 for sx in (-1, 1):
     for sy in (-1, 1):
-        cylinder('StickScrew', 0.0034, 0.0024, M['metal'], st, loc=(sx * 0.049, sy * 0.049, 0.001), seg=16, bev=0.0008)
+        cylinder('StickScrew', 0.0034, 0.0024, M['metal'], st, loc=(sx * 0.052, sy * 0.052, 0.001), seg=16, bev=0.0008)
 
 # ------------------------------------------------------------------ thrust lever handle (left lever; A/THR pb outboard, -X)
 th = empty('ThrustHandle')

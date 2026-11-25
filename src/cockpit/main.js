@@ -16,8 +16,8 @@ const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, LITE ? 1.5 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.95;
+renderer.toneMapping = THREE.NeutralToneMapping;   // neutral, sim-like colour response
+renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -35,7 +35,7 @@ scene.environmentIntensity = 0.8;
 const sun = new THREE.DirectionalLight(0xfff1dd, 3.0);
 sun.position.copy(SUN_DIR).multiplyScalar(12).add(new THREE.Vector3(0, 0.8, 0.5));
 sun.target.position.set(0, 0.8, 0.5);
-sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
+sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 1024 : 4096, LITE ? 1024 : 4096);
 Object.assign(sun.shadow.camera, { left: -2.0, right: 2.0, top: 2.0, bottom: -2.0, near: 2, far: 30 });
 sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 3;
 scene.add(sun, sun.target);
@@ -56,9 +56,9 @@ if (!LITE) {
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   gtao = new GTAOPass(scene, camera, 1, 1);
-  gtao.updateGtaoMaterial({ radius: 0.09, distanceExponent: 1.6, thickness: 0.6, scale: 1.0, samples: 16 });
+  gtao.updateGtaoMaterial({ radius: 0.13, distanceExponent: 1.4, thickness: 0.8, scale: 1.15, samples: 24 });   // contact shadows in every panel gap and around every control
   gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-  gtao.blendIntensity = 0.85;
+  gtao.blendIntensity = 1.0;
   composer.addPass(gtao);
   composer.addPass(new OutputPass());
 }

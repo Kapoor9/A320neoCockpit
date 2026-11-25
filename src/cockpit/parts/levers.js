@@ -119,7 +119,7 @@ export const DETENT_DEG = { REV: -14, IDLE: 0, N45: 11, CL: 22, FLX: 33, TOGA: 4
 export function makeThrustQuadrant(M, atlas) {
   const g = new THREE.Group();
   // measured: the lever gates are a tight drum, radius ~7.8 cm about a pivot at deck level, top ~9.5 cm up
-  const pivotZ = 0.0, armLen = 0.125, A0 = -1.35, A1 = 1.35;
+  const pivotZ = 0.0, armLen = 0.098, A0 = -1.35, A1 = 1.35;   // handle seated just above the drum
   // central housing with two curved lever slots
   const base = rbox(0.16, 0.26, 0.012, 0.004, M.panelDark); base.position.set(0, 0.04, 0.0); g.add(base);
   // raised centre divider between the two lever tracks
@@ -129,7 +129,7 @@ export function makeThrustQuadrant(M, atlas) {
   const div = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(divShape, { depth: 0.02, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelOffset: -0.002, bevelSegments: 2 }).rotateY(Math.PI / 2), M.module));
   div.position.x = -0.01; g.add(div);
   // curved top over which the levers travel (a cylinder segment)
-  const rArc = armLen - 0.047, a0 = A0, a1 = A1;
+  const rArc = 0.078, a0 = A0, a1 = A1;
   const arcMat = M.module.clone(); arcMat.side = THREE.DoubleSide;
   // the arc surface, interrupted by the two lever slots
   const edges = [-0.074, -0.0335, -0.0225, 0.0225, 0.0335, 0.074];
@@ -180,7 +180,7 @@ export function makeThrustQuadrant(M, atlas) {
   const btnMat = new THREE.MeshStandardMaterial({ color: 0x9a2b22, roughness: 0.45 });
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.028, 0, pivotZ); g.add(pivot);
-    const arm = rbox(0.008, 0.012, armLen, 0.003, M.metal); arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
+    const arm = rbox(0.009, 0.03, armLen, 0.004, M.metal);   // broad lever blade running in the gate slot arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
     const handle = rbox(0.05, 0.03, 0.026, 0.012, M.rubber); handle.position.set(s * 0.017, 0.003, armLen + 0.008); pivot.add(handle);
     const grip = rbox(0.05, 0.012, 0.012, 0.005, M.panelDark); grip.position.set(s * 0.017, 0.017, armLen + 0.004); pivot.add(grip);

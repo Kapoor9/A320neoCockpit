@@ -69,10 +69,28 @@ export function buildPanel(spec, M, atlas) {
   const c = cv.getContext('2d');
   c.fillStyle = spec.bg || '#434d54'; c.fillRect(0, 0, cw, ch);
   const P = (x, y) => [(x + w / 2) * PX_PER_M, (h / 2 - y) * PX_PER_M];
+  {
+    let seed = 0; for (const ch of String(spec.name || 'p')) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let k = 0; k < 14; k++) {   // uneven paint and grime
+      const gx = rnd() * cw, gy = rnd() * ch, gr = (0.15 + rnd() * 0.5) * Math.max(cw, ch);
+      const g = c.createRadialGradient(gx, gy, 0, gx, gy, gr); const dark = rnd() < 0.6;
+      g.addColorStop(0, dark ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.035)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, cw, ch);
+    }
+    const e = Math.min(cw, ch) * 0.12;   // edges collect grime
+    for (const [x0, y0, x1, y1] of [[0, 0, e, 0], [cw, 0, cw - e, 0], [0, 0, 0, e], [0, ch, 0, ch - e]]) {
+      const g = c.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,0.16)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, cw, ch);
+    }
+    for (const it of spec.items || []) {   // paint polished by fingers around knobs and switches
+      if (it.t !== 'knob' && it.t !== 'toggle' && it.t !== 'pb') continue;
+      const [kx, ky] = P(it.x, it.y); const r = ((it.r || 0.011) * 2.4) * PX_PER_M;
+      const g = c.createRadialGradient(kx, ky, r * 0.3, kx, ky, r); g.addColorStop(0, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(kx - r, ky - r, r * 2, r * 2);
+    }
+  }
   c.strokeStyle = c.fillStyle = '#e8ebe6'; c.lineCap = 'round'; c.lineJoin = 'round';
   const text = (s, x, y, size = 0.006, align = 'center', weight = 600) => {
     c.font = `${weight} ${size * PX_PER_M}px ${FONT_PANEL}`; c.textAlign = align; c.textBaseline = 'middle';
-    String(s).split('\n').forEach((line, i, arr) => { const [px, py] = P(x, y + (arr.length - 1) * size * 0.55 - i * size * 1.1); c.fillText(line, px, py); });
+    String(s).split('\n').forEach((line, i, arr) => { const [px, py] = P(x, y + (arr.length - 1) * size * 0.55 - i * size * 1.1); const f = c.fillStyle; c.fillStyle = 'rgba(8,10,12,0.55)'; c.fillText(line, px + 1.2, py + 1.4); c.fillStyle = f; c.fillText(line, px, py); });
   };
   if (spec.title) text(spec.title, 0, h / 2 - 0.007, 0.0065);
   for (const it of spec.items || []) {
@@ -86,8 +104,9 @@ export function buildPanel(spec, M, atlas) {
   }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const faceMat = addGrain(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }), 'paint');
-  const plate = rbox(w, h, 0.008, 0.002, M.module); plate.position.z = -0.004; g.add(plate);
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.0015, h - 0.0015), faceMat); face.position.z = 0.0001; face.receiveShadow = true; g.add(face);
+  const gap = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.004, h + 0.004), new THREE.MeshBasicMaterial({ color: 0x07080a })); gap.position.z = -0.0085; g.add(gap);
+  const plate = rbox(w - 0.001, h - 0.001, 0.009, 0.0035, M.module); plate.position.z = -0.0045; g.add(plate);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.006, h - 0.006), faceMat); face.position.z = 0.0001; face.receiveShadow = true; g.add(face);
 
   // 3D controls
   const controls = {};
