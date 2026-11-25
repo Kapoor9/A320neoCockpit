@@ -539,6 +539,61 @@ function buildPedestal(M, refs) {
   return grp;
 }
 
+
+// ---------------------------------------------------------------- overhead surround and ceiling (as photographed)
+function buildOverheadSurround(M) {
+  const grp = new THREE.Group(); const O = D.OVERHEAD;
+  const F = new THREE.Vector3(0, O.front[1], O.front[0]), R = new THREE.Vector3(0, O.rear[1], O.rear[0]);
+  const P = (t) => F.clone().lerp(R, t);
+  const ceil = addGrain(new THREE.MeshStandardMaterial({ color: 0x8a9faa, roughness: 0.8, side: THREE.DoubleSide }), 'lining');
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1f2329, roughness: 0.55 });
+  const edgeX = O.halfWidth + 0.035;
+  // up-dip from overhead plane to its housing top (overhead plane normal)
+  const n = R.clone().sub(F).normalize().cross(new THREE.Vector3(1, 0, 0)).normalize(); if (n.y < 0) n.negate();
+  for (const s of [-1, 1]) {
+    // side fairing: from the overhead edge, angled up and outboard into the ceiling, full length of the overhead
+    const A = [], B = [];
+    for (let i = 0; i <= 24; i++) {
+      const p = P(i / 24); const a = new THREE.Vector3(s * edgeX, p.y, p.z).add(n.clone().multiplyScalar(0.03));
+      let y = a.y + 0.1; const lim = crownAt(p.z) - 0.02; if (y > lim) y = lim;
+      let x = hullHW(p.z, y) - 0.01; if (x < edgeX + 0.05) x = edgeX + 0.05;
+      A.push(a); B.push(new THREE.Vector3(s * x, y, p.z));
+    }
+    grp.add(stripMesh(A, B, ceil));
+    // dark padded rail along each long edge of the overhead
+    const r0 = P(0).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0)), r1 = P(1).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0));
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, r0.distanceTo(r1), 16), dark);
+    rail.position.copy(r0).add(r1).multiplyScalar(0.5); rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.scale.set(1, 1, 1.4); grp.add(rail);
+    // items on the fairing: two eyeball air outlets and a reading light toward the front
+    for (const [tt, k] of [[0.12, 'g'], [0.3, 'g'], [0.5, 'r']]) {
+      const a = A[Math.round(tt * 24)], b = B[Math.round(tt * 24)]; const c = a.clone().lerp(b, 0.5);
+      const nrm = b.clone().sub(a).cross(A[Math.round(tt * 24) + 1].clone().sub(a)).normalize(); if (nrm.y > 0) nrm.negate();
+      const o = k === 'g' ? gasper(M) : readingLight(); o.position.copy(c).add(nrm.clone().multiplyScalar(0.004)); o.lookAt(c.clone().add(nrm)); grp.add(o);
+    }
+    // ceiling: headset stowage recess (dark box with a headset in it), aft and outboard of the overhead
+    { const z = 1.45, y = 1.82; const rec = new THREE.Group(); const box = rbox(0.3, 0.15, 0.06, 0.01, dark); box.position.z = -0.025; rec.add(box);
+      const rim = rbox(0.32, 0.17, 0.008, 0.012, ceil); rim.position.z = 0.004; rec.add(rim); const hs = headset(M); hs.scale.setScalar(0.8); hs.rotation.x = Math.PI / 2; hs.position.z = -0.02; rec.add(hs);
+      grp.add(onShell(rec, s, z, Math.min(y, crownAt(z) - 0.06), [1, 0], 0.02)); }
+    // loudspeaker box hanging from the ceiling ahead of the overhead side (angled grille face)
+    { const z = 0.75; const y = 1.62; const sp = new THREE.Group(); const body = rbox(0.24, 0.16, 0.1, 0.02, ceil); body.position.z = 0.05; sp.add(body);
+      const gr = rbox(0.19, 0.11, 0.006, 0.01, new THREE.MeshStandardMaterial({ color: 0x2b3036, roughness: 0.8 })); gr.position.z = 0.101; sp.add(gr);
+      for (let k = 0; k < 9; k++) { const sl = rbox(0.17, 0.004, 0.003, 0.0015, dark); sl.position.set(0, -0.045 + k * 0.011, 0.105); sp.add(sl); }
+      grp.add(onShell(sp, s, z, y, [1, 0], 0.0)); }
+    // triangular air outlet and a seam line on the ceiling panel
+    { const tri = new THREE.Mesh(new THREE.CircleGeometry(0.035, 3), dark); grp.add(onShell(tri, s, 1.1, 1.78, [1, 0], 0.012)); }
+  }
+  // SMOKE HOOD placard on the left aft ceiling panel
+  { const pl = new THREE.Group(); const p = rbox(0.17, 0.035, 0.003, 0.003, new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.5 })); pl.add(p); grp.add(onShell(pl, -1, 1.75, 1.7, [1, 0], 0.012)); refs_smoke = pl; }
+  // aft face of the overhead housing closing up to the roof, with a dome light
+  { const z = O.rear[0] + 0.015; const y0 = O.rear[1] - 0.05, y1 = crownAt(z) - 0.005; const hw = hullHW(z, y0 + 0.02) - 0.02;
+    const back = rbox(Math.min(2 * hw, 1.0), y1 - y0, 0.012, 0.01, ceil); back.position.set(0, (y0 + y1) / 2, z); grp.add(back);
+    const dl = rbox(0.16, 0.06, 0.012, 0.012, new THREE.MeshStandardMaterial({ color: 0xd9d4c4, roughness: 0.5 })); dl.position.set(0, (y0 + y1) / 2, z - 0.008); grp.add(dl); }
+  // forward end of the overhead: dark lower lip running across to the windshield header
+  { const lip = rbox(2 * edgeX + 0.02, 0.03, 0.06, 0.012, dark); lip.position.set(0, O.front[1] - 0.012, O.front[0] - 0.01); grp.add(lip); }
+  return grp;
+}
+let refs_smoke = null;
+
 // ---------------------------------------------------------------- overhead panel
 function buildOverhead(M, refs) {
   const O = D.OVERHEAD;
@@ -828,7 +883,7 @@ export function buildCockpit(scene) {
   const M = finish(makeMaterials()); const refs = { atlas: new LabelAtlas(2048) };
   const root = new THREE.Group(); root.name = 'cockpit';
   root.add(buildShell(M), buildMainPanel(M, refs), buildGlareshield(M, refs), buildPedestal(M, refs),
-    buildOverhead(M, refs), buildConsolesAndSeats(M, refs), buildFittings(M, refs));
+    buildOverhead(M, refs), buildOverheadSurround(M), buildConsolesAndSeats(M, refs), buildFittings(M, refs));
   root.traverse((o) => { if (o.isMesh && o.material !== M.glass) { o.castShadow ??= true; o.receiveShadow = true; } });
   scene.add(root);
   buildOutside(scene);
