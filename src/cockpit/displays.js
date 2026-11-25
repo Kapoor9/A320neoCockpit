@@ -59,36 +59,44 @@ function nd() {
 }
 
 function ewd() {
+  // engines shut down: amber XX in every gauge, memo in green
   const [cv, c] = canvas();
-  for (const [x, lab] of [[130, 'N1'], [382, 'N1']]) {
-    c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.arc(x, 96, 58, Math.PI * 0.85, Math.PI * 2.15); c.stroke();
-    c.strokeStyle = C.r; c.beginPath(); c.arc(x, 96, 58, Math.PI * 2.05, Math.PI * 2.15); c.stroke();
-    c.strokeStyle = C.g; c.lineWidth = 4; c.beginPath(); c.moveTo(x, 96); c.lineTo(x - 50, 120); c.stroke();
-    txt(c, '19.5', x + 20, 128, C.g, 22);
-    c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.arc(x, 220, 48, Math.PI * 0.85, Math.PI * 2.0); c.stroke();
-    txt(c, '402', x + 12, 246, C.g, 20);
-  }
-  txt(c, 'N1', 256, 96, C.w, 20); txt(c, '%', 256, 118, C.c, 16); txt(c, 'EGT', 256, 220, C.w, 20); txt(c, '°C', 256, 242, C.c, 16);
-  txt(c, '58.8', 130, 300, C.g, 22); txt(c, 'N2', 256, 300, C.w, 20); txt(c, '58.6', 382, 300, C.g, 22);
-  txt(c, '280', 130, 334, C.g, 22); txt(c, 'FF', 256, 334, C.w, 20); txt(c, '280', 382, 334, C.g, 22);
-  txt(c, 'FOB :', 24, 376, C.w, 20, 'left'); txt(c, '9520 KG', 110, 376, C.g, 22, 'left');
-  txt(c, 'S', 380, 372, C.w, 18); txt(c, 'F', 430, 372, C.w, 18); c.strokeStyle = C.w; c.lineWidth = 2; c.strokeRect(400, 360, 20, 24);
-  c.beginPath(); c.moveTo(16, 400); c.lineTo(496, 400); c.stroke();
-  txt(c, 'SEAT BELTS', 24, 430, C.g, 18, 'left'); txt(c, 'NO SMOKING', 24, 456, C.g, 18, 'left'); txt(c, 'PARK BRK', 300, 430, C.g, 18, 'left');
+  const xx = (x, y, px = 22) => txt(c, 'XX', x, y, C.a, px);
+  const gauge = (x, y, r) => { c.strokeStyle = C.a; c.lineWidth = 3.5; c.beginPath(); c.arc(x, y, r, Math.PI * 0.92, Math.PI * 2.02); c.stroke(); };
+  for (const x of [190, 340]) { gauge(x, 70, 40); xx(x, 64); xx(x + 16, 92, 18); gauge(x, 172, 34); xx(x, 186, 19); gauge(x, 254, 40); xx(x + 16, 272, 19); }
+  txt(c, 'EPR', 266, 66, C.w, 20); txt(c, 'EGT', 266, 158, C.w, 20); txt(c, '°C', 266, 176, C.c, 15); txt(c, 'N1', 266, 254, C.w, 20); txt(c, '%', 266, 272, C.c, 15);
+  xx(466, 40, 19);
+  txt(c, 'FF', 36, 158, C.w, 18, 'left'); txt(c, 'KG/H', 66, 158, C.c, 14, 'left'); xx(56, 180, 18);
+  txt(c, 'FF', 420, 158, C.w, 18, 'left'); txt(c, 'KG/H', 450, 158, C.c, 14, 'left'); xx(440, 180, 18);
+  txt(c, 'N2', 40, 236, C.w, 18, 'left'); txt(c, '%', 74, 236, C.c, 15, 'left'); xx(56, 256, 18);
+  txt(c, 'N2', 428, 236, C.w, 18, 'left'); txt(c, '%', 462, 236, C.c, 15, 'left'); xx(444, 256, 18);
+  c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.moveTo(332, 312); c.lineTo(350, 302); c.lineTo(374, 306); c.lineTo(370, 316); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(352, 304); c.lineTo(352, 314); c.stroke();
+  txt(c, 'FOB :', 16, 346, C.w, 22, 'left'); txt(c, '19080', 104, 346, C.g, 24, 'left'); txt(c, 'KG', 192, 348, C.c, 17, 'left');
+  c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 372); c.lineTo(296, 372); c.moveTo(330, 372); c.lineTo(504, 372); c.moveTo(316, 384); c.lineTo(316, 496); c.stroke();
+  txt(c, 'COMPANY DATALINK STBY', 14, 394, C.g, 19, 'left');
+  ['PARK BRK', 'TCAS STBY', 'VHF3 VOICE'].forEach((s, i) => txt(c, s, 336, 394 + i * 22, C.g, 19, 'left'));
+  c.lineWidth = 2; c.strokeRect(296, 484, 40, 22); txt(c, 'STS', 316, 495, C.w, 15);
   return cv;
 }
 
 function sd() {
   const [cv, c] = canvas();
-  txt(c, 'DOOR/OXY', 256, 30, C.w, 24); c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(196, 46); c.lineTo(316, 46); c.stroke();
-  txt(c, 'CKPT OXY', 400, 30, C.w, 16); txt(c, '1740', 400, 54, C.g, 18);
+  txt(c, 'DOOR/OXY', 256, 26, C.w, 26); c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(188, 44); c.lineTo(324, 44); c.stroke();
+  txt(c, 'CKPT OXY', 430, 22, C.w, 18); txt(c, '1740', 410, 46, C.g, 20); txt(c, 'PSI', 462, 48, C.c, 15);
+  c.strokeStyle = C.w; c.lineWidth = 2.5;   // slim fuselage outline
+  c.beginPath(); c.moveTo(256, 64); c.quadraticCurveTo(290, 74, 292, 120); c.lineTo(292, 448); c.quadraticCurveTo(292, 462, 280, 462); c.lineTo(232, 462); c.quadraticCurveTo(220, 462, 220, 448); c.lineTo(220, 120); c.quadraticCurveTo(222, 74, 256, 64); c.stroke();
+  c.beginPath(); c.moveTo(220, 280); c.lineTo(110, 322); c.moveTo(292, 280); c.lineTo(402, 322); c.stroke();
   c.strokeStyle = C.g; c.lineWidth = 3;
-  c.beginPath(); c.moveTo(256, 70); c.quadraticCurveTo(300, 90, 300, 150); c.lineTo(300, 400); c.quadraticCurveTo(300, 440, 256, 450); c.quadraticCurveTo(212, 440, 212, 400); c.lineTo(212, 150); c.quadraticCurveTo(212, 90, 256, 70); c.stroke();
-  c.beginPath(); c.moveTo(212, 230); c.lineTo(110, 290); c.moveTo(300, 230); c.lineTo(402, 290); c.stroke();
-  for (const y of [120, 330, 420]) for (const x of [204, 300]) c.strokeRect(x, y, 8, 22);
-  txt(c, 'CABIN', 150, 120, C.c, 16); txt(c, 'SLIDE', 160, 360, C.w, 14); txt(c, 'SLIDE', 352, 360, C.w, 14);
-  c.beginPath(); c.moveTo(16, 470); c.lineTo(496, 470); c.stroke();
-  txt(c, 'TAT +19 °C', 24, 492, C.w, 16, 'left'); txt(c, '09 H 27', 256, 492, C.g, 18); txt(c, 'GW   KG', 488, 492, C.c, 16, 'right');
+  c.strokeRect(246, 86, 20, 12);
+  for (const [x, y] of [[236, 112], [266, 112], [272, 160], [246, 196], [270, 220], [230, 302], [270, 302], [230, 330], [270, 330], [270, 374], [270, 398], [230, 436], [270, 436]]) c.strokeRect(x, y, 12, 20);
+  c.fillStyle = C.a; c.fillRect(224, 160, 12, 22); txt(c, 'CABIN', 96, 170, C.a, 18, 'left');
+  c.strokeStyle = C.a; c.lineWidth = 2; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(160, 170); c.lineTo(222, 170); c.stroke(); c.setLineDash([]);
+  txt(c, 'SLIDE', 168, 316, C.w, 16); txt(c, 'SLIDE', 344, 316, C.w, 16);
+  c.strokeStyle = C.w; c.lineWidth = 2.5; c.beginPath(); c.moveTo(10, 470); c.lineTo(502, 470); c.moveTo(172, 470); c.lineTo(172, 510); c.moveTo(340, 470); c.lineTo(340, 510); c.stroke();
+  txt(c, 'TAT', 18, 482, C.w, 15, 'left'); txt(c, '+11', 72, 482, C.g, 16, 'left'); txt(c, '°C', 136, 482, C.c, 14, 'left');
+  txt(c, 'SAT', 18, 500, C.w, 15, 'left'); txt(c, '+11', 72, 500, C.g, 16, 'left'); txt(c, '°C', 136, 500, C.c, 14, 'left');
+  txt(c, '09', 228, 492, C.g, 20); txt(c, 'H', 256, 494, C.c, 14); txt(c, '27', 284, 492, C.g, 20);
+  txt(c, 'GW', 352, 482, C.w, 15, 'left'); txt(c, '--', 412, 482, C.g, 16, 'left'); txt(c, 'KG', 492, 482, C.c, 14, 'right');
   return cv;
 }
 
@@ -101,11 +109,19 @@ function mcdu() {
 
 function isis() {
   const [cv, c] = canvas(256);
-  c.save(); c.beginPath(); c.rect(40, 30, 176, 196); c.clip(); c.fillStyle = C.sky; c.fillRect(40, 30, 176, 100); c.fillStyle = C.gnd; c.fillRect(40, 130, 176, 100); c.restore();
-  c.fillStyle = '#2a2e33'; c.fillRect(0, 30, 40, 196); c.fillRect(216, 30, 40, 196);
-  txt(c, '0', 20, 128, C.w, 16); txt(c, '20', 236, 128, C.w, 14);
-  c.fillStyle = C.y; c.fillRect(88, 126, 30, 6); c.fillRect(138, 126, 30, 6); c.fillRect(124, 126, 8, 8);
-  txt(c, '1013 HPA', 128, 242, C.c, 14);
+  c.save(); c.beginPath(); c.rect(40, 18, 176, 200); c.clip(); c.fillStyle = C.sky; c.fillRect(40, 18, 176, 104); c.fillStyle = C.gnd; c.fillRect(40, 122, 176, 100);
+  c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(40, 122); c.lineTo(216, 122); c.stroke();
+  for (const [d, w] of [[-44, 60], [-22, 28], [22, 28], [44, 60]]) { c.beginPath(); c.moveTo(128 - w / 2, 122 + d); c.lineTo(128 + w / 2, 122 + d); c.stroke(); if (w > 40) { txt(c, '10', 128 - w / 2 - 12, 122 + d, C.w, 12); txt(c, '10', 128 + w / 2 + 12, 122 + d, C.w, 12); } }
+  c.beginPath(); c.arc(128, 122, 92, Math.PI * 1.3, Math.PI * 1.7); c.stroke(); c.fillStyle = C.y; c.beginPath(); c.moveTo(128, 34); c.lineTo(122, 44); c.lineTo(134, 44); c.closePath(); c.fill();
+  c.restore();
+  c.fillStyle = '#3d4248'; c.fillRect(6, 18, 34, 200); c.fillRect(216, 18, 40, 200);
+  c.strokeStyle = C.w; c.lineWidth = 2; for (let i = 0; i < 9; i++) { const y = 26 + i * 24; c.beginPath(); c.moveTo(32, y); c.lineTo(40, y); c.stroke(); c.beginPath(); c.moveTo(216, y); c.lineTo(224, y); c.stroke(); }
+  txt(c, '60', 20, 50, C.w, 15); txt(c, '40', 20, 98, C.w, 15);
+  txt(c, '010', 238, 30, C.w, 13); txt(c, '000', 238, 214, C.w, 13);
+  c.fillStyle = '#000'; c.fillRect(212, 110, 44, 24); c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(212, 110, 44, 24); txt(c, '500', 234, 122, C.g, 16);
+  c.fillStyle = C.y; c.fillRect(76, 118, 34, 7); c.fillRect(146, 118, 34, 7); c.fillRect(124, 118, 8, 8);
+  c.fillRect(4, 120, 38, 4);
+  txt(c, '1003', 82, 238, C.c, 16);
   return cv;
 }
 
@@ -116,14 +132,14 @@ function seg(text, w, h, col = '#ffb02e', bg = '#0a0f0c') {   // segmented-displ
   c.fillStyle = col; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cv.width / 2, cv.height * 0.54); return cv;
 }
 function dcdu() {
-  const [cv, c] = canvas(256); c.fillStyle = '#06080a'; c.fillRect(0, 0, 256, 256);
-  txt(c, 'NO ACTIVE ATC', 128, 40, C.w, 18); c.strokeStyle = C.w; c.lineWidth = 2; c.strokeRect(70, 26, 116, 28);
-  txt(c, 'MSG -/-', 210, 230, C.w, 16); return cv;
+  const [cv, c] = canvas(256); c.fillStyle = '#05070a'; c.fillRect(0, 0, 256, 256);
+  c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(12, 168); c.lineTo(244, 168); c.moveTo(80, 176); c.lineTo(80, 246); c.moveTo(176, 176); c.lineTo(176, 246); c.stroke();
+  txt(c, 'COM NOT AVAIL', 128, 196, C.a, 15); return cv;
 }
 export function paintDisplays(scene, refs) {
   const apply = (mesh, cv, bright = 1.0) => {
     if (!mesh) return; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
-    mesh.material = new THREE.MeshPhysicalMaterial({ color: 0x000000, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright, roughness: 0.35, clearcoat: 0.3, clearcoatRoughness: 0.4 });
+    mesh.material = new THREE.MeshPhysicalMaterial({ color: 0x000000, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright, roughness: 0.55, clearcoat: 0.12, clearcoatRoughness: 0.5, envMapIntensity: 0.25 });
   };
   const S = refs.screens || {};
   apply(S.PFD1, pfd(-1)); apply(S.PFD2, pfd(1)); apply(S.ND1, nd()); apply(S.ND2, nd()); apply(S.EWD, ewd()); apply(S.SD, sd()); apply(S.ISIS, isis(), 0.9);
@@ -134,6 +150,6 @@ export function paintDisplays(scene, refs) {
     if (o.name === 'rudTrimWin') apply(o, seg('R 0.0', 0.04, 0.013), 0.7);
     if (o.name === 'atcWin') apply(o, seg('7000', 0.045, 0.022), 0.7);
   });
-  if (refs.clock) { const scr = refs.clock.children.filter((c) => c.isMesh && c.geometry.type === 'PlaneGeometry'); const T = ['', '09:27 28', '']; scr.forEach((m, i) => apply(m, seg(T[i] || '', 0.04, 0.016, '#e8f0f4', '#0b1220'), 0.6)); }
-  (refs.dcdu || []).forEach((u) => u.children.forEach((m) => { if (m.isMesh && m.geometry.type === 'PlaneGeometry') apply(m, dcdu(), 0.7); }));
+  if (refs.clock) refs.clock.traverse((m) => { if (m.name === 'clkWin1') apply(m, seg('09:27 28', 0.045, 0.013, '#e8f0f4', '#081224'), 0.75); else if (m.name === 'clkWin0' || m.name === 'clkWin2') apply(m, seg('', 0.034, 0.0104, '#e8f0f4', '#0a1a3a'), 0.5); });
+  (refs.dcdu || []).forEach((u) => u.traverse((m) => { if (m.name === 'dcduScreen') apply(m, dcdu(), 0.7); }));
 }

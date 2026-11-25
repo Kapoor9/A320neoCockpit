@@ -295,18 +295,6 @@ function buildWindowFrames(M) {
     grp.add(bar(lift(B, 0.02), lift(C, 0.02), 0.06, 0.035, f, nIn));
     {
       const xA = C.clone().sub(B).normalize(), yA = B.clone().sub(A).normalize(); const zA = xA.clone().cross(yA).normalize(); if (zA.dot(nIn) < 0) zA.negate();
-      const VW = 0.27, VH = 0.24, ch = 0.045; const vs = new THREE.Shape();
-      vs.moveTo(-VW / 2, VH / 2); vs.lineTo(VW / 2, VH / 2); vs.lineTo(VW / 2, -VH / 2 + ch); vs.lineTo(VW / 2 - ch, -VH / 2); vs.lineTo(-VW / 2 + ch, -VH / 2); vs.lineTo(-VW / 2, -VH / 2 + ch); vs.closePath();
-      const vis = new THREE.Mesh(new THREE.ExtrudeGeometry(vs, { depth: 0.003, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.0015, bevelSegments: 2 }), new THREE.MeshPhysicalMaterial({ color: 0xeadff0, roughness: 0.08, transparent: true, opacity: 0.5, depthWrite: false }));
-      const base = new THREE.Group(); base.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
-      base.position.copy(B.clone().lerp(C, 0.5)).add(yA.clone().multiplyScalar(-0.17)).add(nIn.clone().multiplyScalar(0.09)); grp.add(base);
-      vis.renderOrder = 11; base.add(vis);
-      const armM = new THREE.MeshStandardMaterial({ color: 0x17191c, roughness: 0.35 });
-      const edge = rbox(VW + 0.004, 0.012, 0.012, 0.005, armM); edge.position.set(0, VH / 2, 0.002); base.add(edge);   // dark top edge
-      const piv = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 16), armM); piv.rotation.z = Math.PI / 2; piv.position.set(VW / 2 - 0.02, VH / 2 + 0.012, 0.004); base.add(piv);
-      const arm = rbox(0.02, 0.13, 0.016, 0.006, armM); arm.position.set(VW / 2 - 0.02, VH / 2 + 0.075, 0.02); arm.rotation.x = -0.5; base.add(arm);
-      const clamp = rbox(0.045, 0.03, 0.035, 0.008, armM); clamp.position.set(VW / 2 - 0.02, VH / 2 + 0.135, 0.05); base.add(clamp);
-      const rail = rbox(0.42, 0.01, 0.012, 0.004, armM); rail.position.set(0.02, VH / 2 + 0.15, 0.05); base.add(rail);   // visor rail along the header
     }
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
@@ -387,10 +375,14 @@ function buildMainPanel(M, refs) {
   refs.screens = {};
   for (const [name, [x, y]] of Object.entries(D.DU_POS)) {
     // integrated in the panel: a flush dark surround with a shallow recess; only the glass shows
-    const b = rbox(D.DU.bezel, D.DU.bezel, 0.004, 0.004, M.bezel); b.position.set(x, y, 0.0); frame.add(b);
-    const well = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen + 0.008, D.DU.screen + 0.008), new THREE.MeshBasicMaterial({ color: 0x050607 })); well.position.set(x, y, 0.0021); frame.add(well);
+    const b = rbox(D.DU.bezel, D.DU.bezel, 0.005, 0.004, M.frame); b.position.set(x, y, 0.0); frame.add(b);
+    const sur = rbox(D.DU.screen + 0.014, D.DU.screen + 0.014, 0.003, 0.003, M.bezel); sur.position.set(x, y, 0.0012); frame.add(sur);
+    if (name === 'EWD' || name === 'SD') {   // the shade ledge across the top of each ECAM unit
+      const hood = rbox(D.DU.bezel + 0.014, 0.017, 0.024, 0.004, M.frame); hood.position.set(x, y + D.DU.bezel / 2 - 0.004, 0.012); frame.add(hood);
+      const lip = rbox(D.DU.bezel + 0.014, 0.004, 0.026, 0.0015, M.frame); lip.position.set(x, y + D.DU.bezel / 2 - 0.013, 0.012); frame.add(lip); }
+    const well = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen + 0.008, D.DU.screen + 0.008), new THREE.MeshBasicMaterial({ color: 0x050607 })); well.position.set(x, y, 0.0028); frame.add(well);
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen, D.DU.screen), M.screen.clone());
-    scr.position.set(x, y, 0.0024); scr.name = name; frame.add(scr);
+    scr.position.set(x, y, 0.0031); scr.name = name; frame.add(scr);
     refs.screens[name] = scr;
     addScrews(frame, corners(x, y, D.DU.bezel, D.DU.bezel, 0.0022, 0.009), M);
     // the brightness knob in the bezel corner
@@ -399,39 +391,28 @@ function buildMainPanel(M, refs) {
   }
   // measured layout of the centre columns and outboard panels (panel-local, y along the face)
   const Y = D.PANEL_Y; const on = (o, x, y, z = 0.001) => { o.position.set(x, Y(y), z); frame.add(o); return o; };
-  // centre-left: type placard, ISIS, DDRMI, clock; TERR ON ND
-  const plate = rbox(0.09, 0.02, 0.003, 0.002, M.trim); on(plate, -0.152, 0.806, 0.0015);
-  const pl = refs.atlas.mesh('A320neo', 0.011, { px: 40, weight: 600, color: '#1f2427' }, 0.08); on(pl, -0.152, 0.806, 0.0032);
-  const st = MP.isis(M, 0.078); on(st, -0.142, 0.70); refs.screens.ISIS = st.userData.screen;
-  { const rec = rbox(0.06, 0.07, 0.006, 0.012, M.panelDark); on(rec, -0.142, 0.615, -0.001); }   // recessed blank below the ISIS
-  // digital clock in the right column (CHR / UTC / ET)
-  { const clk = new THREE.Group(); const b = rbox(0.054, 0.066, 0.012, 0.006, M.bezel); b.position.z = 0.006; clk.add(b);
-    for (const [y, h] of [[0.019, 0.012], [0.0, 0.017], [-0.02, 0.012]]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.034, h), M.screen); s.position.set(0, y, 0.0124); clk.add(s); }
-    for (const [x, y] of [[-0.022, 0.024], [0.022, 0.024], [-0.022, -0.004], [0.022, -0.004], [0.022, -0.022]]) { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.0024, 0.002, 12).rotateX(Math.PI / 2), M.trim); k.position.set(x, y, 0.0128); clk.add(k); }
-    on(clk, 0.147, 0.69); refs.clock = clk; }
-  // datalink control and display units (DCDU) at the foot of both centre columns
-  refs.dcdu = [];
-  for (const s of [-1, 1]) { const u = new THREE.Group(); const b = rbox(0.12, 0.085, 0.004, 0.004, M.bezel); b.position.z = 0.0; u.add(b);
-    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.055), M.screen); sc.position.z = 0.0024; u.add(sc);
-    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const key = rbox(0.012, 0.008, 0.004, 0.0015, M.trim); key.position.set(sx * 0.05, 0.024 - k * 0.016, 0.003); u.add(key); }
-    on(u, s * 0.155, 0.5); refs.dcdu.push(u); }
-  on(MP.terrPanel(M, refs.atlas, -1), -0.2, 0.648, 0.0); on(MP.terrPanel(M, refs.atlas, 1), 0.245, 0.648, 0.0);
-  // centre-right: LDG GEAR indicator, AUTO/BRK, A/SKID & BRK FAN, gear lever, triple brake indicator
-  on(MP.gearIndicator(M, refs.atlas), 0.168, 0.8, 0.0); on(MP.autobrakePanel(M, refs.atlas), 0.168, 0.755, 0.0);
-  on(MP.gearLeverPanel(M, refs.atlas), 0.135, 0.572, 0.0);
-  const lever = new THREE.Group();
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.06, 12), M.metal); shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.03; lever.add(shaft);
-  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.018, 28), M.trim); wheel.rotation.z = Math.PI / 2; wheel.position.z = 0.062; lever.add(wheel);
-  on(lever, 0.135, 0.548, 0.004); refs.gearLever = lever;
-  on(MP.roundInstrument(M, 0.052), 0.205, 0.575);   // triple brake pressure indicator
+  // centre columns, laid out from the photo of F-WWIY's centre panel
+  const A = refs.atlas;
+  on(MP.placard(['A/C 5962 F-WWIY', 'FAN A'], 0.094, 0.029), -0.181, 0.81, 0.0);
+  on(MP.placard(['SELCAL PROV.', 'AJ-DM'], 0.069, 0.029), -0.216, 0.77, 0.0);
+  on(MP.limitPlacard(), -0.149, 0.767, 0.0);
+  const st = MP.isis(M, A); on(st, -0.147, 0.694, 0.0); refs.screens.ISIS = st.userData.screen;
+  on(MP.blankPocket(M), -0.15, 0.598, 0.0);
+  on(MP.terrPanel(M, A, -1), -0.223, 0.641, 0.0); on(MP.terrPanel(M, A, 1, 0.036, 0.046), 0.219, 0.698, 0.0);
+  refs.dcdu = []; for (const x of [-0.183, 0.178]) { const u = MP.dcduUnit(M, A); on(u, x, 0.499, 0.0); refs.dcdu.push(u); }
+  on(MP.gearBrakePlate(M, A), 0.177, 0.779, 0.0);
+  { const clk = MP.clock(M, A); on(clk, 0.153, 0.691, 0.0); refs.clock = clk; }
+  on(MP.gearLeverPanel(M, A), 0.145, 0.596, 0.0);
+  { const lever = MP.gearLever(M); on(lever, 0.1354, 0.618, 0.002); refs.gearLever = lever; }
+  on(MP.brakeIndicator(M, A), 0.208, 0.572, 0.0);
   // outboard lighting / loudspeaker panels
-  on(MP.lightingPanel(M, refs.atlas, -1), -0.69, 0.75, 0.0); on(MP.lightingPanel(M, refs.atlas, 1), 0.69, 0.75, 0.0);
+  on(MP.lightingPanel(M, refs.atlas, -1), -0.737, 0.75, 0.0); on(MP.lightingPanel(M, refs.atlas, 1), 0.737, 0.75, 0.0);
   // the lip under the PFD/ND pairs
-  for (const s of [-1, 1]) { const lip = rbox(0.53, 0.035, 0.03, 0.006, M.panel); on(lip, s * 0.48, 0.62, 0.012); }
+  for (const s of [-1, 1]) { const lip = rbox(0.53, 0.035, 0.03, 0.006, M.panel); on(lip, s * 0.525, 0.62, 0.012); }
   for (const s of [-1, 1]) {
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.44, 16).rotateZ(Math.PI / 2), M.metal); on(rail, s * 0.42, 0.598, 0.03);
-    const slot = rbox(0.46, 0.016, 0.01, 0.004, M.panelDark); on(slot, s * 0.42, 0.598, 0.018);
-    for (const [dx, w] of [[-0.17, 0.12], [0, 0.17], [0.17, 0.12]]) { const b = rbox(w, 0.032, 0.07, 0.008, dx ? M.panel : M.panelDark); on(b, s * 0.42 + dx, 0.552, 0.04); }
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.42, 16).rotateZ(Math.PI / 2), M.metal); on(rail, s * 0.475, 0.598, 0.03);
+    const slot = rbox(0.44, 0.016, 0.01, 0.004, M.panelDark); on(slot, s * 0.475, 0.598, 0.018);
+    for (const [dx, w] of [[-0.16, 0.11], [0, 0.17], [0.16, 0.11]]) { const b = rbox(w, 0.032, 0.07, 0.008, dx ? M.panel : M.panelDark); on(b, s * 0.475 + dx, 0.552, 0.04); }
   }
   return frame;
 }
@@ -781,9 +762,6 @@ function buildFittings(M, refs) {
     // air outlets near the windows and on the ceiling edge
     grp.add(onShell(gasper(M), s, 0.5, 1.5, [1, 0], 0.012)); grp.add(onShell(gasper(M), s, 1.2, 1.56, [1, 0], 0.012));
     // reading light on the sidewall above the console
-    // stowed sun visor, flat against the lining above the sliding window
-    const visor = rbox(0.3, 0.17, 0.006, 0.012, new THREE.MeshPhysicalMaterial({ color: 0x2d3a33, roughness: 0.25, transparent: true, opacity: 0.7 }));
-    grp.add(onShell(visor, s, 0.62, 1.47, [1, 0], 0.012));
     // side moulding under the side windows (as on the aircraft): a wide sill shelf carrying the sliding-window rail,
     // a large face sloping down and outboard onto the side console with a recessed pocket and a long slot, closed at the front
     {

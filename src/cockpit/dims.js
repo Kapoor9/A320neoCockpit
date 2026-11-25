@@ -15,7 +15,7 @@ export const PANEL = {
   height: 0.395,      // along the face, up to the top edge at y 0.835
   tiltDeg: 13,
   halfWidth: 0.81,
-  centreHalf: 0.215,
+  centreHalf: 0.255,
   bottomSideY: 0.50,  // captain / F/O panels end higher (knee room)
 };
 const yl = (y) => (y - 0.45) / Math.cos((13 * Math.PI) / 180);   // world height -> along-face
@@ -24,8 +24,8 @@ export const PANEL_Y = yl;
 // Display units: square bezel, ~6.25 in screen (measured)
 export const DU = { bezel: 0.19, screen: 0.158, depth: 0.03 };
 export const DU_POS = {          // panel-local x, along-face y
-  PFD1: [-0.51, yl(0.725)], ND1: [-0.312, yl(0.725)], EWD: [0.005, yl(0.725)], SD: [0.005, yl(0.515)],
-  ND2: [0.322, yl(0.725)], PFD2: [0.52, yl(0.725)],
+  PFD1: [-0.55, yl(0.725)], ND1: [-0.352, yl(0.725)], EWD: [0.005, yl(0.725)], SD: [0.005, yl(0.543)],
+  ND2: [0.362, yl(0.725)], PFD2: [0.56, yl(0.725)],
 };
 
 // Glareshield: thin anti-glare hood; the FCU, EFIS panels and warning blocks form one
