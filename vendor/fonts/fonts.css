@@ -1,0 +1,8 @@
+/* B612: open-source font designed for Airbus cockpit displays (SIL OFL 1.1).
+   Barlow Semi Condensed: DIN-style font used for engraved panel legends (SIL OFL 1.1). */
+@font-face{font-family:"B612";font-weight:400;src:url("./b612-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"B612";font-weight:700;src:url("./b612-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"B612 Mono";font-weight:400;src:url("./b612-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"B612 Mono";font-weight:700;src:url("./b612-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Panel";font-weight:500;src:url("./barlow-semi-condensed-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Panel";font-weight:600;src:url("./barlow-semi-condensed-latin-600-normal.woff2") format("woff2")}

@@ -4,6 +4,11 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import * as D from './dims.js';
 import { addGrain } from './surface.js';
+import { LabelAtlas } from './labels.js';
+import { makeMCDU } from './parts/mcdu.js';
+import { makeSidestick, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
+import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
+import * as PED from './parts/pedestal.js';
 
 // ---------------------------------------------------------------- materials
 // Colours: Airbus flight-deck blue-grey panels, near-black anti-glare glareshield,
@@ -30,7 +35,8 @@ export function makeMaterials() {
     metal: std(0x9aa0a3, 0.35, 0.8),
     rubber: std(0x1c1e20, 0.9),
     bezel: std(0x2a2f33, 0.45, 0.1),
-    screen: new THREE.MeshPhysicalMaterial({ color: 0x07090b, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08 }),
+    // display glass with an anti-glare coating: soft reflections, no hard sun hotspot
+    screen: new THREE.MeshPhysicalMaterial({ color: 0x07090b, roughness: 0.32, metalness: 0, clearcoat: 0.45, clearcoatRoughness: 0.35 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0xcfe0ea, roughness: 0.02, transmission: 0, transparent: true, opacity: 0.08, depthWrite: false }),
     screw: std(0x6f767a, 0.4, 0.7),
     pointer: std(0xd8dbd6, 0.5),
@@ -64,7 +70,7 @@ function knob(r, h, M, { pointer = false, teeth = 36 } = {}) {
 }
 
 const rbox = (w, h, d, r, mat, seg = 3) => {
-  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2)), mat);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2) * 0.98), mat);
   m.castShadow = true; m.receiveShadow = true; return m;
 };
 
@@ -74,7 +80,8 @@ function extrudeProfile(points, x0, x1, mat, bevel = 0.008) {
   points.forEach(([z, y], i) => (i ? s.lineTo(-z, y) : s.moveTo(-z, y)));
   s.closePath();
   const width = x1 - x0 - 2 * bevel;
-  const g = new THREE.ExtrudeGeometry(s, { depth: width, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 4 });
+  // bevelOffset pulls the outline in so the rounded edge stays inside the measured profile
+  const g = new THREE.ExtrudeGeometry(s, { depth: width, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelOffset: -bevel, bevelSegments: 3, curveSegments: 4 });
   g.rotateY(Math.PI / 2);
   g.translate(x0 + bevel, 0, 0);
   g.computeVertexNormals();
@@ -254,100 +261,61 @@ function buildMainPanel(M, refs) {
 
 // ---------------------------------------------------------------- glareshield, FCU, EFIS panels
 function buildGlareshield(M, refs) {
-  const G = D.GLARE; const grp = new THREE.Group();
+  const G = D.GLARE; const grp = new THREE.Group(); const A = refs.atlas;
   // anti-glare hood across the panel
-  const prof = [[G.frontZ, G.topY - 0.045], [G.frontZ + 0.02, G.topY], [G.rearZ - 0.02, G.topY - 0.005], [G.rearZ, G.topY - 0.03], [G.rearZ, G.underY], [-0.07, G.underY - 0.005], [G.frontZ, G.underY + 0.02]];
-  grp.add(extrudeProfile(prof, -1.02, 1.02, M.glare, 0.012));
-  // FCU box, standing proud in the centre
-  const F = G.fcu;
-  const fcu = rbox(F.halfWidth * 2, F.y1 - F.y0, F.rearZ - G.rearZ + 0.02, 0.01, M.fcu);
-  fcu.position.set(0, (F.y0 + F.y1) / 2, (F.rearZ + G.rearZ) / 2 - 0.01); grp.add(fcu);
-  refs.fcu = fcu;
-  addScrews(grp, corners(0, (F.y0 + F.y1) / 2, F.halfWidth * 2, F.y1 - F.y0, F.rearZ + 0.001), M);
-  // FCU windows (SPD, HDG, ALT, V/S) as dark recessed displays
-  const winMat = M.screen;
-  for (const [x, w] of [[-0.235, 0.07], [-0.10, 0.07], [0.105, 0.085], [0.235, 0.08]]) {
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.024), winMat); win.position.set(x, F.y1 - 0.025, F.rearZ + 0.0005); grp.add(win);
-    const kn = knob(0.019, 0.024, M); kn.position.set(x, F.y0 + 0.042, F.rearZ); grp.add(kn);
-  }
-  // AP1 / AP2 / A/THR / EXPED / APPR / LOC keys
-  const keyMat = M.panelDark;
-  [[-0.03, 'LOC'], [0.03, 'AP1'], [0.0, 'A/THR']].forEach(() => {});
-  for (const [x, y] of [[-0.168, 0.94], [-0.03, 0.965], [0.03, 0.965], [0.0, 0.93], [0.168, 0.94], [-0.03, 0.93], [0.03, 0.93]]) {
-    const k = rbox(0.034, 0.022, 0.012, 0.004, keyMat); k.position.set(x, y, F.rearZ + 0.006); grp.add(k);
-  }
-  // EFIS control panels and the master warning / caution blocks, each side
-  for (const s of [-1, 1]) {
-    const E = G.efis;
-    const efis = rbox(E.width, F.y1 - F.y0, E.rearZ - G.rearZ + 0.02, 0.008, M.fcu);
-    efis.position.set(s * E.x, (F.y0 + F.y1) / 2, (E.rearZ + G.rearZ) / 2 - 0.01); grp.add(efis);
-    for (const [dx, dy, r] of [[-0.04, -0.03, 0.017], [0.035, -0.03, 0.017], [0, 0.035, 0.014]]) {
-      const k = knob(r, 0.018, M, { pointer: dy < 0 }); k.position.set(s * E.x + dx, (F.y0 + F.y1) / 2 + dy, E.rearZ); grp.add(k);
-    }
-    addScrews(grp, corners(s * E.x, (F.y0 + F.y1) / 2, E.width, F.y1 - F.y0, E.rearZ + 0.001), M);
-    const Mm = G.master;
-    const mb = rbox(Mm.width, F.y1 - F.y0, Mm.rearZ - G.rearZ + 0.02, 0.008, M.fcu);
-    mb.position.set(s * Mm.x, (F.y0 + F.y1) / 2, (Mm.rearZ + G.rearZ) / 2 - 0.01); grp.add(mb);
-    for (const dy of [0.025, -0.025]) {
-      const lens = rbox(0.05, 0.036, 0.01, 0.004, M.bezel);
-      lens.position.set(s * Mm.x, (F.y0 + F.y1) / 2 + dy, Mm.rearZ + 0.004); grp.add(lens);
-    }
-  }
+  const prof = [[G.frontZ, G.topY - 0.04], [G.frontZ + 0.02, G.topY], [G.rearZ - 0.02, G.topY - 0.004], [G.rearZ, G.topY - 0.025], [G.rearZ, G.underY], [-0.07, G.underY - 0.004], [G.frontZ, G.underY + 0.02]];
+  grp.add(extrudeProfile(prof, -1.02, 1.02, M.glare, 0.01));
+  // the control strip: a housing that stands proud of the hood, panels on its face
+  const S = G.strip; const half = G.warn.x + G.warn.w / 2 + 0.004;
+  const housing = rbox(half * 2, 0.108, S.faceZ - G.rearZ + 0.02, 0.008, M.panelDark);
+  housing.position.set(0, S.y, (S.faceZ + G.rearZ) / 2 - 0.01); grp.add(housing);
+  const place = (p, x) => { p.position.set(x, S.y, S.faceZ + 0.004); grp.add(p); return p; };
+  refs.fcu = place(fcuPanel(M, A), G.fcu.x);
+  refs.efis = [place(efisPanel(M, A, 1), -G.efis.x), place(efisPanel(M, A, 2), G.efis.x)];
+  refs.warn = [place(warningPanel(M, A), -G.warn.x), place(warningPanel(M, A), G.warn.x)];
   return grp;
 }
 
 // ---------------------------------------------------------------- centre pedestal
 function buildPedestal(M, refs) {
-  const P = D.PEDESTAL; const grp = new THREE.Group();
-  const top = P.profile; const prof = [[0.02, 0.0], ...top, [P.rearZ, top[top.length - 1][1] - 0.02], [P.rearZ, 0.0]];
+  const P = D.PEDESTAL; const grp = new THREE.Group(); const A = refs.atlas;
+  const top = P.profile; const last = top[top.length - 1];
+  const prof = [[0.02, 0.0], ...top, [P.rearZ, last[1] - 0.02], [P.rearZ, 0.0]];
   grp.add(extrudeProfile(prof, -P.halfWidth, P.halfWidth, M.panelDark, 0.012));
-  // MCDUs on the forward slope
+
+  // forward slope: MCDU 1 | SWITCHING + ECAM control panel | MCDU 2
   const [a, b] = [top[0], top[1]];
   const yDir = new THREE.Vector3(0, a[1] - b[1], a[0] - b[0]);
-  const mid = new THREE.Vector3(0, (a[1] + b[1]) / 2 + 0.004, (a[0] + b[0]) / 2);
-  const slope = panelFrame(mid, yDir); grp.add(slope); refs.mcduFrame = slope;
+  const slope = panelFrame(new THREE.Vector3(0, (a[1] + b[1]) / 2 + 0.001, (a[0] + b[0]) / 2), yDir); grp.add(slope); refs.mcduFrame = slope;
   refs.mcdus = [];
   for (const s of [-1, 1]) {
-    const u = rbox(0.146, 0.215, 0.02, 0.008, M.module); u.position.set(s * 0.083, 0.03, 0.006); slope.add(u);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.105, 0.085), M.screen); scr.position.set(s * 0.083, 0.08, 0.0165); slope.add(scr);
-    refs.mcdus.push(scr);
-    addScrews(slope, corners(s * 0.083, 0.03, 0.146, 0.215, 0.0165, 0.006), M);
-    // keypad rows
-    for (let r = 0; r < 7; r++) for (let c = 0; c < 6; c++) {
-      const k = rbox(0.016, 0.011, 0.006, 0.002, M.panelDark);
-      k.position.set(s * 0.083 - 0.048 + c * 0.0192, 0.017 - r * 0.0145, 0.018); slope.add(k);
-    }
+    const u = makeMCDU(M, A, { side: s }); u.group.position.set(s * 0.17, -0.02, 0.004); slope.add(u.group); refs.mcdus.push(u);
   }
-  // flat section: ECAM control panel, thrust quadrant, engine panel, radio panels
-  const flat = panelFrame(new THREE.Vector3(0, top[1][1] + 0.002, (top[1][0] + top[3][0]) / 2), new THREE.Vector3(0, 0, -1));
-  grp.add(flat);
-  const L = top[3][0] - top[1][0];
-  const modules = [[0.05, 0.08], [0.20, 0.17], [0.34, 0.08], [0.47, 0.12], [0.58, 0.07]]; // [start from front, length]
-  for (const [s0, len] of modules) {
-    const m = rbox(0.44, len - 0.006, 0.012, 0.004, M.module); m.position.set(0, L / 2 - s0 - len / 2, 0.0); flat.add(m);
-    addScrews(flat, corners(0, L / 2 - s0 - len / 2, 0.44, len - 0.006, 0.0065), M);
-  }
-  // thrust levers
-  refs.thrustLevers = [];
+  const sw = PED.switchingPanel(M, A); sw.position.set(0, 0.066, 0.004); slope.add(sw);
+  const ecp = PED.ecamControlPanel(M, A); ecp.position.set(0, -0.026, 0.004); slope.add(ecp); refs.ecamCP = ecp;
+
+  // flat section. Frame: x right, y forward, z up; world z -> local y = zc - z
+  const zc = (b[0] + last[0]) / 2;
+  const flat = panelFrame(new THREE.Vector3(0, b[1] + 0.001, zc), new THREE.Vector3(0, 0, -1)); grp.add(flat);
+  const at = (p, x, z) => { p.position.set(x, zc - z, 0.004); flat.add(p); return p; };
   for (const s of [-1, 1]) {
-    const lever = new THREE.Group();
-    const arm = rbox(0.018, 0.012, 0.17, 0.005, M.metal); arm.position.set(0, 0, 0.085); lever.add(arm);
-    const handle = rbox(0.07, 0.03, 0.035, 0.012, M.rubber); handle.position.set(s * 0.02, 0, 0.17); lever.add(handle);
-    lever.position.set(s * 0.045, L / 2 - 0.285, 0.0);
-    lever.rotation.x = -0.35; flat.add(lever); refs.thrustLevers.push(lever);
+    at(PED.rmpPanel(M, A, s < 0 ? 1 : 2), s * 0.185, 0.455);
+    at(PED.acpPanel(M, A), s * 0.185, 0.556);
+    at(PED.genericPanel(M, A, 0.138, 0.075, s < 0 ? 'LIGHTING' : 'WX RADAR', [['FLOOD', 'INTEG', 'CONSOLE'], ['SYS 1', 'SYS 2', 'GAIN']]), s * 0.181, 0.646);
   }
-  // engine master switches
-  for (const s of [-1, 1]) {
-    const sw = rbox(0.022, 0.03, 0.035, 0.008, M.trim); sw.position.set(s * 0.05, L / 2 - 0.395, 0.022); flat.add(sw);
-  }
-  // speed brake (left) and flap lever (right)
-  const sb = rbox(0.02, 0.12, 0.05, 0.006, M.trim); sb.position.set(-0.19, L / 2 - 0.30, 0.03); flat.add(sb);
-  const fl = rbox(0.02, 0.12, 0.05, 0.006, M.trim); fl.position.set(0.19, L / 2 - 0.30, 0.03); flat.add(fl);
-  // pitch trim wheels on the pedestal sides
-  for (const s of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.025, 48), M.panelDark);
-    w.rotation.z = Math.PI / 2; w.position.set(s * (P.halfWidth + 0.01), 0.25, 0.62); grp.add(w);
-  }
+  // thrust quadrant flanked by the pitch trim wheels
+  const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.55); refs.thrust = tq;
+  refs.trimWheels = [];
+  for (const s of [-1, 1]) { const w = makeTrimWheel(M, s); w.position.set(s * 0.101, 0.31, 0.565); grp.add(w); refs.trimWheels.push(w); }
+  // engine panel behind the levers
+  refs.engPanel = at(PED.engPanel(M, A), 0, 0.705);
+  // rear: speed brake | rudder trim | flaps ; door | park brake | transponder
+  refs.speedBrake = at(PED.speedBrakePanel(M, A), -0.125, 0.82);
+  refs.rudTrim = at(PED.rudderTrimPanel(M, A), 0, 0.81);
+  refs.flaps = at(PED.flapsPanel(M, A), 0.125, 0.82);
+  refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.955);
+  at(PED.genericPanel(M, A, 0.12, 0.085, 'COCKPIT DOOR', [['LOCK', 'UNLOCK'], ['VIDEO']]), -0.175, 0.955);
+  at(PED.genericPanel(M, A, 0.12, 0.085, 'ATC / TCAS', [['STBY', 'AUTO', 'ON'], ['IDENT', 'TA', 'TA/RA']]), 0.175, 0.955);
   return grp;
 }
 
@@ -397,13 +365,17 @@ function buildConsolesAndSeats(M, refs) {
     const top = rbox(outer - C.innerX - 0.02, 0.012, C.z1 - C.z0 - 0.02, 0.004, M.module);
     top.position.set(s * (C.innerX + outer) / 2, C.topY + 0.006, (C.z0 + C.z1) / 2); grp.add(top);
     // sidestick
-    const st = new THREE.Group();
-    const boot = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.04, 0.035, 24), M.rubber); boot.position.y = 0.017; st.add(boot);
-    const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.019, 0.1, 6, 16), M.rubber); grip.position.set(0, 0.10, 0.008); grip.rotation.x = -0.12; st.add(grip);
-    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.008, 16), new THREE.MeshStandardMaterial({ color: 0x8a2a24, roughness: 0.5 }));
-    btn.position.set(s * -0.006, 0.165, 0.0); st.add(btn);
+    const st = makeSidestick(M, s);
     st.position.set(s * D.SIDESTICK.x, C.topY + 0.012, D.SIDESTICK.z); grp.add(st);
     refs[s < 0 ? 'sidestickCpt' : 'sidestickFo'] = st;
+    // stepped housing around the sidestick
+    const step1 = rbox(0.15, 0.012, 0.16, 0.006, M.module); step1.position.set(s * D.SIDESTICK.x, C.topY + 0.004, D.SIDESTICK.z + 0.01); grp.add(step1);
+    // nosewheel steering tiller, outboard and forward of the sidestick
+    const til = new THREE.Group();
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.012, 32), M.metal); hub.position.y = 0.006; til.add(hub);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.008, 12, 40, Math.PI * 1.2), M.rubber); ring.rotation.set(-Math.PI / 2, 0, Math.PI * 0.4); ring.position.y = 0.02; ring.castShadow = true; til.add(ring);
+    const knobT = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 16), M.rubber); knobT.position.set(0, 0.035, 0.038); til.add(knobT);
+    til.position.set(s * 0.925, C.topY + 0.012, D.SIDESTICK.z - 0.17); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
 
@@ -461,7 +433,7 @@ function buildOutside(scene) {
 }
 
 export function buildCockpit(scene) {
-  const M = finish(makeMaterials()); const refs = {};
+  const M = finish(makeMaterials()); const refs = { atlas: new LabelAtlas(2048) };
   const root = new THREE.Group(); root.name = 'cockpit';
   root.add(buildShell(M), buildMainPanel(M, refs), buildGlareshield(M, refs), buildPedestal(M, refs),
     buildOverhead(M, refs), buildConsolesAndSeats(M, refs));

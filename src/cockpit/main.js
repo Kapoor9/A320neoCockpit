@@ -5,6 +5,9 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
+import { loadFonts } from './labels.js';
+
+await loadFonts();
 
 // Phones and small screens get a lighter setup; laptops get soft contact shadows (GTAO).
 const LITE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 600;

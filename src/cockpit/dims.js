@@ -11,7 +11,7 @@ export const EYE = { y: 1.15, z: 0.92 };    // seated eye position (~)
 
 export const PANEL = {
   baseY: 0.45,        // bottom of the centre instrument panel (meets the pedestal)
-  height: 0.45,       // up to the glareshield underside
+  height: 0.42,       // up to the glareshield underside
   tiltDeg: 8,         // top leans forward
   halfWidth: 1.0,
   sideWidth: 0.74,    // captain / F/O panel width (x from 0.26 to 1.0)
@@ -22,21 +22,22 @@ export const PANEL = {
 // Display units: 7.25 in bezel, ~6.25 in screen
 export const DU = { bezel: 0.200, screen: 0.162, depth: 0.035 };
 export const DU_POS = {          // panel-local x, y (y from PANEL.baseY up the tilted face)
-  PFD1: [-0.72, 0.27], ND1: [-0.49, 0.27], EWD: [0, 0.27], SD: [0, 0.075],
-  ND2: [0.49, 0.27], PFD2: [0.72, 0.27],
+  PFD1: [-0.72, 0.30], ND1: [-0.49, 0.30], EWD: [0, 0.30], SD: [0, 0.112],
+  ND2: [0.49, 0.30], PFD2: [0.72, 0.30],
 };
 
+// Glareshield: thin anti-glare hood; the FCU, EFIS panels and warning blocks form one
+// strip across the centre (about ±0.37 m), measured from the reference.
 export const GLARE = {
-  underY: 0.90, topY: 1.06, frontZ: -0.34, rearZ: 0.04,   // hood over the side panels
-  fcu: { halfWidth: 0.30, rearZ: 0.15, y0: 0.91, y1: 1.03 }, // FCU sits proud in the centre
-  efis: { x: 0.405, width: 0.15, rearZ: 0.10 },
-  master: { x: 0.80, width: 0.12, rearZ: 0.07 },
+  underY: 0.865, topY: 1.02, frontZ: -0.34, rearZ: 0.04,
+  strip: { y: 0.925, faceZ: 0.085 },      // centre of the control strip, and its face position
+  fcu: { x: 0, w: 0.25 }, efis: { x: 0.225, w: 0.19 }, warn: { x: 0.355, w: 0.06 },
 };
 
 export const PEDESTAL = {
   halfWidth: 0.25,
   // side profile [z, y] from the panel back to the rear face
-  profile: [[0.02, 0.45], [0.40, 0.38], [0.78, 0.38], [1.02, 0.36]],
+  profile: [[0.02, 0.45], [0.40, 0.38], [1.02, 0.38]],
   rearZ: 1.04,
 };
 
