@@ -435,7 +435,7 @@ function buildGlareshield(M, refs) {
   // (carrying the FCU strip) straight across the centre and swept forward into the corner posts
   const W = D.WINDSHIELD; const xEnd = W.outerBottom[0] - 0.01;
   const zf = (ax) => W.innerBottom[2] + 0.012 + (ax / W.outerBottom[0]) * (W.outerBottom[2] - W.innerBottom[2]);
-  const zr = (ax) => (ax <= 0.62 ? G.strip.faceZ - 0.006 : G.strip.faceZ - 0.006 + ((ax - 0.62) / (xEnd - 0.62)) * 0.06);
+  const zr = () => G.strip.faceZ + 0.008;   // the cap overhangs the panel strip by a few millimetres all the way across
   const drop = (ax) => Math.max(0, ax - 0.29) * 0.1;   // outer sections slope down toward the posts
   const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03 - drop(ax);                 // top at the glass, following the pane's lower edge
   const yT = (t, ax) => {                                                      // rises to the crest, rolls over to the rear face
@@ -448,8 +448,9 @@ function buildGlareshield(M, refs) {
     const x = -xEnd + (2 * xEnd * i) / nx, ax = Math.abs(x); const f0 = zf(ax), r0 = Math.max(zr(ax), f0 + 0.015);
     const row = []; for (let k = 0; k <= nt; k++) { const tt = k / nt; row.push(new THREE.Vector3(x, yT(tt, ax), f0 + (r0 - f0) * tt)); }
     top.push(row);
-    rear.push([row[nt], new THREE.Vector3(x, G.underY, r0)]);
-    under.push([new THREE.Vector3(x, G.underY, r0), new THREE.Vector3(x, G.underY, f0)]);
+    const yb = Math.min(G.underY, G.strip.y - drop(ax) - G.strip.h / 2 - 0.004);
+    rear.push([row[nt], new THREE.Vector3(x, yb, r0 - 0.03)]);
+    under.push([new THREE.Vector3(x, yb, r0 - 0.03), new THREE.Vector3(x, yb, f0)]);
   }
   const grid = (rows, mat) => {
     const p = [], ix = []; const m = rows[0].length;
@@ -476,13 +477,16 @@ function buildGlareshield(M, refs) {
   // outboard ends of the strip
   const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
   for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
-  for (const s of [-1, 1]) {   // angled end section: from the strip end back toward the corner post, same face colour
-    const p0 = new THREE.Vector3(s * half, S.y - drop(half), S.faceZ + 0.002), p1 = new THREE.Vector3(s * 0.862, S.y - drop(0.862), S.faceZ + 0.055);
-    const len = p0.distanceTo(p1); const ang = Math.atan2(p1.z - p0.z, Math.abs(p1.x - p0.x));
-    const wing = new THREE.Group(); wing.position.copy(p0); wing.rotation.set(0, -s * ang, -s * th, 'YXZ'); grp.add(wing);
-    const face = rbox(len + 0.01, S.h + 0.006, 0.05, 0.008, M.fcu); face.position.set(s * len / 2, 0, -0.025); wing.add(face);
-    const sq = rbox(0.016, 0.016, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.35 })); sq.position.set(s * len * 0.55, 0.008, 0.001); wing.add(sq);
-    const under = rbox(len, 0.012, 0.06, 0.004, gm); under.position.set(s * len / 2, -S.h / 2 - 0.004, -0.03); wing.add(under);
+  for (const s of [-1, 1]) {
+    const x0 = half, x1 = xEnd - 0.004, xm = (x0 + x1) / 2;
+    const ext = rbox((x1 - x0) / Math.cos(th) + 0.004, S.h + 0.006, 0.05, 0.008, M.fcu); ext.position.set(s * xm, S.y - drop(xm), S.faceZ - 0.023); ext.rotation.z = -s * th; grp.add(ext);
+    const sq = rbox(0.016, 0.016, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.35 })); sq.position.set(s * (x0 + 0.06), S.y - drop(x0 + 0.06) + 0.012, S.faceZ + 0.004); grp.add(sq);
+    // end face of the glareshield: closes the side of the cap and runs down onto the sill shelf
+    const ax = xEnd, f0 = zf(ax), r0 = zr(ax);
+    const q = [[f0, yT(0, ax)], [f0 + (r0 - f0) * 0.5, yT(0.5, ax)], [r0, yT(1, ax)], [r0, S.y - drop(ax) - S.h / 2 - 0.004], [r0 + 0.04, 0.8], [f0, 0.8]];
+    const shp = new THREE.Shape(q.map(([z, y]) => new THREE.Vector2(z, y)));
+    const eg = new THREE.ExtrudeGeometry(shp, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 3 });
+    eg.rotateY(-Math.PI / 2); const em = new THREE.Mesh(eg, M.fcu); em.position.x = s * ax + (s > 0 ? 0.03 : 0); em.castShadow = em.receiveShadow = true; grp.add(em);
   }
 
   return grp;
@@ -560,7 +564,7 @@ function buildOverheadSurround(M) {
   const grp = new THREE.Group(); const O = D.OVERHEAD;
   const F = new THREE.Vector3(0, O.front[1], O.front[0]), R = new THREE.Vector3(0, O.rear[1], O.rear[0]);
   const P = (t) => F.clone().lerp(R, t);
-  const ceil = addGrain(new THREE.MeshStandardMaterial({ color: 0x8a9faa, roughness: 0.8, side: THREE.DoubleSide }), 'lining');
+  const ceil = addGrain(new THREE.MeshStandardMaterial({ color: 0x7c909a, roughness: 0.7, side: THREE.DoubleSide }), 'lining');   // same family as the panels
   const dark = new THREE.MeshStandardMaterial({ color: 0x1f2329, roughness: 0.55 });
   const edgeX = O.halfWidth + 0.035;
   // up-dip from overhead plane to its housing top (overhead plane normal)
@@ -569,23 +573,19 @@ function buildOverheadSurround(M) {
     // side fairing: from the overhead edge, angled up and outboard into the ceiling, full length of the overhead
     const A = [], B = [];
     for (let i = 0; i <= 24; i++) {
-      const p = P(i / 24); const a = new THREE.Vector3(s * edgeX, p.y, p.z).add(n.clone().multiplyScalar(0.03));
+      const p = P(i / 24); const a = new THREE.Vector3(s * (O.halfWidth + 0.03), p.y, p.z).add(n.clone().multiplyScalar(0.012));   // starts at the panel edge
       let y = a.y + 0.1; const lim = crownAt(p.z) - 0.02; if (y > lim) y = lim;
       let x = hullHW(p.z, y) - 0.01; if (x < edgeX + 0.05) x = edgeX + 0.05;
       A.push(a); B.push(new THREE.Vector3(s * x, y, p.z));
     }
     // curved fairing (bulges slightly into the cockpit), with panel seams
-    const Mid = A.map((a, i) => a.clone().lerp(B[i], 0.5).add(new THREE.Vector3(-s * 0.012, -0.02, 0)));
+    const Mid = A.map((a, i) => a.clone().lerp(B[i], 0.35).add(new THREE.Vector3(0, -0.015, 0)));   // rounded shoulder from the panel up into the ceiling
     grp.add(stripMesh(A, Mid, ceil), stripMesh(Mid, B, ceil));
     const seamM = new THREE.MeshStandardMaterial({ color: 0x3c4a53, roughness: 0.7 });
     for (const k of [8, 16]) { const sA = A[k].clone().lerp(Mid[k], 0.02), sB = B[k]; const pts = [A[k], Mid[k], B[k]];
       for (let j = 0; j < 2; j++) { const u = pts[j], v = pts[j + 1]; const sm = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, u.distanceTo(v), 6), seamM); sm.position.copy(u).add(v).multiplyScalar(0.5); sm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().sub(u).normalize()); grp.add(sm); } }
     if (s > 0) { const dl = rbox(0.11, 0.3, 0.01, 0.012, new THREE.MeshStandardMaterial({ color: 0xe4e6e3, roughness: 0.4, emissive: 0x222222 })); const c = Mid[18].clone().lerp(B[18], 0.3); dl.position.copy(c); dl.lookAt(c.clone().add(new THREE.Vector3(-1, -1.2, 0))); grp.add(dl); }
     { const pl = rbox(0.09, 0.022, 0.003, 0.002, new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.5 })); const c = Mid[12].clone().lerp(B[12], 0.45); pl.position.copy(c); pl.lookAt(c.clone().add(new THREE.Vector3(-s, -1.2, 0))); grp.add(pl); }
-    // dark padded rail along each long edge of the overhead
-    const r0 = P(0).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0)), r1 = P(1).add(new THREE.Vector3(s * (edgeX - 0.008), 0, 0));
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, r0.distanceTo(r1), 16), dark);
-    rail.position.copy(r0).add(r1).multiplyScalar(0.5); rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.scale.set(1, 1, 1.4); grp.add(rail);
     // items on the fairing: two eyeball air outlets and a reading light toward the front
     for (const [tt, k] of [[0.12, 'g'], [0.3, 'g']]) {
       const a = A[Math.round(tt * 24)], b = B[Math.round(tt * 24)]; const c = a.clone().lerp(b, 0.5);
@@ -611,8 +611,6 @@ function buildOverheadSurround(M) {
     const back = rbox(Math.min(2 * hw, 1.0), y1 - y0, 0.012, 0.01, ceil); back.position.set(0, (y0 + y1) / 2, z); grp.add(back);
     const dl = rbox(0.16, 0.06, 0.012, 0.012, new THREE.MeshStandardMaterial({ color: 0xd9d4c4, roughness: 0.5 })); dl.position.set(0, (y0 + y1) / 2, z - 0.008); grp.add(dl); }
   // forward end of the overhead: dark lower lip running across to the windshield header
-  { const lip = rbox(2 * edgeX + 0.02, 0.022, 0.045, 0.01, dark); lip.position.set(0, O.front[1] - 0.008, O.front[0] - 0.008); grp.add(lip);
-    const lip2 = rbox(2 * edgeX + 0.02, 0.022, 0.045, 0.01, dark); lip2.position.set(0, O.rear[1] - 0.008, O.rear[0] + 0.004); grp.add(lip2); }
   return grp;
 }
 let refs_smoke = null;
@@ -725,14 +723,6 @@ function buildFittings(M, refs) {
   const win = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.026), new THREE.MeshStandardMaterial({ color: 0xd9d6c8, roughness: 0.4 })); win.position.z = 0.031; comp.add(win);
   const card = A.mesh('N  3  6  E', 0.012, { px: 32, weight: 600, color: '#15181a' }, 0.046); card.position.z = 0.032; comp.add(card);
   comp.position.set(0, W.innerTop[1] - 0.06, W.innerTop[2] + 0.07); comp.rotation.x = -0.3; grp.add(comp); refs.compass = comp;
-  // windshield wipers parked along the lower edge, outside the glass
-  const wm = new THREE.MeshStandardMaterial({ color: 0x141617, roughness: 0.6 });
-  for (const s of [-1, 1]) {
-    const a = new THREE.Vector3(s * 0.1, W.innerBottom[1] + 0.03, W.innerBottom[2] - 0.03), b = new THREE.Vector3(s * 0.62, W.innerBottom[1] + 0.05, W.innerBottom[2] + 0.31);
-    const arm = rbox(0.012, a.distanceTo(b), 0.01, 0.003, wm); arm.position.copy(a).add(b).multiplyScalar(0.5);
-    arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); arm.position.y -= 0.0; arm.position.z -= 0.035; grp.add(arm);
-    const piv = cyl(0.014, 0.014, 0.02, wm); piv.position.set(s * 0.62, W.innerBottom[1] + 0.04, W.innerBottom[2] + 0.27); grp.add(piv);
-  }
   // panel floodlights under the glareshield
   const G = D.GLARE;
   for (const s of [-1, 1]) {
@@ -799,16 +789,6 @@ function buildFittings(M, refs) {
       grp.add(stripMesh(Bt, Si, mould), stripMesh(Si, Sm, mould), stripMesh(Sm, SiT, mould), stripMesh(SiT, So, mould), stripMesh(W, Bt, mould));
       // front end cap
       { const g = new THREE.BufferGeometry().setFromPoints([W[0], Bt[0], Si[0], W[0], Si[0], So[0], Si[0], Sm[0], So[0], Sm[0], SiT[0], So[0]]); g.computeVertexNormals(); grp.add(new THREE.Mesh(g, mould)); }
-      // A: moulded block from the glareshield end into the front of the shelf, with a recessed slot on its inner face
-      {
-        const sec = []; const zs = [0.16, 0.22, 0.28, 0.34, 0.4];
-        zs.forEach((z, k) => { const u = k / (zs.length - 1); const yTop = 0.985 + (0.8 - 0.985) * u * u; const yBot = 0.84 + 0.0 * u;
-          const xw = hullHW(z, (yTop + yBot) / 2) - 0.004, xi = xw - (0.15 + 0.04 * u);
-          sec.push([new THREE.Vector3(s * xi, yBot, z), new THREE.Vector3(s * (xi - 0.01), yTop - 0.02, z), new THREE.Vector3(s * (xi + 0.02), yTop, z), new THREE.Vector3(s * xw, yTop, z)]); });
-        for (let c = 0; c < 3; c++) grp.add(stripMesh(sec.map((q) => q[c]), sec.map((q) => q[c + 1]), mould));
-        const g0 = new THREE.BufferGeometry().setFromPoints([sec[0][0], sec[0][1], sec[0][2], sec[0][0], sec[0][2], sec[0][3]]); g0.computeVertexNormals(); grp.add(new THREE.Mesh(g0, mould));
-        const sl = rbox(0.016, 0.07, 0.11, 0.006, darkM); const m1 = sec[2][0].clone().lerp(sec[2][1], 0.5); sl.position.copy(m1).add(new THREE.Vector3(-s * 0.004, 0, 0)); sl.rotation.x = -0.3; grp.add(sl);
-      }
       // recessed pocket on the sloping face, aft of the sidestick
       const face = (i, u) => Bt[i].clone().lerp(Si[i], u);
       const nI = (i) => { const a = Si[i].clone().sub(Bt[i]), b = Bt[Math.min(i + 1, N)].clone().sub(Bt[i]); const n = a.cross(b).normalize(); return n.x * s > 0 ? n.negate() : n; };

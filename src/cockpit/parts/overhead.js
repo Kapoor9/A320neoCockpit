@@ -288,7 +288,7 @@ export function makeOverheadPanels(M, A, systemLen = 0.65) {
     const VT = { fire: 'FIRE', hyd: 'HYD', fuel: 'FUEL', elec: 'ELEC', airCond: 'AIR COND' };
     if (VT[key]) { spec.items = [...spec.items, ...vt(VT[key].replace(' ', ''), w / 2, hd)]; spec.title = ''; }
     const items = spec.items.map((i) => ({ ...i, y: i.y * f, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x, y * f]) } : {}) }));
-    return buildPanel({ w, h: hd * f, name: key, bg: '#5d7380', ...spec, items }, M, A);
+    return buildPanel({ w, h: hd * f, name: key, bg: '#6f838d', ...spec, items }, M, A);
   };
   const centreTotal = LAYOUT.centre.rows.reduce((s, [, h]) => s + h, 0);
   const fC = (systemLen - GAP * (LAYOUT.centre.rows.length - 1)) / centreTotal;
@@ -312,7 +312,7 @@ export function makeAftPanels(M, A, len) {
   const h = len; const out = [];
   for (const [key, col] of [['audio', 'left'], ['cb', 'centre'], ['maint', 'right']]) {
     const w = col === 'centre' ? 0.29 : 0.17;
-    out.push({ panel: buildPanel({ w, h, name: key, bg: '#5d7380', ...AFT[key](w, h) }, M, A), x: COLX[col], key });
+    out.push({ panel: buildPanel({ w, h, name: key, bg: '#6f838d', ...AFT[key](w, h) }, M, A), x: COLX[col], key });
   }
   return out;
 }
