@@ -47,3 +47,10 @@ moving down walks back through the recording 1.4× slower.
 ## To do later
 
 - Engine acceleration/deceleration between thrust levels is not smooth enough yet (owner feedback).
+
+## Credits
+
+Cockpit shapes are modelled after **"A320 Cockpit 2" by davidmarton1987**
+(Sketchfab, CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), used as the
+reference model. All geometry in this repository is rebuilt from scratch; no files,
+meshes or textures from that model are included.
