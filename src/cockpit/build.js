@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/RoundedBoxGeometry.js';
 import * as D from './dims.js';
+import { addGrain } from './surface.js';
 
 // ---------------------------------------------------------------- materials
 // Colours: Airbus flight-deck blue-grey panels, near-black anti-glare glareshield,
@@ -17,7 +18,8 @@ export function makeMaterials() {
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
     fcu: std(0x4f5a62, 0.6),
-    lining: std(0xa9aba7, 0.85),         // sidewall lining
+    lining: std(0xa9aba7, 0.85),         // upper sidewall lining
+    lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0xb3b4b0, 0.88),
     trim: std(0x7d8286, 0.7),
     frame: std(0x3a3f43, 0.55, 0.2),     // window frames
@@ -30,7 +32,35 @@ export function makeMaterials() {
     bezel: std(0x2a2f33, 0.45, 0.1),
     screen: new THREE.MeshPhysicalMaterial({ color: 0x07090b, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0xcfe0ea, roughness: 0.02, transmission: 0, transparent: true, opacity: 0.08, depthWrite: false }),
+    screw: std(0x6f767a, 0.4, 0.7),
+    pointer: std(0xd8dbd6, 0.5),
   };
+}
+const FINISH = { panel: 'paint', panelDark: 'paint', module: 'paint', fcu: 'paint', trim: 'paint', frame: 'paint', seatShell: 'paint',
+  bezel: 'paint', glare: 'matte', lining: 'lining', lowerWall: 'lining', ceiling: 'lining', carpet: 'carpet', seatFabric: 'fabric', seatBlue: 'fabric',
+  rubber: 'rubber', metal: 'brushed', screw: 'brushed' };
+function finish(M) { for (const [k, kind] of Object.entries(FINISH)) addGrain(M[k], kind); M.lining.side = THREE.DoubleSide; M.ceiling.side = THREE.DoubleSide; M.lowerWall.side = THREE.DoubleSide; return M; }
+
+// Dzus-type panel fasteners: one instanced mesh per panel group (cheap to draw)
+const SCREW_GEO = new THREE.CylinderGeometry(0.0034, 0.0034, 0.0018, 12).rotateX(Math.PI / 2);
+function addScrews(parent, pts, M) {
+  const im = new THREE.InstancedMesh(SCREW_GEO, M.screw, pts.length); const m = new THREE.Matrix4();
+  pts.forEach(([x, y, z], i) => { m.makeRotationZ(Math.random() * Math.PI).setPosition(x, y, z); im.setMatrixAt(i, m); });
+  im.receiveShadow = true; parent.add(im); return im;
+}
+const corners = (cx, cy, w, h, z, inset = 0.007) => [[cx - w / 2 + inset, cy - h / 2 + inset, z], [cx + w / 2 - inset, cy - h / 2 + inset, z], [cx - w / 2 + inset, cy + h / 2 - inset, z], [cx + w / 2 - inset, cy + h / 2 - inset, z]];
+
+// Knurled knob: a fine-toothed profile extruded, on a thin skirt, facing +Z
+function knob(r, h, M, { pointer = false, teeth = 36 } = {}) {
+  const g = new THREE.Group();
+  const s = new THREE.Shape();
+  for (let i = 0; i <= teeth * 2; i++) { const a = (i / (teeth * 2)) * Math.PI * 2; const rr = i % 2 ? r * 0.955 : r; (i ? s.lineTo : s.moveTo).call(s, Math.cos(a) * rr, Math.sin(a) * rr); }
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: true, bevelSize: r * 0.06, bevelThickness: r * 0.08, bevelSegments: 2, curveSegments: 1 }), M.rubber);
+  body.castShadow = true; g.add(body);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.25, r * 1.3, h * 0.18, 40).rotateX(Math.PI / 2), M.panelDark); skirt.position.z = h * 0.09; g.add(skirt);
+  const cap = new THREE.Mesh(new THREE.CircleGeometry(r * 0.8, 32), M.rubber); cap.position.z = h + r * 0.081; g.add(cap);
+  if (pointer) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.12, r * 0.85), M.pointer); pl.position.set(0, r * 0.42, h + r * 0.083); g.add(pl); }
+  return g;
 }
 
 const rbox = (w, h, d, r, mat, seg = 3) => {
@@ -97,7 +127,7 @@ function isOpening(x, y, z) {
 }
 function buildShell(M) {
   const z0 = -0.45, z1 = D.REAR_WALL_Z, nz = 64, ns = 72;
-  const pos = []; const idxLining = []; const idxCeil = [];
+  const pos = []; const idxLining = []; const idxCeil = []; const idxLower = [];
   for (let i = 0; i <= nz; i++) {
     const z = z0 + (z1 - z0) * i / nz;
     for (let j = 0; j <= ns; j++) { const [x, y] = ringPoint(z, j / ns); pos.push(x, y, z); }
@@ -107,15 +137,15 @@ function buildShell(M) {
     const a = V(i, j), b = V(i + 1, j), c = V(i + 1, j + 1), d = V(i, j + 1);
     const cx = (pos[a * 3] + pos[c * 3]) / 2, cy = (pos[a * 3 + 1] + pos[c * 3 + 1]) / 2, cz = (pos[a * 3 + 2] + pos[c * 3 + 2]) / 2;
     if (isOpening(cx, cy, cz)) continue;
-    (cy > 1.5 ? idxCeil : idxLining).push(a, b, c, a, c, d);
+    (cy > 1.5 ? idxCeil : cy < 1.05 ? idxLower : idxLining).push(a, b, c, a, c, d);
   }
   const mk = (idx, mat) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const m = new THREE.Mesh(g, mat.clone()); m.material.side = THREE.DoubleSide; m.receiveShadow = true; return m;
+    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; return m;
   };
   const grp = new THREE.Group();
-  grp.add(mk(idxLining, M.lining), mk(idxCeil, M.ceiling));
+  grp.add(mk(idxLining, M.lining), mk(idxCeil, M.ceiling), mk(idxLower, M.lowerWall));
 
   // floor
   const fw = shellAt(1)[0] * 2;
@@ -150,6 +180,12 @@ function buildShell(M) {
     }
     // corner post between windshield and the side window
     post([s * 0.86, D.GLARE.topY, -0.18], [onWall(W.windshield.z1, 1.55), shellAt(W.windshield.z1)[2] - 0.08, W.windshield.z1], 0.05);
+  }
+  // side window glass (faint reflections)
+  for (const s of [-1, 1]) for (const w of [W.side2, W.side3]) {
+    const zc = (w.z0 + w.z1) / 2, yc = (w.y0 + w.y1) / 2, x = shellAt(zc)[1] * s * 0.985;
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(w.z1 - w.z0, w.y1 - w.y0), M.glass);
+    gl.position.set(x, yc, zc); gl.rotation.y = Math.PI / 2; gl.renderOrder = 10; grp.add(gl);
   }
   // windshield centre post and top bar
   const topY = shellAt(W.windshield.z1)[2] - 0.06;
@@ -194,6 +230,7 @@ function buildMainPanel(M, refs) {
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(D.DU.screen, D.DU.screen), M.screen.clone());
     scr.position.set(x, y, D.DU.depth - 0.002); scr.name = name; frame.add(scr);
     refs.screens[name] = scr;
+    addScrews(frame, corners(x, y, D.DU.bezel, D.DU.bezel, D.DU.depth - 0.003, 0.009), M);
     // the brightness knob in the bezel corner
     const k = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 20), M.rubber);
     k.rotation.x = Math.PI / 2; k.position.set(x + D.DU.bezel / 2 - 0.016, y - D.DU.bezel / 2 + 0.016, D.DU.depth + 0.004); frame.add(k);
@@ -226,12 +263,12 @@ function buildGlareshield(M, refs) {
   const fcu = rbox(F.halfWidth * 2, F.y1 - F.y0, F.rearZ - G.rearZ + 0.02, 0.01, M.fcu);
   fcu.position.set(0, (F.y0 + F.y1) / 2, (F.rearZ + G.rearZ) / 2 - 0.01); grp.add(fcu);
   refs.fcu = fcu;
+  addScrews(grp, corners(0, (F.y0 + F.y1) / 2, F.halfWidth * 2, F.y1 - F.y0, F.rearZ + 0.001), M);
   // FCU windows (SPD, HDG, ALT, V/S) as dark recessed displays
   const winMat = M.screen;
   for (const [x, w] of [[-0.235, 0.07], [-0.10, 0.07], [0.105, 0.085], [0.235, 0.08]]) {
     const win = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.024), winMat); win.position.set(x, F.y1 - 0.025, F.rearZ + 0.0005); grp.add(win);
-    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.028, 32), M.rubber);
-    knob.rotation.x = Math.PI / 2; knob.position.set(x, F.y0 + 0.042, F.rearZ + 0.014); grp.add(knob);
+    const kn = knob(0.019, 0.024, M); kn.position.set(x, F.y0 + 0.042, F.rearZ); grp.add(kn);
   }
   // AP1 / AP2 / A/THR / EXPED / APPR / LOC keys
   const keyMat = M.panelDark;
@@ -245,9 +282,9 @@ function buildGlareshield(M, refs) {
     const efis = rbox(E.width, F.y1 - F.y0, E.rearZ - G.rearZ + 0.02, 0.008, M.fcu);
     efis.position.set(s * E.x, (F.y0 + F.y1) / 2, (E.rearZ + G.rearZ) / 2 - 0.01); grp.add(efis);
     for (const [dx, dy, r] of [[-0.04, -0.03, 0.017], [0.035, -0.03, 0.017], [0, 0.035, 0.014]]) {
-      const k = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.08, 0.022, 28), M.rubber);
-      k.rotation.x = Math.PI / 2; k.position.set(s * E.x + dx, (F.y0 + F.y1) / 2 + dy, E.rearZ + 0.011); grp.add(k);
+      const k = knob(r, 0.018, M, { pointer: dy < 0 }); k.position.set(s * E.x + dx, (F.y0 + F.y1) / 2 + dy, E.rearZ); grp.add(k);
     }
+    addScrews(grp, corners(s * E.x, (F.y0 + F.y1) / 2, E.width, F.y1 - F.y0, E.rearZ + 0.001), M);
     const Mm = G.master;
     const mb = rbox(Mm.width, F.y1 - F.y0, Mm.rearZ - G.rearZ + 0.02, 0.008, M.fcu);
     mb.position.set(s * Mm.x, (F.y0 + F.y1) / 2, (Mm.rearZ + G.rearZ) / 2 - 0.01); grp.add(mb);
@@ -274,6 +311,7 @@ function buildPedestal(M, refs) {
     const u = rbox(0.146, 0.215, 0.02, 0.008, M.module); u.position.set(s * 0.083, 0.03, 0.006); slope.add(u);
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.105, 0.085), M.screen); scr.position.set(s * 0.083, 0.08, 0.0165); slope.add(scr);
     refs.mcdus.push(scr);
+    addScrews(slope, corners(s * 0.083, 0.03, 0.146, 0.215, 0.0165, 0.006), M);
     // keypad rows
     for (let r = 0; r < 7; r++) for (let c = 0; c < 6; c++) {
       const k = rbox(0.016, 0.011, 0.006, 0.002, M.panelDark);
@@ -287,6 +325,7 @@ function buildPedestal(M, refs) {
   const modules = [[0.05, 0.08], [0.20, 0.17], [0.34, 0.08], [0.47, 0.12], [0.58, 0.07]]; // [start from front, length]
   for (const [s0, len] of modules) {
     const m = rbox(0.44, len - 0.006, 0.012, 0.004, M.module); m.position.set(0, L / 2 - s0 - len / 2, 0.0); flat.add(m);
+    addScrews(flat, corners(0, L / 2 - s0 - len / 2, 0.44, len - 0.006, 0.0065), M);
   }
   // thrust levers
   refs.thrustLevers = [];
@@ -328,11 +367,12 @@ function buildOverhead(M, refs) {
   // 146 mm system panels in 4 columns, rows of varying height (as on the real overhead)
   const cols = 4, colW = (O.halfWidth * 2) / cols;
   const rows = [0.10, 0.095, 0.09, 0.075, 0.11, 0.085, 0.10, 0.075, 0.08, 0.09];
-  let y = len / 2 - 0.015;
+  let y = len / 2 - 0.015; const screws = [];
   for (const h of rows) {
     for (let c = 0; c < cols; c++) {
       const m = rbox(colW - 0.006, h - 0.006, 0.012, 0.004, M.module);
       m.position.set(-O.halfWidth + colW * (c + 0.5), y - h / 2, 0.0); frame.add(m);
+      screws.push(...corners(-O.halfWidth + colW * (c + 0.5), y - h / 2, colW - 0.006, h - 0.006, 0.0065));
       // placeholder pushbutton rows (to be replaced by real controls in Stage 4)
       const n = 3 + ((c + Math.round(h * 100)) % 3);
       for (let k = 0; k < n; k++) {
@@ -343,6 +383,7 @@ function buildOverhead(M, refs) {
     y -= h;
     if (y < -len / 2 + 0.05) break;
   }
+  addScrews(frame, screws, M);
   return frame;
 }
 
@@ -392,24 +433,35 @@ function buildConsolesAndSeats(M, refs) {
 }
 
 // ---------------------------------------------------------------- outside world
-function buildOutside(scene) {
-  // sky dome with a soft horizon gradient
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false,
-    uniforms: { top: { value: new THREE.Color(0x6f97c4) }, horizon: { value: new THREE.Color(0xdbe5ea) }, ground: { value: new THREE.Color(0x8b8f8c) } },
+export const SUN_DIR = new THREE.Vector3(-0.32, 0.62, -0.72).normalize();   // high, ahead and to the left
+export function makeSky(radius = 400) {
+  return new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 24), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(0x5f8bbd) }, horizon: { value: new THREE.Color(0xd6e1e7) }, ground: { value: new THREE.Color(0x8d908c) }, sun: { value: SUN_DIR } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-    fragmentShader: 'uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; varying vec3 vP; void main(){ float h=vP.y; vec3 c = h>0.0 ? mix(horizon, top, pow(h,0.55)) : mix(horizon, ground, pow(-h,0.35)); gl_FragColor=vec4(c,1.0);}',
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; uniform vec3 sun; varying vec3 vP;
+      void main(){ float h=vP.y;
+        vec3 c = h>0.0 ? mix(horizon, top, pow(h,0.5)) : mix(horizon, ground, pow(-h,0.3));
+        float sd = max(dot(normalize(vP), sun), 0.0);
+        c += vec3(1.0,0.95,0.85) * (pow(sd, 900.0)*6.0 + pow(sd, 40.0)*0.25 + pow(sd,6.0)*0.08);
+        gl_FragColor=vec4(c,1.0);}`,
   }));
-  scene.add(sky);
-  // apron and a taxiway line ahead
-  const apron = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({ color: 0x77797a, roughness: 0.95 }));
+}
+function buildOutside(scene) {
+  scene.add(makeSky());
+  const apronMat = addGrain(new THREE.MeshStandardMaterial({ color: 0x7a7c7c, roughness: 0.95 }), 'lining');
+  const apron = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), apronMat);
   apron.rotation.x = -Math.PI / 2; apron.position.y = D.GROUND_Y; apron.receiveShadow = true; scene.add(apron);
-  const line = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 300), new THREE.MeshStandardMaterial({ color: 0xc9a43a, roughness: 0.8 }));
-  line.rotation.x = -Math.PI / 2; line.position.set(0, D.GROUND_Y + 0.01, -150); scene.add(line);
+  const lineMat = new THREE.MeshStandardMaterial({ color: 0xc9a43a, roughness: 0.8 });
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 400), lineMat);
+  line.rotation.x = -Math.PI / 2; line.position.set(0, D.GROUND_Y + 0.01, -200); scene.add(line);
+  // edge line of a taxiway crossing ahead, for depth
+  for (const z of [-60, -63]) { const e = new THREE.Mesh(new THREE.PlaneGeometry(400, 0.2), lineMat); e.rotation.x = -Math.PI / 2; e.position.set(0, D.GROUND_Y + 0.01, z); scene.add(e); }
+  scene.fog = new THREE.Fog(0xd6e1e7, 40, 700);
 }
 
 export function buildCockpit(scene) {
-  const M = makeMaterials(); const refs = {};
+  const M = finish(makeMaterials()); const refs = {};
   const root = new THREE.Group(); root.name = 'cockpit';
   root.add(buildShell(M), buildMainPanel(M, refs), buildGlareshield(M, refs), buildPedestal(M, refs),
     buildOverhead(M, refs), buildConsolesAndSeats(M, refs));
