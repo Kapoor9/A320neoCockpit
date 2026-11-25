@@ -11,27 +11,29 @@ export const EYE = { y: 1.15, z: 0.92 };    // seated eye position (~)
 
 export const PANEL = {
   baseY: 0.45,        // bottom of the centre instrument panel (meets the pedestal)
-  height: 0.42,       // up to the glareshield underside
-  tiltDeg: 8,         // top leans forward
-  halfWidth: 1.0,
-  sideWidth: 0.74,    // captain / F/O panel width (x from 0.26 to 1.0)
-  centreHalf: 0.26,
+  faceZ: 0.132,       // face position at baseY; the face leans back 13 degrees from there
+  height: 0.395,      // along the face, up to the top edge at y 0.835
+  tiltDeg: 13,
+  halfWidth: 0.81,
+  centreHalf: 0.215,
   bottomSideY: 0.50,  // captain / F/O panels end higher (knee room)
 };
+const yl = (y) => (y - 0.45) / Math.cos((13 * Math.PI) / 180);   // world height -> along-face
+export const PANEL_Y = yl;
 
-// Display units: 7.25 in bezel, ~6.25 in screen
-export const DU = { bezel: 0.200, screen: 0.162, depth: 0.035 };
-export const DU_POS = {          // panel-local x, y (y from PANEL.baseY up the tilted face)
-  PFD1: [-0.72, 0.30], ND1: [-0.49, 0.30], EWD: [0, 0.30], SD: [0, 0.112],
-  ND2: [0.49, 0.30], PFD2: [0.72, 0.30],
+// Display units: square bezel, ~6.25 in screen (measured)
+export const DU = { bezel: 0.19, screen: 0.158, depth: 0.03 };
+export const DU_POS = {          // panel-local x, along-face y
+  PFD1: [-0.51, yl(0.725)], ND1: [-0.312, yl(0.725)], EWD: [0.005, yl(0.725)], SD: [0.005, yl(0.515)],
+  ND2: [0.322, yl(0.725)], PFD2: [0.52, yl(0.725)],
 };
 
 // Glareshield: thin anti-glare hood; the FCU, EFIS panels and warning blocks form one
 // strip across the centre (about ±0.37 m), measured from the reference.
 export const GLARE = {
-  underY: 0.86, topY: 1.01, frontZ: -0.29, rearZ: 0.14,
-  strip: { y: 0.925, faceZ: 0.18 },      // centre of the control strip, and its face position
-  fcu: { x: 0, w: 0.25 }, efis: { x: 0.225, w: 0.19 }, warn: { x: 0.355, w: 0.06 },
+  underY: 0.905, topY: 1.012, frontZ: -0.29, rearZ: 0.27,
+  strip: { y: 0.952, faceZ: 0.30, half: 0.67, h: 0.08 },   // measured: face 0.915-0.99, x +-0.67, z 0.30
+  fcu: { x: 0, w: 0.24 }, efis: { x: 0.205, w: 0.16 }, warn: { x: 0.405, w: 0.1 },
 };
 
 export const PEDESTAL = {

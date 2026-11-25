@@ -3,10 +3,12 @@
 import * as THREE from 'three';
 import { buildPanel } from './panel.js';
 
-const FCU_BG = '#4f5b63';
+const FCU_BG = '#4a555d';
+// remap a layout drawn on a larger panel onto the measured strip (positions only; control sizes kept)
+const fit = (items, sx, sy) => items.map((i) => ({ ...i, x: (i.x || 0) * sx, y: (i.y || 0) * sy, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x * sx, y * sy]) } : {}) }));
 
 export function fcuPanel(M, A) {
-  const W = 0.25, H = 0.1;
+  const W = 0.24, H = 0.076, SX = 0.96, SY = 0.76;
   const win = [['SPD', -0.094, 'MACH'], ['HDG', -0.04, 'TRK'], ['ALT', 0.037, ''], ['V/S', 0.096, 'FPA']];
   const items = [];
   for (const [t, x, alt] of win) {
@@ -26,12 +28,12 @@ export function fcuPanel(M, A) {
     { t: 'key', x: 0.037, y: -0.03, w: 0.018, h: 0.011, s: 'EXPED', id: 'EXPED' },
     { t: 'key', x: 0.096, y: -0.03, w: 0.018, h: 0.011, s: 'APPR', id: 'APPR' },
     { t: 'text', x: 0.037, y: -0.044, s: '100     1000', size: 0.0034 });
-  const p = buildPanel({ w: W, h: H, items, bg: FCU_BG, name: 'FCU' }, M, A);
+  const p = buildPanel({ w: W, h: H, items: fit(items, SX, SY), bg: FCU_BG, name: 'FCU' }, M, A);
   // dark LCD windows above each knob
   p.userData.windows = {};
   for (const [t, x] of win) {
     const w = new THREE.Mesh(new THREE.PlaneGeometry(t === 'ALT' ? 0.04 : 0.034, 0.016), M.screen);
-    w.position.set(x, 0.026, 0.0008); w.name = 'fcu' + t; p.add(w); p.userData.windows[t] = w;
+    w.position.set(x * SX, 0.026 * SY, 0.0008); w.name = 'fcu' + t; p.add(w); p.userData.windows[t] = w;
   }
   return p;
 }
@@ -51,7 +53,7 @@ export function efisPanel(M, A, side) {
     { t: 'text', x: 0.012, y: -0.02, s: 'ADF   VOR', size: 0.0032 }, { t: 'text', x: 0.06, y: -0.02, s: 'ADF   VOR', size: 0.0032 },
     { t: 'toggle', x: 0.012, y: -0.034, id: 'nav1' }, { t: 'toggle', x: 0.06, y: -0.034, id: 'nav2' },
     { t: 'text', x: 0.012, y: -0.046, s: '1', size: 0.0036 }, { t: 'text', x: 0.06, y: -0.046, s: '2', size: 0.0036 });
-  const p = buildPanel({ w: 0.19, h: 0.1, items, bg: FCU_BG, name: 'EFIS' + side }, M, A);
+  const p = buildPanel({ w: 0.16, h: 0.076, items: fit(items, 0.84, 0.76), bg: FCU_BG, name: 'EFIS' + side }, M, A);
   const w = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.012), M.screen); w.position.set(-0.07, 0.034, 0.0008); w.name = 'baroWin'; p.add(w);
   return p;
 }
@@ -62,7 +64,7 @@ export function warningPanel(M, A) {
     { t: 'text', x: 0, y: -0.036, s: 'SIDE STICK\nPRIORITY', size: 0.0028 },
     { t: 'text', x: 0, y: -0.048, s: 'AUTO LAND', size: 0.0026 },
   ];
-  const p = buildPanel({ w: 0.06, h: 0.1, items, bg: FCU_BG, name: 'warnBlock' }, M, A);
+  const p = buildPanel({ w: 0.1, h: 0.076, items: fit(items, 1.5, 0.76), bg: FCU_BG, name: 'warnBlock' }, M, A);
   // MASTER WARN (red) and MASTER CAUT (amber) push-to-reset lights: dark lenses until lit
   const mk = (txt, y, id) => {
     const g = new THREE.Group();

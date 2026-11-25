@@ -9,6 +9,7 @@ import { makeMCDU } from './parts/mcdu.js';
 import { makeSidestick, makeTiller, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
 import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
 import * as PED from './parts/pedestal.js';
+import * as MP from './parts/mainpanel.js';
 import { makeOverheadPanels, makeAftPanels } from './parts/overhead.js';
 
 // ---------------------------------------------------------------- materials
@@ -23,7 +24,7 @@ export function makeMaterials() {
     module: std(0x3c454c, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
-    fcu: std(0x4f5a62, 0.6),
+    fcu: std(0x4a555d, 0.6),
     lining: std(0x8a949a, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
@@ -308,7 +309,7 @@ function buildWindowFrames(M) {
 function buildMainPanel(M, refs) {
   const P = D.PANEL; const t = THREE.MathUtils.degToRad(P.tiltDeg);
   const yDir = new THREE.Vector3(0, Math.cos(t), -Math.sin(t));
-  const frame = panelFrame(new THREE.Vector3(0, P.baseY, 0), yDir);
+  const frame = panelFrame(new THREE.Vector3(0, P.baseY, P.faceZ), yDir);
   refs.mainPanel = frame;
   const thick = 0.05;
   const slab = (x0, x1, y0, y1, mat = M.panel) => {
@@ -336,20 +337,28 @@ function buildMainPanel(M, refs) {
     const k = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 20), M.rubber);
     k.rotation.x = Math.PI / 2; k.position.set(x + D.DU.bezel / 2 - 0.016, y - D.DU.bezel / 2 + 0.016, D.DU.depth + 0.004); frame.add(k);
   }
-  // standby instrument (ISIS) and clock, left of the E/WD
-  const isis = rbox(0.095, 0.095, 0.03, 0.006, M.bezel); isis.position.set(-0.25, 0.30, 0.012); frame.add(isis);
-  const isisScr = new THREE.Mesh(new THREE.PlaneGeometry(0.078, 0.078), M.screen); isisScr.position.set(-0.25, 0.30, 0.028); frame.add(isisScr);
-  refs.screens.ISIS = isisScr;
-  const clock = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.02, 40), M.bezel);
-  clock.rotation.x = Math.PI / 2; clock.position.set(-0.25, 0.15, 0.01); frame.add(clock);
-  // landing gear panel + lever, right of the lower ECAM
-  const gp = rbox(0.11, 0.17, 0.02, 0.006, M.module); gp.position.set(0.20, 0.10, 0.008); frame.add(gp);
+  // measured layout of the centre columns and outboard panels (panel-local, y along the face)
+  const Y = D.PANEL_Y; const on = (o, x, y, z = 0.001) => { o.position.set(x, Y(y), z); frame.add(o); return o; };
+  // centre-left: type placard, ISIS, DDRMI, clock; TERR ON ND
+  const plate = rbox(0.09, 0.02, 0.003, 0.002, M.trim); on(plate, -0.152, 0.806, 0.0015);
+  const pl = refs.atlas.mesh('A320neo', 0.011, { px: 40, weight: 600, color: '#1f2427' }, 0.08); on(pl, -0.152, 0.806, 0.0032);
+  const st = MP.isis(M, 0.078); on(st, -0.142, 0.70); refs.screens.ISIS = st.userData.screen;
+  on(MP.roundInstrument(M, 0.062), -0.142, 0.618);
+  const clk = MP.roundInstrument(M, 0.058); on(clk, -0.16, 0.5); refs.clock = clk;
+  on(MP.terrPanel(M, refs.atlas, -1), -0.2, 0.648, 0.0); on(MP.terrPanel(M, refs.atlas, 1), 0.245, 0.648, 0.0);
+  // centre-right: LDG GEAR indicator, AUTO/BRK, A/SKID & BRK FAN, gear lever, triple brake indicator
+  on(MP.gearIndicator(M, refs.atlas), 0.168, 0.8, 0.0); on(MP.autobrakePanel(M, refs.atlas), 0.168, 0.755, 0.0);
+  on(MP.brakeSwitchPanel(M, refs.atlas), 0.168, 0.7, 0.0);
+  on(MP.gearLeverPanel(M, refs.atlas), 0.135, 0.585, 0.0);
   const lever = new THREE.Group();
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.07, 12), M.metal); shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.035; lever.add(shaft);
-  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.016, 24), M.trim); wheel.rotation.z = Math.PI / 2; wheel.position.z = 0.07; lever.add(wheel);
-  lever.position.set(0.20, 0.09, 0.02); frame.add(lever); refs.gearLever = lever;
-  // autobrake panel, right of the E/WD
-  const ab = rbox(0.11, 0.08, 0.02, 0.006, M.module); ab.position.set(0.25, 0.31, 0.008); frame.add(ab);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.06, 12), M.metal); shaft.rotation.x = Math.PI / 2; shaft.position.z = 0.03; lever.add(shaft);
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.018, 28), M.trim); wheel.rotation.z = Math.PI / 2; wheel.position.z = 0.062; lever.add(wheel);
+  on(lever, 0.135, 0.56, 0.004); refs.gearLever = lever;
+  on(MP.roundInstrument(M, 0.056), 0.205, 0.585);
+  // outboard lighting / loudspeaker panels
+  on(MP.lightingPanel(M, refs.atlas, -1), -0.69, 0.75, 0.0); on(MP.lightingPanel(M, refs.atlas, 1), 0.69, 0.75, 0.0);
+  // the lip under the PFD/ND pairs
+  for (const s of [-1, 1]) { const lip = rbox(0.53, 0.035, 0.03, 0.006, M.panel); on(lip, s * 0.48, 0.62, 0.012); }
   return frame;
 }
 
@@ -385,13 +394,18 @@ function buildGlareshield(M, refs) {
   const gm = M.glare.clone(); gm.side = THREE.DoubleSide;
   grp.add(grid(top, gm), grid(rear, gm), grid(under, gm));
   // the control strip: a housing that stands proud of the rear face, panels on its face
-  const S = G.strip; const half = G.warn.x + G.warn.w / 2 + 0.004;
-  const housing = rbox(half * 2, 0.108, 0.05, 0.008, M.panelDark);
+  const S = G.strip; const half = S.half;
+  const housing = rbox(half * 2, S.h + 0.006, 0.05, 0.008, M.fcu);
   housing.position.set(0, S.y, S.faceZ - 0.025 + 0.002); grp.add(housing);
   const place = (p, x) => { p.position.set(x, S.y, S.faceZ + 0.004); grp.add(p); return p; };
   refs.fcu = place(fcuPanel(M, A), G.fcu.x);
   refs.efis = [place(efisPanel(M, A, 1), -G.efis.x), place(efisPanel(M, A, 2), G.efis.x)];
   refs.warn = [place(warningPanel(M, A), -G.warn.x), place(warningPanel(M, A), G.warn.x)];
+  // outboard ends of the strip: blank face with the side-stick priority arrow light
+  for (const s of [-1, 1]) {
+    const end = rbox(half - G.warn.x - G.warn.w / 2 - 0.006, S.h - 0.004, 0.004, 0.002, M.fcu); place(end, s * (G.warn.x + G.warn.w / 2 + (half - G.warn.x - G.warn.w / 2) / 2)); end.position.z = S.faceZ + 0.002;
+    const arrow = rbox(0.016, 0.012, 0.003, 0.001, new THREE.MeshStandardMaterial({ color: 0x3a1210, roughness: 0.3 })); place(arrow, s * 0.565); arrow.position.z = S.faceZ + 0.005;
+  }
   return grp;
 }
 
