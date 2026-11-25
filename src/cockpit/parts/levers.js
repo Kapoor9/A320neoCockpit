@@ -20,40 +20,69 @@ function curvedStrip(x0, x1, r, a0, a1, pivotZ, seg = 48) {
 // Ergonomic grip leaning forward, flattened at the sides, flared under the palm, domed top
 // with the red takeover pushbutton under the thumb and the radio trigger at the front.
 // Built for the captain (left console); side = +1 mirrors it for the first officer.
-export function makeSidestick(M, side = -1) {
-  // Proportions (from the measured reference): ~18 cm tall overall; ribbed boot ~10 cm wide at the
-  // base and 6 cm tall; 3 cm shaft; rounded head ~5 cm wide; red takeover button on the inboard side.
-  const g = new THREE.Group();
-  // square, stepped rubber gaiter (light grey), as on the A320
-  const gaiterMat = new THREE.MeshStandardMaterial({ color: 0x8e979c, roughness: 0.85 });
-  const steps = [[0.13, 0.010], [0.112, 0.012], [0.094, 0.012], [0.076, 0.012], [0.058, 0.012], [0.04, 0.014]];
-  let yy = 0; steps.forEach(([w, h], i) => { const s = rbox(w, h, w, Math.min(0.012, w * 0.18), i === 0 ? M.panelDark : gaiterMat); s.position.y = yy + h / 2; g.add(s); yy += h - 0.001; });
-  // grip: shaft into a rounded head, leaning forward
-  const H = 0.115, y0 = 0.062;
-  const R = (h) => {
-    if (h < 0.06) return 0.0125 + h * 0.03;
-    if (h < 0.48) return 0.0145 + (h - 0.06) * 0.006;            // shaft
-    if (h < 0.62) { const k = (h - 0.48) / 0.14; return 0.017 + k * k * 0.008; }   // flares into the head
-    const k = (h - 0.62) / 0.38; return 0.0255 * Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, k - 0.25) / 0.75, 2))) + 0.0003; // rounded head
-  };
-  const prof = []; for (let i = 0; i <= 60; i++) { const h = i / 60; prof.push(new THREE.Vector2(R(h), h * H)); }
-  const geo = new THREE.LatheGeometry(prof, 56); const p = geo.attributes.position; const v = new THREE.Vector3();
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i); const h = v.y / H;
-    v.x *= h > 0.55 ? 0.94 : 0.9;                                   // slightly flattened sides
-    v.z *= h > 0.55 ? 1.12 : 1.0;                                   // head longer front-to-back
-    v.z -= 0.022 * Math.sin(Math.min(1, h / 0.7) * Math.PI / 2);   // neck bends forward...
-    if (h > 0.62) v.z += (h - 0.62) * 0.03;                         // ...and the head tilts back (S-curve)
-    v.y += y0; p.setXYZ(i, v.x, v.y, v.z);
+// Sculpted grip: an oval cross-section swept along a curved spine.
+// Narrow round-ish shaft at the bottom, widening into a broad paddle-shaped head that bends
+// forward like a beak; flattened palm side at the back; light finger grooves at the front.
+function gripGeometry() {
+  const spine = [[0, 0, 0], [0.25, 0.031, 0.003], [0.5, 0.061, 0.004], [0.7, 0.083, 0.0], [0.85, 0.096, -0.009], [1, 0.104, -0.021]];
+  const lerpSpine = (t) => { for (let i = 1; i < spine.length; i++) if (t <= spine[i][0]) { const [t0, y0, z0] = spine[i - 1], [t1, y1, z1] = spine[i]; const k = (t - t0) / (t1 - t0); const e = k * k * (3 - 2 * k); return [y0 + (y1 - y0) * e, z0 + (z1 - z0) * e]; } return spine[spine.length - 1].slice(1); };
+  const key = (t, arr) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const k = (t - arr[i - 1][0]) / (arr[i][0] - arr[i - 1][0]); const e = k * k * (3 - 2 * k); return arr[i - 1][1] + (arr[i][1] - arr[i - 1][1]) * e; } return arr[arr.length - 1][1]; };
+  const W = [[0, 0.0172], [0.45, 0.0178], [0.65, 0.0195], [0.85, 0.0238], [1, 0.0222]];  // half-width (side to side): chunky, no waist
+  const Dp = [[0, 0.0182], [0.45, 0.019], [0.65, 0.0195], [0.85, 0.0208], [1, 0.0198]]; // half-depth (front to back)
+  const rings = 56, seg = 48; const pos = []; const idx = [];
+  for (let i = 0; i <= rings; i++) {
+    const t = i / rings; const [y, z] = lerpSpine(t);
+    const [y2, z2] = lerpSpine(Math.min(1, t + 0.01)); const [y1, z1] = lerpSpine(Math.max(0, t - 0.01));
+    const ty = y2 - y1, tz = z2 - z1, tl = Math.hypot(ty, tz);   // spine direction: each section tilts with it
+    const w = key(t, W), d = key(t, Dp);
+    for (let j = 0; j < seg; j++) {
+      const a = (j / seg) * Math.PI * 2; const cx = Math.cos(a), cz = Math.sin(a);   // cz>0: back (palm), cz<0: front (fingers)
+      const sx = Math.sign(cx) * Math.pow(Math.abs(cx), 0.8), sz = Math.sign(cz) * Math.pow(Math.abs(cz), 0.8);   // squarer oval
+      let rz = sz * d;
+      // palm side flattened smoothly (no bands): strongest around the hand, fading out at both ends
+      if (cz > 0) { const b = Math.max(0, Math.sin(Math.min(1, Math.max(0, (t - 0.3) / 0.65)) * Math.PI)); rz *= 1 - 0.14 * b * b * cz; }
+      // place the point off the spine, perpendicular to it, so each section follows the bend
+      pos.push(sx * w, y - rz * (tz / tl), z + rz * (ty / tl));
+    }
   }
-  geo.computeVertexNormals();
-  g.add(shade(new THREE.Mesh(geo, M.rubber)));
-  // red takeover / AP disconnect button on the inboard upper side of the head
-  const btnMat = new THREE.MeshStandardMaterial({ color: 0xb0281f, roughness: 0.4 });
-  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0058, 0.006, 24), btnMat));
-  btn.rotation.z = side * Math.PI / 2 * 0.85; btn.position.set(-side * 0.0228, y0 + H * 0.8, -0.011); g.add(btn);
-  // radio transmit trigger on the front of the shaft
-  const trig = rbox(0.012, 0.022, 0.008, 0.003, M.panelDark); trig.position.set(0, y0 + H * 0.5, -0.019); trig.rotation.x = 0.25; g.add(trig);
+  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
+    const a = i * seg + j, b = i * seg + (j + 1) % seg, c = (i + 1) * seg + (j + 1) % seg, d = (i + 1) * seg + j;
+    idx.push(a, d, b, b, d, c);
+  }
+  // domed top cap, sloping up towards the front (the "beak")
+  const top = rings * seg; const [yt, zt] = lerpSpine(1); const capRings = 7;
+  let prevStart = top;
+  for (let r = 1; r <= capRings; r++) {
+    const k = r / capRings; const s = Math.cos(k * Math.PI / 2); const lift = Math.sin(k * Math.PI / 2) * 0.0075;   // flatter top
+    const start = pos.length / 3;
+    for (let j = 0; j < seg; j++) {
+      const base = top + j; const bx = pos[base * 3], by = pos[base * 3 + 1], bz = pos[base * 3 + 2];
+      const fwd = -(bz - zt);                                  // >0 at the front
+      pos.push(bx * s, yt + (by - yt) * s + lift + fwd * 0.26 * k, zt + (bz - zt) * s);
+    }
+    for (let j = 0; j < seg; j++) { const a = prevStart + j, b = prevStart + (j + 1) % seg, c = start + (j + 1) % seg, d = start + j; idx.push(a, d, b, b, d, c); }
+    prevStart = start;
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
+export function makeSidestick(M, side = -1) {
+  const g = new THREE.Group();
+  // grey stepped base with a flat black square plate on top, as on the A320
+  const gaiterMat = new THREE.MeshStandardMaterial({ color: 0x8e979c, roughness: 0.85 });
+  const steps = [[0.13, 0.010, M.panelDark], [0.112, 0.011, gaiterMat], [0.096, 0.011, gaiterMat], [0.082, 0.010, gaiterMat]];
+  let yy = 0; for (const [w, h, m] of steps) { const s = rbox(w, h, w, Math.min(0.012, w * 0.15), m); s.position.y = yy + h / 2; g.add(s); yy += h - 0.001; }
+  const plate = rbox(0.064, 0.009, 0.064, 0.004, M.rubber); plate.position.y = yy + 0.0045; g.add(plate); yy += 0.008;
+  const gripMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: 0.55 });
+  const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);
+  // red takeover / AP disconnect button on the top-front edge of the head (thumb side, inboard)
+  const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });
+  // small, nearly flush disc: only ~2 mm proud of the grip surface
+  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.004, 28), btnMat));
+  btn.position.set(-side * 0.0105, yy + 0.1095, -0.031); btn.rotation.set(-0.6, 0, side * 0.35); g.add(btn);
+  // radio transmit trigger at the front, under the index finger
+  const trig = rbox(0.013, 0.016, 0.008, 0.003, gripMat); trig.position.set(0, yy + 0.065, -0.025); trig.rotation.x = 0.3; g.add(trig);
   g.userData.button = btn;
   return g;
 }
