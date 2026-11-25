@@ -136,46 +136,63 @@ export function engPanel(M, A) {
   p.userData.masters = [];
   for (const s of [-1, 1]) {
     const sw = new THREE.Group();
-    const guardL = rbox(0.004, 0.03, 0.018, 0.0015, M.panelDark); guardL.position.set(-0.016, 0.006, 0.009); sw.add(guardL);
-    const guardR = guardL.clone(); guardR.position.x = 0.016; sw.add(guardR);
-    const lever = new THREE.Group();
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0028, 0.022, 12), M.metal); stem.position.y = 0.011; lever.add(stem);
-    const head = rbox(0.02, 0.024, 0.014, 0.004, new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.35 })); head.position.y = 0.03; head.castShadow = true; lever.add(head);   // square ENG cap
-    const lab = A.mesh('ENG ' + (s < 0 ? 1 : 2), 0.007, { px: 40, weight: 600, color: '#f2f2ee' }, 0.017); lab.position.set(0, 0.03, 0.0075); lever.add(lab);
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.007, 0.006, 20), M.metal); collar.position.y = 0.017; lever.add(collar);
-    lever.rotation.x = -0.45; lever.position.set(0, 0.006, 0.002); sw.add(lever);   // OFF (aft)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0105, 0.0016, 10, 32), new THREE.MeshStandardMaterial({ color: 0xd9963f, roughness: 0.4, emissive: 0x6a3a08 })); ring.position.z = 0.001; sw.add(ring);
+    const well = new THREE.Mesh(new THREE.CircleGeometry(0.0095, 32), new THREE.MeshBasicMaterial({ color: 0x0a0b0c })); well.position.z = 0.0005; sw.add(well);
+    const lever = new THREE.Group(); lever.rotation.x = 0.3; sw.add(lever);   // OFF: leaning aft
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xc8cbcc, roughness: 0.22, metalness: 0.9 });
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0072, 0.022, 24).rotateX(Math.PI / 2), chrome); sh.position.z = 0.011; lever.add(sh);
+    const cap = rbox(0.024, 0.014, 0.028, 0.004, new THREE.MeshStandardMaterial({ color: 0x101214, roughness: 0.3 })); cap.position.z = 0.036; cap.castShadow = true; lever.add(cap);
+    for (const [txt, dz, sz] of [['ENG', 0.0065, 0.0075], [String(s < 0 ? 1 : 2), -0.0065, 0.0095]]) { const l = A.mesh(txt, sz, { px: 48, weight: 700, color: '#f2f2ee' }, 0.021); l.rotation.x = Math.PI / 2; l.position.set(0, -0.0072, 0.036 + dz); lever.add(l); }
     sw.position.set(s * 0.074, 0.0, 0); p.add(sw); p.userData.masters.push(lever);
   }
   return p;
 }
 
 // Lever in a gated slot with detent labels (speed brake, flaps)
-function leverPanel(M, A, { w, h, title, marks, handle, slotX = 0, id }) {
-  const items = [{ t: 'text', x: slotX + 0.03, y: h / 2 - 0.009, s: title, size: 0.0058, align: 'center' }];
+function leverPanel(M, A, { w, h, title, marks, handle, slotX = 0, id, extra = [], titleX = null }) {
+  const items = [{ t: 'text', x: titleX ?? slotX + 0.03, y: titleX != null ? 0.0 : h / 2 - 0.009, s: title, size: 0.0058, align: 'center' }, ...extra];
   marks.forEach(([s, y]) => items.push({ t: 'text', x: slotX - 0.018, y, s, size: 0.0042, align: 'right' }, { t: 'line', pts: [[slotX - 0.013, y], [slotX - 0.007, y]] }));
   const p = buildPanel({ w, h, items, name: id }, M, A);
   const slot = new THREE.Mesh(new THREE.PlaneGeometry(0.006, h - 0.03), new THREE.MeshStandardMaterial({ color: 0x0b0c0d, roughness: 1 }));
   slot.position.set(slotX, -0.004, 0.0003); p.add(slot);
   const lever = new THREE.Group();
-  const stem = rbox(0.005, 0.005, 0.05, 0.0015, M.metal); stem.position.z = 0.025; lever.add(stem);
+  const blk = new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.35 });
+  const stem = rbox(0.01, 0.007, 0.05, 0.003, blk); stem.position.z = 0.025; lever.add(stem);
+  for (let k = 0; k < 9; k++) { const rib = rbox(0.011, 0.008, 0.0018, 0.0006, blk); rib.position.z = 0.006 + k * 0.0045; lever.add(rib); }   // ribbed lever
   lever.add(handle); handle.position.z = 0.05;
   lever.position.set(slotX, marks[0][1], 0); p.add(lever); p.userData.lever = lever;
   return p;
 }
+// white gate outline: brackets either side of the slot with notches at each detent, labels on both sides
+function gateItems(slotX, marks, top, bot) {
+  const it = [];
+  for (const sx of [-1, 1]) {
+    const x0 = slotX + sx * 0.008, x1 = slotX + sx * 0.016;
+    it.push({ t: 'line', pts: [[x0, top], [x1, top], [x1, bot], [x0, bot]], w: 0.0009 });
+    marks.forEach(([s, y]) => it.push({ t: 'line', pts: [[x1, y], [x1 + sx * 0.005, y]], w: 0.0009 }, { t: 'text', x: x1 + sx * 0.016, y, s, size: 0.0042 }));
+  }
+  return it;
+}
 export function speedBrakePanel(M, A) {
-  const handle = new THREE.Group();
-  const grip = rbox(0.034, 0.012, 0.014, 0.005, M.rubber); handle.add(grip);    // T-handle, pull up to arm
-  return leverPanel(M, A, { w: 0.15, h: 0.14, title: 'SPEED\nBRAKE', slotX: -0.01, id: 'speedbrake', handle,
-    marks: [['RET', 0.04], ['1/2', 0.0], ['FULL', -0.045]] });
+  // black grip flaring toward the top, on the ribbed lever; GND SPLR ARMED legend over the gate
+  const handle = new THREE.Group(); const blk = new THREE.MeshStandardMaterial({ color: 0x0f1113, roughness: 0.25 });
+  const s = new THREE.Shape(); s.moveTo(-0.009, 0); s.lineTo(0.009, 0); s.quadraticCurveTo(0.017, 0.03, 0.015, 0.042); s.quadraticCurveTo(0, 0.05, -0.015, 0.042); s.quadraticCurveTo(-0.017, 0.03, -0.009, 0); 
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.016, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 4 }).translate(0, 0, -0.008).rotateX(Math.PI / 2);
+  const grip = new THREE.Mesh(g, blk); grip.castShadow = true; handle.add(grip);
+  const sx = 0.02, marks = [['RET', 0.04], ['1/2', 0.0], ['FULL', -0.045]];
+  const extra = [...gateItems(sx, marks, 0.048, -0.05), { t: 'text', x: sx, y: 0.06, s: 'GND SPLR ARMED', size: 0.0034, boxed: true }];
+  return leverPanel(M, A, { w: 0.15, h: 0.14, title: 'SPEED\nBRAKE', slotX: sx, titleX: -0.035, id: 'speedbrake', handle, marks: [['', 0.04]], extra });
 }
 export function flapsPanel(M, A) {
-  const handle = new THREE.Group();
-  // flap lever knob: a wing-section shaped grip
-  const sh = new THREE.Shape(); sh.moveTo(-0.02, -0.004); sh.quadraticCurveTo(-0.022, 0.006, -0.008, 0.008); sh.lineTo(0.02, 0.003); sh.quadraticCurveTo(0.024, -0.002, 0.018, -0.005); sh.closePath();
-  const wing = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.016, bevelEnabled: true, bevelSize: 0.0015, bevelThickness: 0.0015, bevelSegments: 2 }), M.trim);
-  wing.rotation.set(0, Math.PI / 2, Math.PI / 2); wing.position.set(-0.008, 0, 0); wing.castShadow = true; handle.add(wing);
-  return leverPanel(M, A, { w: 0.15, h: 0.14, title: 'FLAPS', slotX: 0.012, id: 'flaps', handle,
-    marks: [['0', 0.045], ['1', 0.022], ['2', 0.0], ['3', -0.022], ['FULL', -0.045]] });
+  // T-handle: wide flat aerofoil-shaped top over a smaller trigger plate, on the ribbed lever; raised gate with detent notches
+  const handle = new THREE.Group(); const blk = new THREE.MeshStandardMaterial({ color: 0x0f1113, roughness: 0.25 });
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 40).rotateX(Math.PI / 2), blk); top.scale.set(1, 0.55, 1); top.position.z = 0.012; top.castShadow = true; handle.add(top);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.03, 32, 12, 0, Math.PI * 2, 0, 0.5).rotateX(Math.PI / 2), blk); dome.scale.set(1, 0.55, 0.35); dome.position.z = 0.018; handle.add(dome);
+  const trig = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.006, 32).rotateX(Math.PI / 2), blk); trig.scale.set(1, 0.45, 1); trig.position.z = -0.004; handle.add(trig);
+  const sx = -0.04, marks = [['0', 0.045], ['1', 0.022], ['2', 0.0], ['3', -0.022], ['FULL', -0.045]];
+  const p = leverPanel(M, A, { w: 0.15, h: 0.14, title: 'FLAPS', slotX: sx, titleX: 0.035, id: 'flaps', handle, marks: [['', 0.045]], extra: gateItems(sx, marks, 0.05, -0.05) });
+  for (const s2 of [-1, 1]) { const g = rbox(0.008, 0.1, 0.006, 0.002, M.panel); g.position.set(sx + s2 * 0.011, -0.002, 0.003); p.add(g); }
+  return p;
 }
 export function rudderTrimPanel(M, A) {
   const p = buildPanel({ w: 0.085, h: 0.12, items: [

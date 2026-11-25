@@ -295,11 +295,18 @@ function buildWindowFrames(M) {
     grp.add(bar(lift(B, 0.02), lift(C, 0.02), 0.06, 0.035, f, nIn));
     {
       const xA = C.clone().sub(B).normalize(), yA = B.clone().sub(A).normalize(); const zA = xA.clone().cross(yA).normalize(); if (zA.dot(nIn) < 0) zA.negate();
-      const vis = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.13, 0.004), new THREE.MeshPhysicalMaterial({ color: 0xe8dcee, roughness: 0.1, transparent: true, opacity: 0.42, depthWrite: false }));
-      vis.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA)); vis.position.copy(B.clone().lerp(C, 0.6)).add(yA.clone().multiplyScalar(-0.08)).add(nIn.clone().multiplyScalar(0.05)); vis.renderOrder = 11; grp.add(vis);
-      const armM = new THREE.MeshStandardMaterial({ color: 0x1b1e22, roughness: 0.45 });
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.16, 12), armM); arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), xA); arm.position.copy(vis.position).add(yA.clone().multiplyScalar(0.075)).add(zA.clone().multiplyScalar(0.012)); grp.add(arm);
-      const clamp = rbox(0.04, 0.03, 0.03, 0.008, armM); clamp.position.copy(arm.position).add(xA.clone().multiplyScalar(0.09)); grp.add(clamp);
+      const VW = 0.27, VH = 0.24, ch = 0.045; const vs = new THREE.Shape();
+      vs.moveTo(-VW / 2, VH / 2); vs.lineTo(VW / 2, VH / 2); vs.lineTo(VW / 2, -VH / 2 + ch); vs.lineTo(VW / 2 - ch, -VH / 2); vs.lineTo(-VW / 2 + ch, -VH / 2); vs.lineTo(-VW / 2, -VH / 2 + ch); vs.closePath();
+      const vis = new THREE.Mesh(new THREE.ExtrudeGeometry(vs, { depth: 0.003, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.0015, bevelSegments: 2 }), new THREE.MeshPhysicalMaterial({ color: 0xeadff0, roughness: 0.08, transparent: true, opacity: 0.5, depthWrite: false }));
+      const base = new THREE.Group(); base.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
+      base.position.copy(B.clone().lerp(C, 0.5)).add(yA.clone().multiplyScalar(-0.17)).add(nIn.clone().multiplyScalar(0.09)); grp.add(base);
+      vis.renderOrder = 11; base.add(vis);
+      const armM = new THREE.MeshStandardMaterial({ color: 0x17191c, roughness: 0.35 });
+      const edge = rbox(VW + 0.004, 0.012, 0.012, 0.005, armM); edge.position.set(0, VH / 2, 0.002); base.add(edge);   // dark top edge
+      const piv = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 16), armM); piv.rotation.z = Math.PI / 2; piv.position.set(VW / 2 - 0.02, VH / 2 + 0.012, 0.004); base.add(piv);
+      const arm = rbox(0.02, 0.13, 0.016, 0.006, armM); arm.position.set(VW / 2 - 0.02, VH / 2 + 0.075, 0.02); arm.rotation.x = -0.5; base.add(arm);
+      const clamp = rbox(0.045, 0.03, 0.035, 0.008, armM); clamp.position.set(VW / 2 - 0.02, VH / 2 + 0.135, 0.05); base.add(clamp);
+      const rail = rbox(0.42, 0.01, 0.012, 0.004, armM); rail.position.set(0.02, VH / 2 + 0.15, 0.05); base.add(rail);   // visor rail along the header
     }
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
@@ -398,10 +405,10 @@ function buildMainPanel(M, refs) {
   const st = MP.isis(M, 0.078); on(st, -0.142, 0.70); refs.screens.ISIS = st.userData.screen;
   { const rec = rbox(0.06, 0.07, 0.006, 0.012, M.panelDark); on(rec, -0.142, 0.615, -0.001); }   // recessed blank below the ISIS
   // digital clock in the right column (CHR / UTC / ET)
-  { const clk = new THREE.Group(); const b = rbox(0.064, 0.078, 0.014, 0.006, M.bezel); b.position.z = 0.007; clk.add(b);
-    for (const [y, h] of [[0.022, 0.014], [0.0, 0.02], [-0.024, 0.014]]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.04, h), M.screen); s.position.set(0, y, 0.0145); clk.add(s); }
-    for (const [x, y] of [[-0.026, 0.026], [0.026, 0.026], [-0.026, -0.006], [0.026, -0.006], [0.026, -0.026]]) { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.004, 12).rotateX(Math.PI / 2), M.trim); k.position.set(x, y, 0.016); clk.add(k); }
-    on(clk, 0.152, 0.645); refs.clock = clk; }
+  { const clk = new THREE.Group(); const b = rbox(0.054, 0.066, 0.012, 0.006, M.bezel); b.position.z = 0.006; clk.add(b);
+    for (const [y, h] of [[0.019, 0.012], [0.0, 0.017], [-0.02, 0.012]]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.034, h), M.screen); s.position.set(0, y, 0.0124); clk.add(s); }
+    for (const [x, y] of [[-0.022, 0.024], [0.022, 0.024], [-0.022, -0.004], [0.022, -0.004], [0.022, -0.022]]) { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0024, 0.0024, 0.002, 12).rotateX(Math.PI / 2), M.trim); k.position.set(x, y, 0.0128); clk.add(k); }
+    on(clk, 0.147, 0.69); refs.clock = clk; }
   // datalink control and display units (DCDU) at the foot of both centre columns
   refs.dcdu = [];
   for (const s of [-1, 1]) { const u = new THREE.Group(); const b = rbox(0.12, 0.085, 0.004, 0.004, M.bezel); b.position.z = 0.0; u.add(b);
@@ -586,7 +593,7 @@ function buildOverheadSurround(M) {
     for (let k = 0; k < NR; k++) grp.add(stripMesh(rows[k], rows[k + 1], ceil));
     const A = rows[0], Mid = rows[NR / 2], B = rows[NR];
     // thin dark guard rail along the overhead edge, running its full length from the windshield header to the aft end
-    { const dir = R.clone().sub(F).normalize(); const r0 = F.clone().sub(dir.clone().multiplyScalar(0.18)), r1 = R.clone().add(dir.clone().multiplyScalar(0.04));
+    { const dir = R.clone().sub(F).normalize(); const r0 = F.clone().add(dir.clone().multiplyScalar(0.01)), r1 = R.clone().sub(dir.clone().multiplyScalar(0.01));
       for (const r of [r0, r1]) { r.x = s * (O.halfWidth + 0.022); r.add(n.clone().multiplyScalar(-0.012)); }
       const rail = rbox(0.022, r0.distanceTo(r1), 0.026, 0.006, dark); rail.position.copy(r0).add(r1).multiplyScalar(0.5);
       rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.castShadow = true; grp.add(rail); }
