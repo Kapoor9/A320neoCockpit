@@ -9,7 +9,7 @@ export const VIEWS = {
   cpt:   { label: 'Captain',     pos: [-D.SEAT_X, D.EYE.y, D.EYE.z], look: [-D.SEAT_X, 0.86, -0.4], fov: 68 },
   fo:    { label: 'First officer', pos: [D.SEAT_X, D.EYE.y, D.EYE.z], look: [D.SEAT_X, 0.86, -0.4], fov: 68 },
   ovhd:  { label: 'Overhead',    pos: [0, 1.06, 1.38], look: [0, 1.62, 0.92], fov: 62 },
-  fcu:   { label: 'FCU',         pos: [0, 1.06, 0.62], look: [0, 0.97, 0.10], fov: 48 },
+  fcu:   { label: 'FCU',         pos: [0, 1.04, 0.66], look: [0, 0.93, 0.18], fov: 46 },
   main:  { label: 'Main panel',  pos: [-0.42, 1.06, 0.66], look: [-0.58, 0.72, -0.04], fov: 52 },
   ecam:  { label: 'ECAM',        pos: [0, 1.0, 0.62], look: [0, 0.63, -0.03], fov: 46 },
   mcdu:  { label: 'MCDU',        pos: [-0.12, 0.86, 0.66], look: [-0.06, 0.43, 0.2], fov: 50 },
