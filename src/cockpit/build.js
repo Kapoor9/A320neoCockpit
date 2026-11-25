@@ -288,14 +288,14 @@ function buildWindowFrames(M) {
     const nIn = Dp.clone().sub(A).cross(B.clone().sub(A)).normalize(); if (nIn.z < 0) nIn.negate();   // normal pointing into the cockpit
     const lift = (v, d) => v.clone().add(nIn.clone().multiplyScalar(d));
     // header bar along the top edge, and the corner post between the pane and the sliding window
-    grp.add(bar(lift(B, 0.03), lift(C, 0.03), 0.09, 0.06, f, nIn));
+    grp.add(bar(lift(B, 0.02), lift(C, 0.02), 0.06, 0.035, f, nIn));
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
     // 6 cm deep into the cockpit
     const n = 10; const L = [], R = [], Li = [], Ri = [];
     for (let i = 0; i <= n; i++) {
       const tt = i / n; const l = lift(Dp.clone().lerp(C, tt), 0.004), r = D2.clone().lerp(C2, tt);
-      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.06);
+      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.035);
       L.push(l); R.push(r); Li.push(l.clone().add(din)); Ri.push(r.clone().add(din));
     }
     grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f), stripMesh(L, Li, f), stripMesh(R, Ri, f));
@@ -306,7 +306,7 @@ function buildWindowFrames(M) {
   }
   // centre post
   const up = new THREE.Vector3(0, -0.7, 0.7).normalize();
-  grp.add(bar(new THREE.Vector3(0, WS.innerBottom[1] - 0.01, WS.innerBottom[2] + 0.012), new THREE.Vector3(0, WS.innerTop[1] + 0.02, WS.innerTop[2] + 0.02), 0.055, 0.06, f, up));
+  grp.add(bar(new THREE.Vector3(0, WS.innerBottom[1] - 0.01, WS.innerBottom[2] + 0.012), new THREE.Vector3(0, WS.innerTop[1] + 0.02, WS.innerTop[2] + 0.02), 0.04, 0.035, f, up));
 
   // side window frames: a band around each opening, lying on the shell, plus an inner lip
   const ring = (poly, s, w) => {
@@ -325,10 +325,10 @@ function buildWindowFrames(M) {
       let ww = w; while (ww > 0.006 && shellCell(s * hullHW(z + dz / l * ww, y + dy / l * ww), y + dy / l * ww, z + dz / l * ww) === 'open') ww *= 0.6;   // don't run into the windshield gap
       inner.push(onHull(s, z - dz / l * 0.004, y - dy / l * 0.004, 0.012)); outer.push(onHull(s, z + dz / l * ww, y + dy / l * ww, 0.004));
     }
-    const lip = inner.map((p) => p.clone().add(new THREE.Vector3(-p.x, 1.1 - p.y, 0).normalize().multiplyScalar(0.06)));   // reveal, square to the wall
+    const lip = inner.map((p) => p.clone().add(new THREE.Vector3(-p.x, 1.1 - p.y, 0).normalize().multiplyScalar(0.035)));   // reveal, square to the wall
     grp.add(stripMesh(inner, outer, f), stripMesh(lip, inner, f));
   };
-  for (const s of [-1, 1]) { ring(D.SIDE_WINDOWS.w2, s, 0.07); ring(D.SIDE_WINDOWS.w3, s, 0.06); }
+  for (const s of [-1, 1]) { ring(D.SIDE_WINDOWS.w2, s, 0.04); ring(D.SIDE_WINDOWS.w3, s, 0.035); }
   // fairing from the windshield header back to the front of the overhead panel
   const O = D.OVERHEAD; const hw = O.halfWidth + 0.04;
   const hz = (ax) => wsTopZ(ax) + 0.03; const hy = (ax) => WS.innerTop[1] + (ax / WS.outerTop[0]) * (WS.outerTop[1] - WS.innerTop[1]) + 0.035;
@@ -640,7 +640,7 @@ function buildFittings(M, refs) {
   }
   for (const s of [-1, 1]) {
     const L = [], R = [], Rf = [];
-    for (let i = 0; i <= 40; i++) { const z = 0.3 + 1.32 * i / 40; const y = sillY(z) - 0.02; const p = onHull(s, z, y, 0.0); L.push(p); const q = p.clone(); q.x -= s * 0.07; R.push(q); const r2 = q.clone(); r2.y -= 0.03; Rf.push(r2); }
+    for (let i = 0; i <= 40; i++) { const z = 0.3 + 1.32 * i / 40; const y = sillY(z) - 0.02; const p = onHull(s, z, y, 0.0); L.push(p); const q = p.clone(); q.x -= s * 0.04; R.push(q); const r2 = q.clone(); r2.y -= 0.018; Rf.push(r2); }
     const ledge = M.module.clone(); ledge.side = THREE.DoubleSide; grp.add(stripMesh(L, R, ledge), stripMesh(R, Rf, ledge));
   }
   // rear of the cockpit: CB panel behind the F/O, extinguisher, axe, oxygen bottle, folded jump seat, coat hooks
