@@ -40,7 +40,8 @@ const HW = {};
 function hw() {
   if (HW.bezel) return HW;
   HW.bezel = new THREE.MeshStandardMaterial({ color: 0xaeb2b2, roughness: 0.38, metalness: 0.55 });      // satin silver Korry bezel
-  HW.knob = new THREE.MeshStandardMaterial({ color: 0x5f6467, roughness: 0.58, metalness: 0.1 });         // light grey selector knobs
+  HW.knob = new THREE.MeshStandardMaterial({ color: 0x7c8286, roughness: 0.52, metalness: 0.12 });   // light-grey Airbus selector knobs
+  HW.fcuKnob = new THREE.MeshStandardMaterial({ color: 0x33373a, roughness: 0.6, metalness: 0.1 });         // light grey selector knobs
   HW.knobDark = new THREE.MeshStandardMaterial({ color: 0x232628, roughness: 0.55 });
   HW.chrome = new THREE.MeshStandardMaterial({ color: 0xc4c7c8, roughness: 0.25, metalness: 0.85 });
   HW.red = new THREE.MeshStandardMaterial({ color: 0xa3261d, roughness: 0.45 });
@@ -116,12 +117,13 @@ export function buildPanel(spec, M, atlas) {
   for (const it of spec.items || []) {
     const H = hw();
     if (it.t === 'knob' && it.style === 'fcu') {
+      // A320 FCU knob: satin collar on the panel, grey knurled body, slightly domed cap with a fine ring
       const r = it.r || 0.012; const k = new THREE.Group();
-      const collar = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.32, r * 1.36, 0.002, 40).rotateX(Math.PI / 2), H.chrome); collar.position.z = 0.001; k.add(collar);
-      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.16, 0.006, 24).rotateX(Math.PI / 2), H.knobDark); skirt.position.z = 0.005; k.add(skirt);
-      for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; const fl = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.0016, 0.0058), H.knobDark); fl.position.set(Math.cos(a) * r * 1.14, Math.sin(a) * r * 1.14, 0.005); fl.rotation.z = a; k.add(fl); }
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r * 1.02, 0.012, 40).rotateX(Math.PI / 2), H.knobDark); cap.position.z = 0.014; cap.castShadow = true; k.add(cap);
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.86, r * 0.92, 0.0015, 40).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2c3033, roughness: 0.35, metalness: 0.2 })); top.position.z = 0.0205; k.add(top);
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.42, r * 1.48, 0.0022, 48).rotateX(Math.PI / 2), H.bezel); collar.position.z = 0.0011; k.add(collar);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.02, r * 1.06, 0.016, 48).rotateX(Math.PI / 2), H.fcuKnob); body.position.z = 0.0102; body.castShadow = true; k.add(body);
+      for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; const fl = new THREE.Mesh(new THREE.BoxGeometry(0.0009, 0.0014, 0.0145), H.fcuKnob); fl.position.set(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05, 0.0102); fl.rotation.z = a; k.add(fl); }
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(r * 1.0, 40, 12, 0, Math.PI * 2, 0, 0.42).rotateX(Math.PI / 2), H.fcuKnob); cap.scale.z = 0.35; cap.position.z = 0.0168; k.add(cap);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 0.62, 0.00045, 6, 48), H.pointer); ring.position.z = 0.0205; k.add(ring);
       k.position.set(it.x, it.y, 0); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'knob') {
       // Airbus rotary selector: tapered light-grey body on a thin skirt, a raised pointer fin across the top
@@ -130,7 +132,7 @@ export function buildPanel(spec, M, atlas) {
       const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.78, r * 0.95, 0.008, 36).rotateX(Math.PI / 2), km); body.position.z = 0.0058; body.castShadow = true; k.add(body);
       if (it.pointer !== false) {
         // bar knob: a tall fin, tapered toward its top edge, spanning the knob
-        const fin = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.16, r * 0.3, 0.012, 4, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 3.4, 1), km);
+        const fin = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.22, r * 0.38, 0.013, 4, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 2.9, 1), km);
         fin.position.set(0, 0, 0.0158); fin.castShadow = true; k.add(fin);
         const line = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.09, r * 0.75), H.pointer); line.position.set(0, r * 0.62, 0.0219); k.add(line);
       }

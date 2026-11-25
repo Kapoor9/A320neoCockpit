@@ -118,7 +118,7 @@ function hullSpan(z) {
   return [H.length - 1, H.length - 1, 0];
 }
 export function crownAt(z) { const [a, b, e] = hullSpan(z); return D.HULL[a][1] + (D.HULL[b][1] - D.HULL[a][1]) * e; }
-export function hullHW(z, y) { const [a, b, e] = hullSpan(z); const p = hullStation(a, y), q = hullStation(b, y); return p + (q - p) * e; }
+export function hullHW(z, y) { const [a, b, e] = hullSpan(z); const p = hullStation(a, y), q = hullStation(b, y); const k = 0.92 + 0.08 * Math.min(1, Math.max(0, (y - 0.9) / 0.35)); return (p + (q - p) * e) * k; }   // lower cockpit pulled in 8%
 // legacy helper: [floor half-width, half-width at 1.1 m, crown]
 function shellAt(z) { return [hullHW(z, 0.05), hullHW(z, 1.1), crownAt(z)]; }
 // point on the cross-section: s in [0,1] from left floor, over the crown, to right floor
@@ -670,17 +670,27 @@ function buildFittings(M, refs) {
 function buildConsolesAndSeats(M, refs) {
   const grp = new THREE.Group(); const C = D.CONSOLE;
   for (const s of [-1, 1]) {
-    const outer = hullHW((C.z0 + C.z1) / 2, C.topY) + 0.05;   // runs into the sidewall
-    const con = rbox(outer - C.innerX, C.topY, C.z1 - C.z0, 0.02, M.panelDark);
-    con.position.set(s * (C.innerX + outer) / 2, C.topY / 2, (C.z0 + C.z1) / 2); grp.add(con);
-    const top = rbox(outer - C.innerX - 0.02, 0.012, C.z1 - C.z0 - 0.02, 0.004, M.module);
-    top.position.set(s * (C.innerX + outer) / 2, C.topY + 0.006, (C.z0 + C.z1) / 2); grp.add(top);
+    // lateral console: chamfered front corner, inner face angled outboard toward the seat, top rising to the wall
+    const outer = hullHW((C.z0 + C.z1) / 2, C.topY) + 0.05, ix = C.innerX;
+    const plan = [[ix + 0.07, C.z0], [outer, C.z0], [outer, C.z1], [ix + 0.13, C.z1], [ix + 0.02, C.z0 + 0.3], [ix, C.z0 + 0.22], [ix, C.z0 + 0.07]];
+    const sh = new THREE.Shape(plan.map(([x, z]) => new THREE.Vector2(s * x, -z)));
+    const conGeo = new THREE.ExtrudeGeometry(sh, { depth: C.topY, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelOffset: -0.006, bevelSegments: 2 }).rotateX(-Math.PI / 2);
+    const conMat = M.panelDark.clone(); conMat.side = THREE.DoubleSide;
+    const con = new THREE.Mesh(conGeo, conMat); con.castShadow = con.receiveShadow = true; grp.add(con);
+    const topSh = new THREE.Shape(plan.map(([x, z]) => new THREE.Vector2(s * x, -z)));
+    const top = new THREE.Mesh(new THREE.ExtrudeGeometry(topSh, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelOffset: -0.003, bevelSegments: 2 }).rotateX(-Math.PI / 2), M.module);
+    top.position.y = C.topY; top.receiveShadow = true; grp.add(top);
+    // raised sidestick housing with a sloped front, the stick mounted on its top
+    const hous = new THREE.Group(); hous.position.set(s * D.SIDESTICK.x, C.topY + 0.01, D.SIDESTICK.z); grp.add(hous);
+    const hb = rbox(0.17, 0.05, 0.24, 0.012, M.panelDark); hb.position.set(0, 0.025, 0.01); hous.add(hb);
+    const ramp = rbox(0.17, 0.05, 0.08, 0.012, M.panelDark); ramp.position.set(0, 0.012, -0.12); ramp.rotation.x = 0.5; hous.add(ramp);
+    const deck = rbox(0.15, 0.006, 0.2, 0.003, M.module); deck.position.set(0, 0.051, 0.01); hous.add(deck);
     // sidestick
     const st = makeSidestick(M, s);
-    st.position.set(s * D.SIDESTICK.x, C.topY + 0.002, D.SIDESTICK.z); grp.add(st);
+    st.position.set(s * D.SIDESTICK.x, C.topY + 0.064, D.SIDESTICK.z); grp.add(st);
     refs[s < 0 ? 'sidestickCpt' : 'sidestickFo'] = st;
     // nosewheel steering tiller, outboard and slightly forward of the sidestick
-    const til = makeTiller(M); til.position.set(s * D.TILLER.x, C.topY + 0.004, D.TILLER.z); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
+    const til = makeTiller(M); til.position.set(s * (D.TILLER.x + 0.05), C.topY + 0.012, D.TILLER.z - 0.04); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
     const clip = rbox(0.22, 0.01, 0.02, 0.003, M.metal); clip.position.set(s * 0.82, C.topY - 0.05, -0.1); grp.add(clip);

@@ -58,7 +58,7 @@ export const PANELS = {
   ] }),
   adirs: (w, h) => ({ title: 'ADIRS', items: [
     { t: 'annun', x: -0.12, y: 0.036, w: 0.028, h: 0.009, s: 'ON BAT' },
-    { t: 'text', x: 0.03, y: 0.036, s: 'IR 1          IR 3          IR 2', size: 0.0042 },
+    { t: 'text', x: 0.03, y: 0.036, s: 'IR 1          IR 3          IR 2', size: 0.0042 }, { t: 'line', pts: [[-0.07, -0.004], [0.13, -0.004]], w: 0.0007 }, { t: 'text', x: -0.12, y: 0.0, s: 'ADR', size: 0.0034, boxed: true },
     ...pbRow(0.2, 0.017, [['', 'FAULT', 'ALIGN'], ['', 'FAULT', 'ALIGN'], ['', 'FAULT', 'ALIGN']]).map((i) => ({ ...i, x: i.x + 0.03 })),
     ...selector(-0.037, -0.022, '', ['OFF', 'NAV', 'ATT'], 'ir1'),
     ...selector(0.03, -0.022, '', ['OFF', 'NAV', 'ATT'], 'ir3'),
@@ -75,14 +75,15 @@ export const PANELS = {
       else items.push(...pbRow(0.05, -0.026, [['AGENT 1', 'SQUIB', 'DISCH'], ['AGENT 2', 'SQUIB', 'DISCH']], { cap: 0.0032, size: 0.017 }).map((i) => ({ ...i, x: i.x + x })));
       items.push({ t: 'key', x: x + (n === 'APU' ? 0.034 : 0.04), y: 0.03, w: 0.014, h: 0.01, s: 'TEST', id: 'test' + n.replace(' ', '') });
     });
+    items.push({ t: 'line', pts: [[-0.0525, 0.045], [-0.0525, -0.04]], w: 0.0007 }, { t: 'line', pts: [[0.0525, 0.045], [0.0525, -0.04]], w: 0.0007 });
     return { title: '', items };
   },
   hyd: (w, h) => ({ title: 'HYD', items: [
-    { t: 'text', x: -0.12, y: 0.022, s: 'GREEN', size: 0.0034 }, { t: 'text', x: -0.02, y: 0.022, s: 'BLUE', size: 0.0034 }, { t: 'text', x: 0.1, y: 0.022, s: 'YELLOW', size: 0.0034 },
+    { t: 'text', x: -0.12, y: 0.022, s: 'GREEN', size: 0.0034, boxed: true }, { t: 'text', x: -0.02, y: 0.022, s: 'BLUE', size: 0.0034, boxed: true }, { t: 'text', x: 0.1, y: 0.022, s: 'YELLOW', size: 0.0034, boxed: true }, { t: 'line', pts: [[-0.12, 0.016], [-0.12, 0.004]], w: 0.0007 }, { t: 'line', pts: [[-0.02, 0.016], [-0.02, 0.004]], w: 0.0007 }, { t: 'line', pts: [[0.1, 0.016], [0.1, 0.004]], w: 0.0007 },
     ...pbRow(w, -0.012, [['ENG 1\nPUMP', 'FAULT', 'OFF'], ['RAT MAN ON', '', '', { guard: 'grey' }], ['ELEC PUMP', 'FAULT', 'OFF'], ['PTU', 'FAULT', 'OFF'], ['ENG 2\nPUMP', 'FAULT', 'OFF'], ['ELEC PUMP', 'FAULT', 'ON']], { cap: 0.0032, line: true }),
   ] }),
   fuel: (w, h) => ({ title: 'FUEL', items: [
-    { t: 'text', x: -0.115, y: 0.034, s: 'L TK PUMPS', size: 0.0034 }, { t: 'text', x: 0, y: 0.034, s: 'CTR TK PUMPS', size: 0.0034 }, { t: 'text', x: 0.115, y: 0.034, s: 'R TK PUMPS', size: 0.0034 },
+    { t: 'text', x: -0.115, y: 0.034, s: 'L TK PUMPS', size: 0.0034, boxed: true }, { t: 'text', x: 0, y: 0.034, s: 'CTR TK PUMPS', size: 0.0034, boxed: true }, { t: 'text', x: 0.115, y: 0.034, s: 'R TK PUMPS', size: 0.0034, boxed: true }, { t: 'line', pts: [[0, 0.012], [0, -0.03]], w: 0.0007 }, { t: 'line', pts: [[-0.135, -0.03], [0.135, -0.03]], w: 0.0007 }, { t: 'line', pts: [[-0.135, -0.03], [-0.135, 0.012]], w: 0.0007 }, { t: 'line', pts: [[0.135, -0.03], [0.135, 0.012]], w: 0.0007 },
     ...pbRow(w, 0.012, [['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['MODE SEL', 'FAULT', 'MAN'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF']], { cap: 0.0034, line: true }),
     ...pbRow(w, -0.03, [['X FEED', 'OPEN', 'ON']]),
   ] }),
@@ -91,6 +92,8 @@ export const PANELS = {
       { t: 'text', x: -0.1, y: 0.056, s: 'BAT 1', size: 0.0038 }, { t: 'text', x: -0.035, y: 0.056, s: 'BAT 2', size: 0.0038 },
       ...pbRow(0.15, 0.03, [['', 'FAULT', 'OFF'], ['', 'FAULT', 'OFF']]).map((i) => ({ ...i, x: i.x - 0.067 })),
       { t: 'text', x: 0.09, y: 0.05, s: 'AC ESS FEED', size: 0.0034 }, { t: 'text', x: -0.067, y: 0.012, s: 'DC BAT', size: 0.003, boxed: true }, ...pbRow(0.02, 0.03, [['', 'FAULT', 'ALTN']]).map((i) => ({ ...i, x: i.x + 0.09 })),
+      { t: 'text', x: -0.1, y: -0.024, s: 'AC BUS 1', size: 0.0028, boxed: true }, { t: 'text', x: 0.1, y: -0.024, s: 'AC BUS 2', size: 0.0028, boxed: true },
+      { t: 'line', pts: [[-0.128, -0.045], [-0.128, -0.005]], w: 0.0007 }, { t: 'line', pts: [[0.128, -0.045], [0.128, -0.005]], w: 0.0007 }, { t: 'line', pts: [[-0.064, 0.03], [-0.064, 0.012], [0.09, 0.012], [0.09, 0.03]], w: 0.0007 },
       ...pbRow(w, -0.005, [['IDG 1', 'FAULT', '', { guard: 'grey' }], ['GALY & CAB', 'FAULT', 'OFF'], ['COMMERCIAL', '', 'OFF'], ['IDG 2', 'FAULT', '', { guard: 'grey' }]], { cap: 0.0032 }),
       ...pbRow(w, -0.045, [['GEN 1', 'FAULT', 'OFF'], ['APU GEN', 'FAULT', 'OFF'], ['BUS TIE', '', 'OFF'], ['EXT PWR', 'AVAIL', 'ON'], ['GEN 2', 'FAULT', 'OFF']], { cap: 0.0034, line: true }),
     ];
@@ -99,13 +102,14 @@ export const PANELS = {
   airCond: (w, h) => ({ title: 'AIR COND', items: [
     ...selector(-0.09, 0.028, 'CKPT', ['COLD', 'HOT'], 'tCkpt'), ...selector(-0.03, 0.028, 'FWD CABIN', ['COLD', 'HOT'], 'tFwd'), ...selector(0.03, 0.028, 'AFT CABIN', ['COLD', 'HOT'], 'tAft'),
     ...pbRow(0.03, 0.028, [['HOT AIR', 'FAULT', 'OFF']]).map((i) => ({ ...i, x: i.x + 0.105 })),
+    { t: 'line', pts: [[-0.09, 0.016], [-0.09, 0.004], [0.105, 0.004], [0.105, 0.016]], w: 0.0007 }, { t: 'line', pts: [[-0.03, 0.016], [-0.03, 0.004]], w: 0.0007 }, { t: 'line', pts: [[0.03, 0.016], [0.03, 0.004]], w: 0.0007 }, { t: 'line', pts: [[-0.004, 0.004], [-0.004, -0.024]], w: 0.0007 },
     ...pbRow(w, -0.024, [['ENG 1\nBLEED', 'FAULT', 'OFF'], ['PACK 1', 'FAULT', 'OFF'], ['', '', '', { w: 0.001, h: 0.001 }], ['APU BLEED', 'FAULT', 'ON'], ['PACK 2', 'FAULT', 'OFF'], ['ENG 2\nBLEED', 'FAULT', 'OFF']], { cap: 0.0032, line: true }),
     ...selector(-0.004, -0.026, 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 'xbleed'),
     ...selector(-0.12, -0.052, '', ['LO', 'NORM', 'HI'], 'packFlow', 0.007), { t: 'text', x: -0.095, y: -0.052, s: 'PACK FLOW', size: 0.0032, align: 'left' },
     ...pbRow(0.02, -0.054, [['RAM AIR', '', 'ON', { guard: 'grey' }]]).map((i) => ({ ...i, x: i.x + 0.11 })),
   ] }),
   antiIce: (w, h) => ({ title: 'ANTI ICE', items: [
-    ...pbRow(w, 0.006, [['WING', 'FAULT', 'ON'], ['ENG 1', 'FAULT', 'ON'], ['ENG 2', 'FAULT', 'ON']]),
+    ...pbRow(w, 0.006, [['WING', 'FAULT', 'ON'], ['ENG 1', 'FAULT', 'ON'], ['ENG 2', 'FAULT', 'ON']], { line: true }),
     ...pbRow(w, -0.028, [['PROBE/WINDOW HEAT', '', 'ON']], { cap: 0.0032 }),
   ] }),
   cabPress: (w, h) => ({ title: 'CABIN PRESS', items: [
@@ -117,7 +121,7 @@ export const PANELS = {
   extLt: (w, h) => {
     const items = [];
     [['STROBE', ['ON', 'AUTO', 'OFF']], ['BEACON', ['ON', '', 'OFF']], ['WING', ['ON', '', 'OFF']], ['NAV & LOGO', ['2', '1', 'OFF']], ['RWY TURN OFF', ['ON', '', 'OFF']], ['LAND', ['ON', 'OFF', 'RETRACT']], ['NOSE', ['T.O', 'TAXI', 'OFF']]]
-      .forEach(([c, p], i) => items.push(...toggleWith(-0.135 + i * 0.043, -0.006, c, p)));
+      .forEach(([c, p], i) => { items.push(...toggleWith(-0.135 + i * 0.043, -0.006, c, p)); if (i) items.push({ t: 'line', pts: [[-0.1565 + i * 0.043, 0.02], [-0.1565 + i * 0.043, -0.028]], w: 0.0007 }); });
     return { title: 'EXT LT', items };
   },
   apu: (w, h) => ({ title: 'APU', items: pbRow(w, -0.01, [['MASTER SW', 'FAULT', 'ON', { id: 'apuMaster' }], ['START', 'AVAIL', 'ON', { id: 'apuStart' }]]) }),
