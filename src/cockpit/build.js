@@ -24,7 +24,7 @@ export function makeMaterials() {
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x6b7f89, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x46535c, 0.72),          // glareshield hood: darker blue-grey, smooth           // anti-glare finish
+    glare: std(0x30363c, 0.78),          // thin dark glareshield cap           // anti-glare finish
     fcu: std(0x6e828c, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x8a9faa, 0.85),         // upper sidewall lining
@@ -436,11 +436,12 @@ function buildGlareshield(M, refs) {
   const W = D.WINDSHIELD; const xEnd = W.outerBottom[0] - 0.01;
   const zf = (ax) => W.innerBottom[2] + 0.012 + (ax / W.outerBottom[0]) * (W.outerBottom[2] - W.innerBottom[2]);
   const zr = (ax) => (ax <= 0.62 ? G.strip.faceZ - 0.006 : G.strip.faceZ - 0.006 + ((ax - 0.62) / (xEnd - 0.62)) * 0.06);
-  const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03;                 // top at the glass, following the pane's lower edge
+  const drop = (ax) => Math.max(0, ax - 0.29) * 0.1;   // outer sections slope down toward the posts
+  const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03 - drop(ax);                 // top at the glass, following the pane's lower edge
   const yT = (t, ax) => {                                                      // rises to the crest, rolls over to the rear face
-    const crest = G.topY - 0.03 - Math.max(0, ax - 0.55) * 0.12;   // low, smooth hood
+    const crest = G.topY - 0.035 - drop(ax);   // thin cap, same arch as the strip
     const r = yF(ax) + (crest - yF(ax)) * Math.sin(Math.min(t / 0.8, 1) * Math.PI / 2);
-    return t > 0.8 ? r - 0.032 * ((t - 0.8) / 0.2) ** 2 : r;
+    return t > 0.8 ? r - 0.022 * ((t - 0.8) / 0.2) ** 2 : r;
   };
   const nx = 70, nt = 16; const top = [], rear = [], under = [];
   for (let i = 0; i <= nx; i++) {
@@ -461,9 +462,14 @@ function buildGlareshield(M, refs) {
   grp.add(grid(top, gm), grid(rear, gm), grid(under, gm));
   // the control strip: a housing that stands proud of the rear face, panels on its face
   const S = G.strip; const half = S.half;
-  const housing = rbox(half * 2, S.h + 0.006, 0.05, 0.008, M.fcu);
-  housing.position.set(0, S.y, S.faceZ - 0.025 + 0.002); grp.add(housing);
-  const place = (p, x) => { p.position.set(x, S.y, S.faceZ + 0.004); grp.add(p); return p; };
+  const th = Math.atan(0.1); const cw = 0.29;
+  const hc = rbox(cw * 2, S.h + 0.006, 0.05, 0.008, new THREE.MeshStandardMaterial({ color: 0x30373c, roughness: 0.6 }));   // dark FCU/EFIS block
+  hc.position.set(0, S.y, S.faceZ - 0.023); grp.add(hc);
+  for (const s of [-1, 1]) {   // outboard housings, sloping down
+    const w = (half - cw) / Math.cos(th); const hs = rbox(w + 0.004, S.h + 0.006, 0.05, 0.008, M.fcu);
+    hs.position.set(s * (cw + (half - cw) / 2), S.y - drop((cw + half) / 2), S.faceZ - 0.023); hs.rotation.z = -s * th; grp.add(hs);
+  }
+  const place = (p, x) => { const ax = Math.abs(x); p.position.set(x, S.y - drop(ax), S.faceZ + 0.004); if (ax > cw) p.rotation.z = -Math.sign(x) * th; grp.add(p); return p; };
   refs.fcu = place(fcuPanel(M, A), G.fcu.x);
   refs.efis = [place(efisPanel(M, A, 1), -G.efis.x), place(efisPanel(M, A, 2), G.efis.x)];
   refs.warn = [place(warningPanel(M, A, -1), -G.warn.x), place(warningPanel(M, A, 1), G.warn.x)];
@@ -471,10 +477,10 @@ function buildGlareshield(M, refs) {
   const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
   for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
   for (const s of [-1, 1]) {   // angled end section: from the strip end back toward the corner post, same face colour
-    const p0 = new THREE.Vector3(s * half, S.y, S.faceZ + 0.002), p1 = new THREE.Vector3(s * 0.862, S.y, S.faceZ + 0.055);
+    const p0 = new THREE.Vector3(s * half, S.y - drop(half), S.faceZ + 0.002), p1 = new THREE.Vector3(s * 0.862, S.y - drop(0.862), S.faceZ + 0.055);
     const len = p0.distanceTo(p1); const ang = Math.atan2(p1.z - p0.z, Math.abs(p1.x - p0.x));
-    const wing = new THREE.Group(); wing.position.copy(p0); wing.rotation.y = -s * ang; grp.add(wing);
-    const face = rbox(len, S.h, 0.012, 0.003, M.fcu); face.position.set(s * len / 2, 0, -0.006); wing.add(face);
+    const wing = new THREE.Group(); wing.position.copy(p0); wing.rotation.set(0, -s * ang, -s * th, 'YXZ'); grp.add(wing);
+    const face = rbox(len + 0.01, S.h + 0.006, 0.05, 0.008, M.fcu); face.position.set(s * len / 2, 0, -0.025); wing.add(face);
     const sq = rbox(0.016, 0.016, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.35 })); sq.position.set(s * len * 0.55, 0.008, 0.001); wing.add(sq);
     const under = rbox(len, 0.012, 0.06, 0.004, gm); under.position.set(s * len / 2, -S.h / 2 - 0.004, -0.03); wing.add(under);
   }
@@ -736,7 +742,22 @@ function buildFittings(M, refs) {
   }
   // loudspeaker grilles on the outboard main panel
   const P = D.PANEL; const t = THREE.MathUtils.degToRad(P.tiltDeg);
-  for (const s of [-1, 1]) { const sp = speakerGrille(0.034); const yl = D.PANEL_Y(0.63); sp.position.set(s * 0.71, P.baseY + yl * Math.cos(t), P.faceZ - yl * Math.sin(t) + 0.004); sp.rotation.x = -t; grp.add(sp); }
+  // outboard wings of the main panel: angled back from the panel edge to the side console, carrying the octagonal
+  // loudspeaker and an air outlet, framed like the rest of the panel
+  for (const s of [-1, 1]) {
+    const yt = (y) => P.faceZ - (y - P.baseY) * Math.tan(t);
+    const iT = new THREE.Vector3(s * P.halfWidth, 0.86, yt(0.86)), iB = new THREE.Vector3(s * P.halfWidth, D.CONSOLE.topY, yt(D.CONSOLE.topY));
+    const oT = new THREE.Vector3(s * 0.96, 0.86, 0.27), oB = new THREE.Vector3(s * 0.96, D.CONSOLE.topY, 0.34);
+    const xA = oT.clone().add(oB).sub(iT).sub(iB).normalize(), yA = iT.clone().add(oT).sub(iB).sub(oB).normalize();
+    const zA = xA.clone().cross(yA).normalize(); if (zA.z < 0) zA.negate(); const yB = zA.clone().cross(xA).normalize();
+    const wg = new THREE.Group(); wg.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yB, zA)); wg.position.copy(iT).add(iB).add(oT).add(oB).multiplyScalar(0.25); grp.add(wg);
+    const w = iT.clone().add(iB).distanceTo(oT.clone().add(oB)) / 2, h = 0.86 - D.CONSOLE.topY;
+    const body = rbox(w + 0.02, h, 0.03, 0.012, M.panel); body.position.z = -0.016; wg.add(body);
+    const fr = rbox(w - 0.03, h - 0.06, 0.004, 0.006, M.panelDark); fr.position.z = 0.0; wg.add(fr);
+    const inner = rbox(w - 0.036, h - 0.066, 0.006, 0.006, M.panel); inner.position.z = 0.001; wg.add(inner);
+    const sp = speakerGrille(0.036); sp.position.set(0, -0.06, 0.006); wg.add(sp);
+    const go = gasper(M); go.position.set(0, 0.11, 0.006); wg.add(go);
+  }
   for (const s of [-1, 1]) {
     // headset hanging on its hook on the post between the side windows
     const hz = 1.02, hy = 1.3; const hook = onHull(s, hz, hy, 0.03);
@@ -787,14 +808,6 @@ function buildFittings(M, refs) {
         for (let c = 0; c < 3; c++) grp.add(stripMesh(sec.map((q) => q[c]), sec.map((q) => q[c + 1]), mould));
         const g0 = new THREE.BufferGeometry().setFromPoints([sec[0][0], sec[0][1], sec[0][2], sec[0][0], sec[0][2], sec[0][3]]); g0.computeVertexNormals(); grp.add(new THREE.Mesh(g0, mould));
         const sl = rbox(0.016, 0.07, 0.11, 0.006, darkM); const m1 = sec[2][0].clone().lerp(sec[2][1], 0.5); sl.position.copy(m1).add(new THREE.Vector3(-s * 0.004, 0, 0)); sl.rotation.x = -0.3; grp.add(sl);
-      }
-      // C: angled side panel between the outboard edge of the main panel and the side console, with an air outlet
-      {
-        const P = D.PANEL; const xE = P.halfWidth - 0.005;
-        const q = [new THREE.Vector3(s * xE, D.CONSOLE.topY, P.faceZ + 0.02), new THREE.Vector3(s * xE, 0.86, P.faceZ - 0.07), new THREE.Vector3(s * (hullHW(0.3, 0.86) - 0.17), 0.86, 0.26), new THREE.Vector3(s * (hullHW(0.34, 0.6) - 0.12), D.CONSOLE.topY, 0.34)];
-        const g1 = new THREE.BufferGeometry().setFromPoints([q[0], q[1], q[2], q[0], q[2], q[3]]); g1.computeVertexNormals(); grp.add(new THREE.Mesh(g1, mould));
-        const cen = q[0].clone().add(q[1]).add(q[2]).add(q[3]).multiplyScalar(0.25); const nn = q[1].clone().sub(q[0]).cross(q[3].clone().sub(q[0])).normalize(); if (nn.x * s > 0) nn.negate();
-        const go = gasper(M); go.position.copy(cen).add(nn.clone().multiplyScalar(0.005)).add(new THREE.Vector3(0, 0.08, 0)); go.lookAt(go.position.clone().add(nn)); grp.add(go);
       }
       // recessed pocket on the sloping face, aft of the sidestick
       const face = (i, u) => Bt[i].clone().lerp(Si[i], u);
