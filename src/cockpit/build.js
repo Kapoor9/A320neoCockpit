@@ -305,12 +305,19 @@ function buildWindowFrames(M) {
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
     // 6 cm deep into the cockpit
     const n = 10; const L = [], R = [], Li = [], Ri = [];
+    const postSide = new THREE.MeshStandardMaterial({ color: 0x5f707b, roughness: 0.6, side: THREE.DoubleSide });   // darker side faces of the post
     for (let i = 0; i <= n; i++) {
       const tt = i / n; const l = lift(Dp.clone().lerp(C, tt), 0.004), r = D2.clone().lerp(C2, tt);
-      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.035);
-      L.push(l); R.push(r); Li.push(l.clone().add(din)); Ri.push(r.clone().add(din));
+      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.075);
+      L.push(l); R.push(r); Li.push(l.clone().add(din)); Ri.push(r.clone().add(din.clone().multiplyScalar(0.85)));
     }
-    grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f), stripMesh(L, Li, f), stripMesh(R, Ri, f));
+    grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f), stripMesh(L, Li, postSide), stripMesh(R, Ri, postSide));
+    // ridge along the inner face, an eyeball outlet and the window latch fitting
+    { const a = Li[2].clone().lerp(Ri[2], 0.5), b = Li[8].clone().lerp(Ri[8], 0.5); const rg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, a.distanceTo(b), 10), postSide);
+      rg.position.copy(a).add(b).multiplyScalar(0.5); rg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); grp.add(rg);
+      const fn = Ri[6].clone().sub(Li[6]).cross(Li[7].clone().sub(Li[6])).normalize(); if (fn.x * s > 0) fn.negate();
+      const go = gasper(M); go.position.copy(Li[7].clone().lerp(Ri[7], 0.5)).add(fn.clone().multiplyScalar(0.004)); go.lookAt(go.position.clone().add(fn)); grp.add(go);
+      const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 20), new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.5 })); lk.position.copy(Li[4].clone().lerp(Ri[4], 0.5)).add(fn.clone().multiplyScalar(0.005)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fn); grp.add(lk); }
     // sill skirt under the pane's lower edge, down to the shell
     const P = [], Q = [];
     for (let i = 0; i <= 16; i++) { const t = i / 16; const e = A.clone().lerp(Dp, t); P.push(lift(e, 0.005)); Q.push(onHull(s, e.z, 0.86, 0.005)); }
@@ -761,17 +768,37 @@ function buildFittings(M, refs) {
       const z0 = 0.24, z1 = 1.56, N = 44, yB = D.CONSOLE.topY + 0.004;
       const W = [], Bt = [], Si = [], So = [];
       for (let i = 0; i <= N; i++) {
-        const z = z0 + (z1 - z0) * i / N; const yS = Math.max(0.79, sillY(z) - 0.03);
+        const z = z0 + (z1 - z0) * i / N; const yS = 0.8;   // one level shelf, as on the aircraft
         const xW = hullHW(z, yB) - 0.005, xI = hullHW(z, yS) - 0.19;
         W.push(new THREE.Vector3(s * xW, yB, z));                              // foot of the face, at the wall on the console top
         Bt.push(new THREE.Vector3(s * Math.min(xW - 0.12, hullHW(z, yB) - 0.12), yB, z));   // front edge of the foot
-        Si.push(new THREE.Vector3(s * xI, yS - 0.012, z));                    // inner edge of the shelf (top of the sloping face)
+        Si.push(new THREE.Vector3(s * xI, yS - 0.06, z));                     // bottom of the shelf nose (top of the sloping face)
         So.push(new THREE.Vector3(s * (hullHW(z, yS) - 0.004), yS, z));        // shelf meets the wall under the window
       }
-      const SiT = Si.map((p) => p.clone().setY(p.y + 0.012));
-      grp.add(stripMesh(Bt, Si, mould), stripMesh(Si, SiT, mould), stripMesh(SiT, So, mould), stripMesh(W, Bt, mould));
+      // thick rounded nose: bulges inboard, then the shelf top rises gently to the wall
+      const Sm = Si.map((p) => new THREE.Vector3(p.x - s * 0.012, p.y + 0.03, p.z));
+      const SiT = Si.map((p) => new THREE.Vector3(p.x + s * 0.004, p.y + 0.054, p.z));
+      grp.add(stripMesh(Bt, Si, mould), stripMesh(Si, Sm, mould), stripMesh(Sm, SiT, mould), stripMesh(SiT, So, mould), stripMesh(W, Bt, mould));
       // front end cap
-      { const g = new THREE.BufferGeometry().setFromPoints([W[0], Bt[0], Si[0], W[0], Si[0], So[0], Si[0], SiT[0], So[0]]); g.computeVertexNormals(); grp.add(new THREE.Mesh(g, mould)); }
+      { const g = new THREE.BufferGeometry().setFromPoints([W[0], Bt[0], Si[0], W[0], Si[0], So[0], Si[0], Sm[0], So[0], Sm[0], SiT[0], So[0]]); g.computeVertexNormals(); grp.add(new THREE.Mesh(g, mould)); }
+      // A: moulded block from the glareshield end into the front of the shelf, with a recessed slot on its inner face
+      {
+        const sec = []; const zs = [0.16, 0.22, 0.28, 0.34, 0.4];
+        zs.forEach((z, k) => { const u = k / (zs.length - 1); const yTop = 0.985 + (0.8 - 0.985) * u * u; const yBot = 0.84 + 0.0 * u;
+          const xw = hullHW(z, (yTop + yBot) / 2) - 0.004, xi = xw - (0.15 + 0.04 * u);
+          sec.push([new THREE.Vector3(s * xi, yBot, z), new THREE.Vector3(s * (xi - 0.01), yTop - 0.02, z), new THREE.Vector3(s * (xi + 0.02), yTop, z), new THREE.Vector3(s * xw, yTop, z)]); });
+        for (let c = 0; c < 3; c++) grp.add(stripMesh(sec.map((q) => q[c]), sec.map((q) => q[c + 1]), mould));
+        const g0 = new THREE.BufferGeometry().setFromPoints([sec[0][0], sec[0][1], sec[0][2], sec[0][0], sec[0][2], sec[0][3]]); g0.computeVertexNormals(); grp.add(new THREE.Mesh(g0, mould));
+        const sl = rbox(0.016, 0.07, 0.11, 0.006, darkM); const m1 = sec[2][0].clone().lerp(sec[2][1], 0.5); sl.position.copy(m1).add(new THREE.Vector3(-s * 0.004, 0, 0)); sl.rotation.x = -0.3; grp.add(sl);
+      }
+      // C: angled side panel between the outboard edge of the main panel and the side console, with an air outlet
+      {
+        const P = D.PANEL; const xE = P.halfWidth - 0.005;
+        const q = [new THREE.Vector3(s * xE, D.CONSOLE.topY, P.faceZ + 0.02), new THREE.Vector3(s * xE, 0.86, P.faceZ - 0.07), new THREE.Vector3(s * (hullHW(0.3, 0.86) - 0.17), 0.86, 0.26), new THREE.Vector3(s * (hullHW(0.34, 0.6) - 0.12), D.CONSOLE.topY, 0.34)];
+        const g1 = new THREE.BufferGeometry().setFromPoints([q[0], q[1], q[2], q[0], q[2], q[3]]); g1.computeVertexNormals(); grp.add(new THREE.Mesh(g1, mould));
+        const cen = q[0].clone().add(q[1]).add(q[2]).add(q[3]).multiplyScalar(0.25); const nn = q[1].clone().sub(q[0]).cross(q[3].clone().sub(q[0])).normalize(); if (nn.x * s > 0) nn.negate();
+        const go = gasper(M); go.position.copy(cen).add(nn.clone().multiplyScalar(0.005)).add(new THREE.Vector3(0, 0.08, 0)); go.lookAt(go.position.clone().add(nn)); grp.add(go);
+      }
       // recessed pocket on the sloping face, aft of the sidestick
       const face = (i, u) => Bt[i].clone().lerp(Si[i], u);
       const nI = (i) => { const a = Si[i].clone().sub(Bt[i]), b = Bt[Math.min(i + 1, N)].clone().sub(Bt[i]); const n = a.cross(b).normalize(); return n.x * s > 0 ? n.negate() : n; };
