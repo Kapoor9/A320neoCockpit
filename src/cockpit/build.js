@@ -281,6 +281,10 @@ function bar(A, B, w, t, mat, up) {
   m.castShadow = true; return m;
 }
 
+function A_LBL(s, h) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const c = cv.getContext('2d'); c.fillStyle = '#e9ece8'; c.font = '700 44px Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, 64, 34);
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Mesh(new THREE.PlaneGeometry(h * 2, h), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false }));
+}
 function buildWindowFrames(M) {
   const grp = new THREE.Group(); const f = M.frame.clone(); f.side = THREE.DoubleSide;
   const V3 = (p, s = 1) => new THREE.Vector3(s * p[0], p[1], p[2]);
@@ -300,18 +304,28 @@ function buildWindowFrames(M) {
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
     // 6 cm deep into the cockpit
     const n = 10; const L = [], R = [], Li = [], Ri = [];
-    const postSide = new THREE.MeshStandardMaterial({ color: 0x5f707b, roughness: 0.6, side: THREE.DoubleSide });   // darker side faces of the post
+    const postSide = addGrain(new THREE.MeshStandardMaterial({ color: 0x74878f, roughness: 0.62, side: THREE.DoubleSide }), 'paint');   // side faces, a shade under the face
     for (let i = 0; i <= n; i++) {
       const tt = i / n; const l = lift(Dp.clone().lerp(C, tt), 0.004), r = D2.clone().lerp(C2, tt);
-      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.075);
+      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.075 * (1 - 0.85 * THREE.MathUtils.smoothstep(tt, 0.8, 1.0)) * (1 - 0.6 * (1 - THREE.MathUtils.smoothstep(tt, 0.0, 0.12))));
       L.push(l); R.push(r); Li.push(l.clone().add(din)); Ri.push(r.clone().add(din.clone().multiplyScalar(0.85)));
     }
     grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f), stripMesh(L, Li, postSide), stripMesh(R, Ri, postSide));
     // ridge along the inner face, an eyeball outlet and the window latch fitting
-    { const a = Li[2].clone().lerp(Ri[2], 0.5), b = Li[8].clone().lerp(Ri[8], 0.5); const rg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, a.distanceTo(b), 10), postSide);
-      rg.position.copy(a).add(b).multiplyScalar(0.5); rg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); grp.add(rg);
-      const fn = Ri[6].clone().sub(Li[6]).cross(Li[7].clone().sub(Li[6])).normalize(); if (fn.x * s > 0) fn.negate();
-      const go = gasper(M); go.position.copy(Li[7].clone().lerp(Ri[7], 0.5)).add(fn.clone().multiplyScalar(0.004)); go.lookAt(go.position.clone().add(fn)); grp.add(go);
+    { const fn = Ri[6].clone().sub(Li[6]).cross(Li[7].clone().sub(Li[6])).normalize(); if (fn.x * s > 0) fn.negate();
+      // reading-light control set into the post: recessed rounded panel, knurled knob, sensor, ON/OFF switch
+      { const up = Li[8].clone().lerp(Ri[8], 0.5).sub(Li[4].clone().lerp(Ri[4], 0.5)).normalize(); const xa = up.clone().cross(fn).normalize();
+        const lp = new THREE.Group(); lp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xa, up, fn)); lp.position.copy(Li[6].clone().lerp(Ri[6], 0.5)).add(fn.clone().multiplyScalar(0.001)); grp.add(lp);
+        const dk = new THREE.MeshStandardMaterial({ color: 0x14171a, roughness: 0.5 });
+        const rim = rbox(0.05, 0.15, 0.004, 0.012, new THREE.MeshStandardMaterial({ color: 0x4f5f69, roughness: 0.55 })); rim.position.z = 0.001; lp.add(rim);
+        const pnl = rbox(0.04, 0.14, 0.003, 0.009, postSide); pnl.position.z = 0.0028; lp.add(pnl);
+        const kb = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.0095, 0.012, 24).rotateX(Math.PI / 2), dk); kb.position.set(0, 0.04, 0.009); kb.castShadow = true; lp.add(kb);
+        for (let i = 0; i < 16; i++) { const an = (i / 16) * Math.PI * 2; const r = rbox(0.0016, 0.0024, 0.012, 0.0005, dk); r.position.set(Math.cos(an) * 0.0095, 0.04 + Math.sin(an) * 0.0095, 0.009); r.rotation.z = an; lp.add(r); }
+        const arc = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0006, 6, 24, 0.9), new THREE.MeshBasicMaterial({ color: 0xe8ecef })); arc.position.set(0, 0.04, 0.0044); arc.rotation.z = 1.1; lp.add(arc);
+        const sens = new THREE.Mesh(new THREE.CircleGeometry(0.003, 16), dk); sens.position.set(0, 0.012, 0.0045); lp.add(sens);
+        const sw = rbox(0.009, 0.018, 0.005, 0.0015, dk); sw.position.set(0, -0.022, 0.0055); lp.add(sw);
+        const on = A_LBL('ON', 0.004); on.position.set(0, -0.009, 0.0047); lp.add(on); const off = A_LBL('OFF', 0.004); off.position.set(0, -0.035, 0.0047); lp.add(off); }
+      const go = gasper(M); go.position.copy(Li[9].clone().lerp(Ri[9], 0.5)).add(fn.clone().multiplyScalar(0.004)); go.lookAt(go.position.clone().add(fn)); grp.add(go);
       const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 20), new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.5 })); lk.position.copy(Li[4].clone().lerp(Ri[4], 0.5)).add(fn.clone().multiplyScalar(0.005)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fn); grp.add(lk); }
     // sill skirt under the pane's lower edge, down to the shell
     const P = [], Q = [];
@@ -619,11 +633,15 @@ function buildOverheadSurround(M) {
       for (let k = 0; k <= NR; k++) { const u = k / NR; rows[k].push(a.clone().multiplyScalar((1 - u) ** 2).add(c.clone().multiplyScalar(2 * u * (1 - u))).add(b.clone().multiplyScalar(u * u))); }
     }
     for (let k = 0; k < NR; k++) grp.add(stripMesh(rows[k], rows[k + 1], ceil));
+    { const WSd = D.WINDSHIELD; const rub = new THREE.MeshStandardMaterial({ color: 0x1b222c, roughness: 0.85, side: THREE.DoubleSide });
+      const front = rows.map((r) => r[0]); const hdr = front.map((p) => { const ax = Math.min(Math.abs(p.x), WSd.outerTop[0] - 0.01);
+        return new THREE.Vector3(Math.sign(p.x) * ax, WSd.innerTop[1] + (ax / WSd.outerTop[0]) * (WSd.outerTop[1] - WSd.innerTop[1]) + 0.035, wsTopZ(ax) + 0.03); });
+      grp.add(stripMesh(hdr, front, rub)); }
     const A = rows[0], Mid = rows[NR / 2], B = rows[NR];
     // thin dark guard rail along the overhead edge, running its full length from the windshield header to the aft end
     { const dir = R.clone().sub(F).normalize(); const r0 = F.clone().add(dir.clone().multiplyScalar(0.01)), r1 = R.clone().sub(dir.clone().multiplyScalar(0.01));
-      for (const r of [r0, r1]) { r.x = s * (O.halfWidth + 0.022); r.add(n.clone().multiplyScalar(-0.012)); }
-      const rail = rbox(0.022, r0.distanceTo(r1), 0.026, 0.006, dark); rail.position.copy(r0).add(r1).multiplyScalar(0.5);
+      for (const r of [r0, r1]) { r.x = s * (O.halfWidth + 0.03); r.add(n.clone().multiplyScalar(-0.004)); }
+      const rail = rbox(0.012, r0.distanceTo(r1), 0.014, 0.004, dark); rail.position.copy(r0).add(r1).multiplyScalar(0.5);
       rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.castShadow = true; grp.add(rail); }
     const seamM = new THREE.MeshStandardMaterial({ color: 0x3c4a53, roughness: 0.7 });
     for (const k of [8, 16]) { const sA = A[k].clone().lerp(Mid[k], 0.02), sB = B[k]; const pts = [A[k], Mid[k], B[k]];
