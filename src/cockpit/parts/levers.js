@@ -20,48 +20,43 @@ function curvedStrip(x0, x1, r, a0, a1, pivotZ, seg = 48) {
 // Ergonomic grip leaning forward, flattened at the sides, flared under the palm, domed top
 // with the red takeover pushbutton under the thumb and the radio trigger at the front.
 // Built for the captain (left console); side = +1 mirrors it for the first officer.
-// Sculpted grip: an oval cross-section swept along a curved spine.
-// Narrow round-ish shaft at the bottom, widening into a broad paddle-shaped head that bends
-// forward like a beak; flattened palm side at the back; light finger grooves at the front.
+// Sculpted grip, swept along a curved spine. A320 sidestick form (measured from the reference):
+// a slender neck (~3 cm) rising from the base and curving strongly forward (~6 cm) into a large
+// rounded head (~5 cm long, ~4.5 cm wide) that points forward; the head ends in a rounded nose.
 function gripGeometry() {
-  const spine = [[0, 0, 0], [0.25, 0.031, 0.003], [0.5, 0.061, 0.004], [0.7, 0.083, 0.0], [0.85, 0.096, -0.009], [1, 0.104, -0.021]];
-  const lerpSpine = (t) => { for (let i = 1; i < spine.length; i++) if (t <= spine[i][0]) { const [t0, y0, z0] = spine[i - 1], [t1, y1, z1] = spine[i]; const k = (t - t0) / (t1 - t0); const e = k * k * (3 - 2 * k); return [y0 + (y1 - y0) * e, z0 + (z1 - z0) * e]; } return spine[spine.length - 1].slice(1); };
-  const key = (t, arr) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const k = (t - arr[i - 1][0]) / (arr[i][0] - arr[i - 1][0]); const e = k * k * (3 - 2 * k); return arr[i - 1][1] + (arr[i][1] - arr[i - 1][1]) * e; } return arr[arr.length - 1][1]; };
-  const W = [[0, 0.0172], [0.45, 0.0178], [0.65, 0.0195], [0.85, 0.0238], [1, 0.0222]];  // half-width (side to side): chunky, no waist
-  const Dp = [[0, 0.0182], [0.45, 0.019], [0.65, 0.0195], [0.85, 0.0208], [1, 0.0198]]; // half-depth (front to back)
-  const rings = 56, seg = 48; const pos = []; const idx = [];
-  for (let i = 0; i <= rings; i++) {
-    const t = i / rings; const [y, z] = lerpSpine(t);
-    const [y2, z2] = lerpSpine(Math.min(1, t + 0.01)); const [y1, z1] = lerpSpine(Math.max(0, t - 0.01));
-    const ty = y2 - y1, tz = z2 - z1, tl = Math.hypot(ty, tz);   // spine direction: each section tilts with it
-    const w = key(t, W), d = key(t, Dp);
+  // spine [t, y, z]  (z negative = forward)
+  const spine = [[0, 0, 0], [0.3, 0.05, 0.002], [0.55, 0.085, -0.006], [0.72, 0.105, -0.024], [0.86, 0.117, -0.046], [1, 0.121, -0.068]];
+  const sm = (k) => k * k * (3 - 2 * k);
+  const lerp = (t, arr, cols) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const k = sm((t - arr[i - 1][0]) / (arr[i][0] - arr[i - 1][0])); return cols.map((c) => arr[i - 1][c] + (arr[i][c] - arr[i - 1][c]) * k); } return cols.map((c) => arr[arr.length - 1][c]); };
+  // half-width (side to side) and half-thickness (perpendicular to the spine, in the y-z plane)
+  const S = [[0, 0.0175, 0.0165], [0.15, 0.016, 0.015], [0.55, 0.016, 0.0155], [0.7, 0.019, 0.0195], [0.85, 0.021, 0.0225], [1, 0.02, 0.021]];
+  const rings = 64, seg = 48; const pos = []; const idx = [];
+  const thumb = (t) => Math.max(0, Math.min(1, (t - 0.62) / 0.2));   // thumb shelf grows out on the inboard side of the head
+  const frame = (t) => {
+    const [y, z] = lerp(t, spine, [1, 2]);
+    const [y2, z2] = lerp(Math.min(1, t + 0.008), spine, [1, 2]); const [y1, z1] = lerp(Math.max(0, t - 0.008), spine, [1, 2]);
+    const l = Math.hypot(y2 - y1, z2 - z1); return { y, z, ty: (y2 - y1) / l, tz: (z2 - z1) / l };
+  };
+  const section = (t, scale = 1, adv = 0) => {
+    const { y, z, ty, tz } = frame(t); const [w, d] = lerp(t, S, [1, 2]);
     for (let j = 0; j < seg; j++) {
-      const a = (j / seg) * Math.PI * 2; const cx = Math.cos(a), cz = Math.sin(a);   // cz>0: back (palm), cz<0: front (fingers)
-      const sx = Math.sign(cx) * Math.pow(Math.abs(cx), 0.8), sz = Math.sign(cz) * Math.pow(Math.abs(cz), 0.8);   // squarer oval
-      let rz = sz * d;
-      // palm side flattened smoothly (no bands): strongest around the hand, fading out at both ends
-      if (cz > 0) { const b = Math.max(0, Math.sin(Math.min(1, Math.max(0, (t - 0.3) / 0.65)) * Math.PI)); rz *= 1 - 0.14 * b * b * cz; }
-      // place the point off the spine, perpendicular to it, so each section follows the bend
-      pos.push(sx * w, y - rz * (tz / tl), z + rz * (ty / tl));
+      const a = (j / seg) * Math.PI * 2; const cx = Math.cos(a), cn = Math.sin(a);
+      const sx = Math.sign(cx) * Math.pow(Math.abs(cx), 0.85), sn = Math.sign(cn) * Math.pow(Math.abs(cn), 0.85);
+      // normal in the y-z plane, perpendicular to the spine: (-tz, ty) points up/back on the curve
+      let rn = sn * d; if (cn < 0 && t > 0.6) rn *= 0.92;            // underside of the head slightly flatter
+      const inb = cx > 0 ? 1 + 0.45 * thumb(t) * Math.pow(cx, 1.5) : 1;   // +x = inboard for the captain's stick
+      const px = (sx * w * inb + 0.004 * thumb(t)) * scale, pn = rn * scale;
+      pos.push(px, y + (-tz) * pn + ty * adv, z + ty * pn + tz * adv);
     }
-  }
-  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
+  };
+  for (let i = 0; i <= rings; i++) section(i / rings);
+  // rounded nose: sections shrink while advancing along the spine direction
+  const caps = 9, noseLen = 0.02;
+  for (let r = 1; r <= caps; r++) { const k = r / caps; section(1, Math.cos(k * Math.PI / 2) * 0.999 + 0.001, Math.sin(k * Math.PI / 2) * noseLen); }
+  const total = rings + caps;
+  for (let i = 0; i < total; i++) for (let j = 0; j < seg; j++) {
     const a = i * seg + j, b = i * seg + (j + 1) % seg, c = (i + 1) * seg + (j + 1) % seg, d = (i + 1) * seg + j;
     idx.push(a, d, b, b, d, c);
-  }
-  // domed top cap, sloping up towards the front (the "beak")
-  const top = rings * seg; const [yt, zt] = lerpSpine(1); const capRings = 7;
-  let prevStart = top;
-  for (let r = 1; r <= capRings; r++) {
-    const k = r / capRings; const s = Math.cos(k * Math.PI / 2); const lift = Math.sin(k * Math.PI / 2) * 0.0075;   // flatter top
-    const start = pos.length / 3;
-    for (let j = 0; j < seg; j++) {
-      const base = top + j; const bx = pos[base * 3], by = pos[base * 3 + 1], bz = pos[base * 3 + 2];
-      const fwd = -(bz - zt);                                  // >0 at the front
-      pos.push(bx * s, yt + (by - yt) * s + lift + fwd * 0.26 * k, zt + (bz - zt) * s);
-    }
-    for (let j = 0; j < seg; j++) { const a = prevStart + j, b = prevStart + (j + 1) % seg, c = start + (j + 1) % seg, d = start + j; idx.push(a, d, b, b, d, c); }
-    prevStart = start;
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   return g;
@@ -69,20 +64,20 @@ function gripGeometry() {
 
 export function makeSidestick(M, side = -1) {
   const g = new THREE.Group();
-  // grey stepped base with a flat black square plate on top, as on the A320
-  const gaiterMat = new THREE.MeshStandardMaterial({ color: 0x8e979c, roughness: 0.85 });
-  const steps = [[0.13, 0.010, M.panelDark], [0.112, 0.011, gaiterMat], [0.096, 0.011, gaiterMat], [0.082, 0.010, gaiterMat]];
-  let yy = 0; for (const [w, h, m] of steps) { const s = rbox(w, h, w, Math.min(0.012, w * 0.15), m); s.position.y = yy + h / 2; g.add(s); yy += h - 0.001; }
-  const plate = rbox(0.064, 0.009, 0.064, 0.004, M.rubber); plate.position.y = yy + 0.0045; g.add(plate); yy += 0.008;
+  // base: five thin square plates, widely spaced and widening downwards (rubber gaiter), with a collar on top
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x5f676c, roughness: 0.8 });
+  const sizes = [0.13, 0.112, 0.094, 0.077, 0.06];
+  const core = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.04, 24), M.rubber)); core.position.y = 0.02; g.add(core);
+  let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.004, w, 0.003, plateMat); p.position.y = yy + 0.002; g.add(p); yy += 0.0085; });
+  const top = rbox(0.046, 0.004, 0.046, 0.002, M.rubber); top.position.y = yy + 0.002; g.add(top); yy += 0.004;
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: 0.55 });
   const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);
-  // red takeover / AP disconnect button on the top-front edge of the head (thumb side, inboard)
+  // red takeover / AP disconnect button: on the head, near the nose, on the thumb (inboard) side
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });
-  // small, nearly flush disc: only ~2 mm proud of the grip surface
-  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.004, 28), btnMat));
-  btn.position.set(-side * 0.0105, yy + 0.1095, -0.031); btn.rotation.set(-0.6, 0, side * 0.35); g.add(btn);
-  // radio transmit trigger at the front, under the index finger
-  const trig = rbox(0.013, 0.016, 0.008, 0.003, gripMat); trig.position.set(0, yy + 0.065, -0.025); trig.rotation.x = 0.3; g.add(trig);
+  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.004, 28), btnMat));
+  btn.position.set(-side * 0.019, yy + 0.136, -0.074); btn.rotation.set(-0.15, 0, side * 0.35); g.add(btn);
+  // radio transmit trigger under the head, for the index finger
+  const trig = rbox(0.012, 0.012, 0.014, 0.004, gripMat); trig.position.set(0, yy + 0.098, -0.05); trig.rotation.x = -0.5; g.add(trig);
   g.userData.button = btn;
   return g;
 }

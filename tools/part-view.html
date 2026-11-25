@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Part view (dev)</title><link rel="stylesheet" href="../vendor/fonts/fonts.css"></head>
+<body style="margin:0;background:#9aa4ab">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<script type="module">
+// Dev tool: renders one cockpit part on its own in orthographic front/side/top views,
+// to compare its outline with reference measurements.
+import * as THREE from 'three';
+import { makeMaterials } from '../src/cockpit/build.js';
+import * as L from '../src/cockpit/parts/levers.js';
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); r.setSize(900,600); document.body.appendChild(r.domElement);
+const s=new THREE.Scene(); s.background=new THREE.Color(0x9aa4ab);
+s.add(new THREE.HemisphereLight(0xffffff,0x555555,2.2)); const d=new THREE.DirectionalLight(0xffffff,1.5); d.position.set(2,4,3); s.add(d);
+const M=makeMaterials();
+const part=new URLSearchParams(location.search).get('part')||'sidestick';
+const obj= part==='sidestick'? L.makeSidestick(M,-1) : part==='tiller'? L.makeTiller(M) : L.makeSidestick(M,-1);
+s.add(obj);
+window.ortho=(p,t,up,half)=>{const o=new THREE.OrthographicCamera(-half*1.5,half*1.5,half,-half,0.001,50);o.position.set(...p);o.up.set(...up);o.lookAt(...t);r.render(s,o);return r.domElement.toDataURL('image/jpeg',0.9)};
+window.ready=true;
+</script></body></html>
