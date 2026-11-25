@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A320neo Cockpit</title>
+<style>
+  :root{--ink:#e4e6e1;--dim:#9aa3a8;--bar:rgba(30,34,38,.78);--btn:#3d464c;--btn-sel:#5a646b}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#1d2124;color:var(--ink);font:14px/1.4 "Helvetica Neue",Arial,sans-serif;overflow:hidden}
+  #view{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #view:active{cursor:grabbing}
+  #top{position:fixed;left:14px;top:12px;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+  #top b{display:block;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  #top span{font-size:12px;color:var(--dim)}
+  #views{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+    background:var(--bar);padding:7px;border-radius:6px;max-width:calc(100% - 20px);backdrop-filter:blur(4px)}
+  #views button{background:var(--btn);border:1px solid #2a3035;border-radius:4px;color:var(--ink);padding:9px 12px;min-height:38px;
+    font:600 12px Arial,sans-serif;letter-spacing:.04em;cursor:pointer}
+  #views button.sel{background:var(--btn-sel);border-color:#7d878d}
+  #views button:focus-visible{outline:2px solid #9aa3a8;outline-offset:1px}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1d2124;color:var(--dim);letter-spacing:.1em}
+  @media (max-width:600px){#views{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;left:8px;right:8px;transform:none;max-width:none;scroll-snap-type:x proximity}#views button{flex:none;padding:8px 10px;font-size:11px;scroll-snap-align:start}#top span{display:none}}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="loading">LOADING COCKPIT…</div>
+<div id="top"><b>A320neo flight deck</b><span>Drag to look · scroll or pinch to zoom · double-click to look closer · Esc returns to seat</span></div>
+<nav id="views" aria-label="Views"></nav>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+<script type="module" src="./src/cockpit/main.js"></script>
+</body>
+</html>
