@@ -20,13 +20,13 @@ export function makeMaterials() {
   const std = (color, roughness, metalness = 0, extra = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
   return {
-    panel: std(0x465159, 0.62),          // instrument panel blue-grey
-    panelDark: std(0x47525a, 0.66),      // panel frames and seams
-    module: std(0x3c454c, 0.58),         // individual 146 mm system panels
+    panel: std(0x72868f, 0.6),          // instrument panel blue-grey
+    panelDark: std(0x4b5b64, 0.66),      // panel frames and seams
+    module: std(0x6b7f89, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
-    fcu: std(0x4a555d, 0.6),
-    lining: std(0x485157, 0.85),         // upper sidewall lining
+    fcu: std(0x6e828c, 0.6),
+    lining: std(0x8796a0, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
@@ -289,6 +289,11 @@ function buildWindowFrames(M) {
     const lift = (v, d) => v.clone().add(nIn.clone().multiplyScalar(d));
     // header bar along the top edge, and the corner post between the pane and the sliding window
     grp.add(bar(lift(B, 0.02), lift(C, 0.02), 0.06, 0.035, f, nIn));
+    {
+      const xA = C.clone().sub(B).normalize(), yA = B.clone().sub(A).normalize(); const zA = xA.clone().cross(yA).normalize(); if (zA.dot(nIn) < 0) zA.negate();
+      const vis = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.13, 0.004), new THREE.MeshPhysicalMaterial({ color: 0x5a1712, roughness: 0.15, transparent: true, opacity: 0.72, depthWrite: false }));
+      vis.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA)); vis.position.copy(B.clone().lerp(C, 0.6)).add(yA.clone().multiplyScalar(-0.08)).add(nIn.clone().multiplyScalar(0.05)); vis.renderOrder = 11; grp.add(vis);
+    }
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
     // 6 cm deep into the cockpit
@@ -633,6 +638,15 @@ function buildFittings(M, refs) {
     // stowed sun visor, flat against the lining above the sliding window
     const visor = rbox(0.3, 0.17, 0.006, 0.012, new THREE.MeshPhysicalMaterial({ color: 0x2d3a33, roughness: 0.25, transparent: true, opacity: 0.7 }));
     grp.add(onShell(visor, s, 0.62, 1.47, [1, 0], 0.012));
+    // tablet (EFB) in its mount at the forward edge of the sliding window
+    const efb = new THREE.Group(); const ef = rbox(0.25, 0.18, 0.014, 0.012, new THREE.MeshStandardMaterial({ color: 0x1b1d1f, roughness: 0.4 })); ef.position.z = 0.03; efb.add(ef);
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 184; const c2 = cv.getContext('2d'); c2.fillStyle = '#dfe6ea'; c2.fillRect(0, 0, 256, 184);
+    c2.strokeStyle = '#8fb3c9'; c2.lineWidth = 6; for (let k = 0; k < 7; k++) { c2.beginPath(); c2.moveTo(0, 20 + k * 26); c2.lineTo(256, 8 + k * 30); c2.stroke(); }
+    c2.fillStyle = '#e3b23c'; for (let k = 0; k < 9; k++) { c2.beginPath(); c2.arc(20 + k * 27, 40 + (k % 3) * 45, 5, 0, 7); c2.fill(); }
+    const etx = new THREE.CanvasTexture(cv); etx.colorSpace = THREE.SRGBColorSpace;
+    const es = new THREE.Mesh(new THREE.PlaneGeometry(0.225, 0.16), new THREE.MeshStandardMaterial({ map: etx, emissiveMap: etx, emissive: 0x777777, roughness: 0.25 })); es.position.z = 0.0375; efb.add(es);
+    const arm = rbox(0.03, 0.03, 0.04, 0.008, M.metal); arm.position.z = 0.012; efb.add(arm);
+    grp.add(onShell(efb, s, 0.42, 1.0, [1, 0], 0.06));
     // map / document pocket and flashlight on the sidewall beside the seat
     const pocket = new THREE.Group(); const pk = rbox(0.3, 0.16, 0.05, 0.01, M.panelDark); pk.position.z = 0.025; pocket.add(pk);
     const lip = rbox(0.3, 0.02, 0.06, 0.006, M.module); lip.position.set(0, 0.075, 0.03); pocket.add(lip); grp.add(onShell(pocket, s, 1.0, 0.68, [1, 0], 0.0));

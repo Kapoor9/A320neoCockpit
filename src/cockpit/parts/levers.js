@@ -67,7 +67,7 @@ function gripGeometry() {
 export function makeSidestick(M, side = -1) {
   const g = new THREE.Group();
   // base: five thin square plates, widely spaced and widening downwards (rubber gaiter), with a collar on top
-  const plateMat = new THREE.MeshStandardMaterial({ color: 0x5f676c, roughness: 0.8 });
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x93a6b1, roughness: 0.6 });   // light blue-grey stepped base, as on the aircraft
   const sizes = [0.13, 0.112, 0.094, 0.077, 0.06];
   const core = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.04, 24), M.rubber)); core.position.y = 0.02; g.add(core);
   let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.004, w, 0.003, plateMat); p.position.y = yy + 0.002; g.add(p); yy += 0.0085; });

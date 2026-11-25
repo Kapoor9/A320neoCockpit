@@ -3,7 +3,15 @@
 import * as THREE from 'three';
 import { buildPanel } from './panel.js';
 
-const FCU_BG = '#4a555d';
+const FCU_BG = '#6e828c';
+// amber LCD window (powered, idle values)
+function lcd(text, w, h) {
+  const cv = document.createElement('canvas'); cv.width = Math.round(w * 6000); cv.height = Math.round(h * 6000); const c = cv.getContext('2d');
+  c.fillStyle = '#0d1610'; c.fillRect(0, 0, cv.width, cv.height);
+  c.fillStyle = '#ffb02e'; c.font = `600 ${cv.height * 0.7}px "B612 Mono", monospace`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cv.width / 2, cv.height * 0.54);
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.3 });
+}
 // remap a layout drawn on a larger panel onto the measured strip (positions only; control sizes kept)
 const fit = (items, sx, sy) => items.map((i) => ({ ...i, x: (i.x || 0) * sx, y: (i.y || 0) * sy, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x * sx, y * sy]) } : {}) }));
 
@@ -32,7 +40,7 @@ export function fcuPanel(M, A) {
   // dark LCD windows above each knob
   p.userData.windows = {};
   for (const [t, x] of win) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(t === 'ALT' ? 0.04 : 0.034, 0.016), M.screen);
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(t === 'ALT' ? 0.04 : 0.034, 0.016), lcd({ SPD: '250', HDG: '---  ●', ALT: '05000', 'V/S': '-----' }[t], t === 'ALT' ? 0.04 : 0.034, 0.016));
     w.position.set(x * SX, 0.026 * SY, 0.0008); w.name = 'fcu' + t; p.add(w); p.userData.windows[t] = w;
   }
   return p;
@@ -54,7 +62,7 @@ export function efisPanel(M, A, side) {
     { t: 'toggle', x: 0.012, y: -0.034, id: 'nav1' }, { t: 'toggle', x: 0.06, y: -0.034, id: 'nav2' },
     { t: 'text', x: 0.012, y: -0.046, s: '1', size: 0.0036 }, { t: 'text', x: 0.06, y: -0.046, s: '2', size: 0.0036 });
   const p = buildPanel({ w: 0.16, h: 0.076, items: fit(items, 0.84, 0.76), bg: FCU_BG, name: 'EFIS' + side }, M, A);
-  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.012), M.screen); w.position.set(-0.07, 0.034, 0.0008); w.name = 'baroWin'; p.add(w);
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.012), lcd('1013', 0.034, 0.012)); w.position.set(-0.07 * 0.84, 0.034 * 0.76, 0.0008); w.name = 'baroWin'; p.add(w);
   return p;
 }
 

@@ -40,8 +40,9 @@ const HW = {};
 function hw() {
   if (HW.bezel) return HW;
   HW.bezel = new THREE.MeshStandardMaterial({ color: 0xaeb2b2, roughness: 0.38, metalness: 0.55 });      // satin silver Korry bezel
-  HW.knob = new THREE.MeshStandardMaterial({ color: 0x7c8286, roughness: 0.52, metalness: 0.12 });   // light-grey Airbus selector knobs
-  HW.fcuKnob = new THREE.MeshStandardMaterial({ color: 0x33373a, roughness: 0.6, metalness: 0.1 });         // light grey selector knobs
+  HW.knob = new THREE.MeshStandardMaterial({ color: 0xd2d6d8, roughness: 0.42, metalness: 0.15 });   // white-grey Airbus selector knobs
+  HW.fcuKnob = new THREE.MeshStandardMaterial({ color: 0xd9dcde, roughness: 0.35, metalness: 0.25 });   // silver-white FCU knobs
+  HW.amber = new THREE.MeshStandardMaterial({ color: 0xd88a2a, roughness: 0.4, emissive: 0x6a3a08 });   // amber ring around each FCU knob         // light grey selector knobs
   HW.knobDark = new THREE.MeshStandardMaterial({ color: 0x232628, roughness: 0.55 });
   HW.chrome = new THREE.MeshStandardMaterial({ color: 0xc4c7c8, roughness: 0.25, metalness: 0.85 });
   HW.red = new THREE.MeshStandardMaterial({ color: 0xa3261d, roughness: 0.45 });
@@ -68,7 +69,7 @@ export function buildPanel(spec, M, atlas) {
   const cw = Math.round(w * PX_PER_M), ch = Math.round(h * PX_PER_M);
   const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
   const c = cv.getContext('2d');
-  c.fillStyle = spec.bg || '#434d54'; c.fillRect(0, 0, cw, ch);
+  c.fillStyle = spec.bg || '#72868f'; c.fillRect(0, 0, cw, ch);
   const P = (x, y) => [(x + w / 2) * PX_PER_M, (h / 2 - y) * PX_PER_M];
   {
     let seed = 0; for (const ch of String(spec.name || 'p')) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
@@ -96,7 +97,7 @@ export function buildPanel(spec, M, atlas) {
   if (spec.title) text(spec.title, 0, h / 2 - 0.007, 0.0065);
   for (const it of spec.items || []) {
     if (it.t === 'text') { text(it.s, it.x, it.y, it.size, it.align, it.weight); if (it.boxed) { c.font = `600 ${(it.size || 0.006) * PX_PER_M}px ${FONT_PANEL}`; const tw = c.measureText(String(it.s)).width + (it.size || 0.006) * PX_PER_M * 0.8, th = (it.size || 0.006) * PX_PER_M * 1.5; const [px, py] = P(it.x, it.y); c.lineWidth = 0.0005 * PX_PER_M; c.strokeRect(px - tw / 2, py - th / 2, tw, th); } }
-    else if (it.t === 'line') { c.lineWidth = (it.w || 0.0006) * PX_PER_M; c.beginPath(); it.pts.forEach(([x, y], i) => (i ? c.lineTo(...P(x, y)) : c.moveTo(...P(x, y)))); c.stroke(); }
+    else if (it.t === 'line') { c.save(); if (it.col) c.strokeStyle = it.col; c.lineWidth = (it.w || 0.0006) * PX_PER_M; c.beginPath(); it.pts.forEach(([x, y], i) => (i ? c.lineTo(...P(x, y)) : c.moveTo(...P(x, y)))); c.stroke(); c.restore(); }
     else if (it.t === 'box') { c.lineWidth = 0.0006 * PX_PER_M; const [x0, y0] = P(it.x - it.w / 2, it.y + it.h / 2); c.strokeRect(x0, y0, it.w * PX_PER_M, it.h * PX_PER_M); }
     else if (it.t === 'knob' && it.ring !== false) { // white tick ring around selectors
       c.lineWidth = 0.0005 * PX_PER_M; const [px, py] = P(it.x, it.y); const R = ((it.r || 0.011) * 1.45) * PX_PER_M;
@@ -119,7 +120,8 @@ export function buildPanel(spec, M, atlas) {
     if (it.t === 'knob' && it.style === 'fcu') {
       // A320 FCU knob: satin collar on the panel, grey knurled body, slightly domed cap with a fine ring
       const r = it.r || 0.012; const k = new THREE.Group();
-      const collar = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.42, r * 1.48, 0.0022, 48).rotateX(Math.PI / 2), H.bezel); collar.position.z = 0.0011; k.add(collar);
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(r * 1.42, r * 0.09, 10, 48), H.amber); collar.position.z = 0.0012; k.add(collar);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.22, r * 1.28, 0.005, 48).rotateX(Math.PI / 2), H.knobDark); base.position.z = 0.0025; k.add(base);
       const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.02, r * 1.06, 0.016, 48).rotateX(Math.PI / 2), H.fcuKnob); body.position.z = 0.0102; body.castShadow = true; k.add(body);
       for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; const fl = new THREE.Mesh(new THREE.BoxGeometry(0.0009, 0.0014, 0.0145), H.fcuKnob); fl.position.set(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05, 0.0102); fl.rotation.z = a; k.add(fl); }
       const cap = new THREE.Mesh(new THREE.SphereGeometry(r * 1.0, 40, 12, 0, Math.PI * 2, 0, 0.42).rotateX(Math.PI / 2), H.fcuKnob); cap.scale.z = 0.35; cap.position.z = 0.0168; k.add(cap);
@@ -184,7 +186,7 @@ export function buildPanel(spec, M, atlas) {
       tg.position.set(it.x, it.y, 0); g.add(tg); if (it.id) controls[it.id] = tg;
     } else if (it.t === 'cb') {   // rows of push/pull circuit breakers
       const n = it.cols * it.rows;
-      const collar = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.002, 16).rotateX(Math.PI / 2), M.trim, n);
+      const collar = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.002, 16).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2f7a4c, roughness: 0.5 }), n);
       const capG = new THREE.CylinderGeometry(0.0032, 0.0034, 0.009, 16).rotateX(Math.PI / 2);
       const caps = new THREE.InstancedMesh(capG, capMat, n); const m4 = new THREE.Matrix4(); let k = 0;
       for (let r = 0; r < it.rows; r++) for (let q = 0; q < it.cols; q++) {
