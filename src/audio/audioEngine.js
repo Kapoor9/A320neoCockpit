@@ -9,8 +9,8 @@ const SOUND_DIR = new URL('../../public/sounds/', import.meta.url).href;
 // Positions in the takeoff recording (seconds) used for transitions.
 // up master  = the recording itself (0..12 s)
 // down master= the recording walked backwards from 7.2 s to 0.4 s at 1/1.4 speed
-const UP_FROM = { IDLE: 2.2, N45: 3.3, CL: 5.45 };
-const UP_TO = { N45: 2.8, CL: 5.45, FLX: 7.2 };
+const UP_FROM = { IDLE: 1.8, N45: 3.3, CL: 5.45 };   // idle→45 rise really starts at ~1.9 s
+const UP_TO = { N45: 3.0, CL: 5.45, FLX: 7.2 };      // 45 plateau: 2.8–3.3 s (flat pitch)
 const DOWN_FROM = { FLX: 7.2, CL: 5.45, N45: 3.0 };
 const DOWN_TO = { CL: 5.45, N45: 3.0, IDLE: 1.6 };
 const DOWN_SLOW = 1.4;
