@@ -85,7 +85,9 @@ export function engPanel(M, A) {
     const guardR = guardL.clone(); guardR.position.x = 0.016; sw.add(guardR);
     const lever = new THREE.Group();
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0028, 0.022, 12), M.metal); stem.position.y = 0.011; lever.add(stem);
-    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.016, 24).rotateZ(Math.PI / 2), M.trim); head.position.y = 0.024; head.castShadow = true; lever.add(head);
+    const head = rbox(0.02, 0.024, 0.014, 0.004, new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.35 })); head.position.y = 0.03; head.castShadow = true; lever.add(head);   // square ENG cap
+    const lab = A.mesh('ENG ' + (s < 0 ? 1 : 2), 0.007, { px: 40, weight: 600, color: '#f2f2ee' }, 0.017); lab.position.set(0, 0.03, 0.0075); lever.add(lab);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.007, 0.006, 20), M.metal); collar.position.y = 0.017; lever.add(collar);
     lever.rotation.x = -0.45; lever.position.set(0, 0.006, 0.002); sw.add(lever);   // OFF (aft)
     sw.position.set(s * 0.074, 0.0, 0); p.add(sw); p.userData.masters.push(lever);
   }
@@ -139,7 +141,8 @@ export function parkBrakePanel(M, A) {
   const h = new THREE.Group();
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.013, 0.006, 32).rotateX(Math.PI / 2), M.panelDark); base.position.z = 0.003; h.add(base);
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.014, 12).rotateX(Math.PI / 2), M.metal); stem.position.z = 0.012; h.add(stem);
-  const bar = rbox(0.05, 0.012, 0.012, 0.004, new THREE.MeshStandardMaterial({ color: 0x9a2b22, roughness: 0.55 })); bar.position.z = 0.022; h.add(bar);
+  const bar = rbox(0.016, 0.06, 0.016, 0.005, new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.3 })); bar.position.set(0, 0.012, 0.022); h.add(bar);   // black handle lettered PARK BRK
+  const pl = A.mesh('PARK BRK', 0.009, { px: 40, weight: 600, color: '#f2f2ee' }, 0.055); pl.rotation.z = -Math.PI / 2; pl.position.set(0, 0.012, 0.0305); h.add(pl);
   h.position.set(0, 0.0, 0); p.add(h); p.userData.handle = h;
   return p;
 }

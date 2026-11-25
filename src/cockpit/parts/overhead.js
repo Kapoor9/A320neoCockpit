@@ -178,7 +178,9 @@ export const AFT = {
 // ---- layout as photographed on the aircraft (aft at the top as read) ----
 const cap = (x, y, s, size = 0.0026) => ({ t: 'text', x, y, s, size });
 const pb = (x, y, c, top, bot, o = {}) => [...(c ? [cap(x, y + (o.h || 0.015) / 2 + 0.0055, c, o.cs || 0.0025)] : []), { t: 'pb', x, y, w: o.w || 0.015, h: o.h || 0.015, legends: [top, bot], guard: o.guard, id: o.id, cols: o.cols }];
-const tg = (x, y, c, id) => [cap(x, y + 0.0135, c, 0.0023), { t: 'toggle', x, y, id }];
+const tg = (x, y, c, id, style) => [cap(x, y + 0.0135, c, 0.0023), { t: 'toggle', x, y, id, style }];
+// engraved vertical side title, both edges of a panel (FIRE, HYD, FUEL, ELEC, AIR COND)
+const vt = (s, half, h) => { const ch = s.split(''); const st = Math.min(0.0055, (h * 0.8) / ch.length); return [-1, 1].flatMap((sx) => ch.map((c, i) => cap(sx * (half - 0.006), (ch.length - 1) * st / 2 - i * st, c, 0.0036))); };
 const rb = (x, y, c, r = 0.0045) => [...(c ? [cap(x, y + r + 0.005, c, 0.0024)] : []), { t: 'rbtn', x, y, r }];
 const kn = (x, y, c, r = 0.0085, id) => [...(c ? [cap(x, y + r + 0.006, c, 0.0025)] : []), { t: 'knob', x, y, r, id }];
 Object.assign(PANELS, {
@@ -194,8 +196,8 @@ Object.assign(PANELS, {
   ] }),
   elec: () => ({ title: 'ELEC', items: [
     { t: 'text', x: -0.09, y: 0.052, s: 'DC BUS 1', size: 0.0026, boxed: true }, { t: 'text', x: 0.09, y: 0.052, s: 'DC BUS 2', size: 0.0026, boxed: true }, { t: 'text', x: -0.075, y: 0.006, s: 'AC BUS 1', size: 0.0026, boxed: true }, { t: 'text', x: 0, y: 0.006, s: 'AC ESS BUS', size: 0.0026, boxed: true }, { t: 'text', x: 0.075, y: 0.006, s: 'AC BUS 2', size: 0.0026, boxed: true },
-    ...pb(-0.124, 0.032, 'COMMERCIAL', '', 'OFF', { cs: 0.0021 }), { t: 'annun', x: -0.062, y: 0.032, w: 0.03, h: 0.012, s: 'BAT 1 V' }, ...pb(-0.016, 0.032, 'BAT 1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.016, 0.032, 'BAT 2', 'FAULT', 'OFF', { cs: 0.0022 }),
-    { t: 'annun', x: 0.062, y: 0.032, w: 0.03, h: 0.012, s: 'BAT 2 V' }, ...pb(0.124, 0.032, 'AC ESS FEED', 'FAULT', 'ALTN', { cs: 0.0021 }),
+    ...pb(-0.124, 0.032, 'COMMERCIAL', '', 'OFF', { cs: 0.0021 }), { t: 'annun', x: -0.062, y: 0.032, w: 0.03, h: 0.012, s: '26.5V' }, ...pb(-0.016, 0.032, 'BAT 1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.016, 0.032, 'BAT 2', 'FAULT', 'OFF', { cs: 0.0022 }),
+    { t: 'annun', x: 0.062, y: 0.032, w: 0.03, h: 0.012, s: '26.7V' }, ...pb(0.124, 0.032, 'AC ESS FEED', 'FAULT', 'ALTN', { cs: 0.0021 }),
     ...pb(-0.124, 0.0, 'GALY & CAB', 'FAULT', 'OFF', { cs: 0.0021 }),
     { t: 'line', pts: [[-0.09, 0.046], [-0.09, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.09, 0.046], [0.09, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.058, 0.006], [-0.02, 0.006]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.02, 0.006], [0.058, 0.006]], w: 0.0008, col: '#5ccf98' },
     { t: 'line', pts: [[-0.085, 0.0], [-0.085, -0.034]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.085, 0.0], [0.085, -0.034]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.085, -0.018], [-0.01, -0.018]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.01, -0.018], [0.085, -0.018]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.035, -0.034], [-0.035, -0.026], [0.035, -0.026], [0.035, -0.034]], w: 0.0008, col: '#5ccf98' },
@@ -237,7 +239,7 @@ Object.assign(PANELS, {
   fire: () => {
     const items = [];
     [['ENG 1', -0.093], ['APU', 0], ['ENG 2', 0.093]].forEach(([n, x]) => {
-      items.push(cap(x, 0.04, n, 0.0045), { t: 'pb', x, y: 0.012, w: 0.044, h: 0.03, legends: ['FIRE', 'PUSH'], cols: ['#b8402e', '#c9ccc8'], guard: 'red', id: 'fire' + n.replace(' ', '') });
+      items.push(cap(x, 0.04, n, 0.0045), { t: 'pb', x, y: 0.012, w: 0.044, h: 0.03, legends: ['FIRE', 'PUSH'], cols: ['#b8402e', '#c9ccc8'], guard: 'fire', id: 'fire' + n.replace(' ', '') });
       if (n === 'APU') { items.push(...pb(-0.022, -0.03, '', 'SQUIB', 'DISCH'), cap(-0.022, -0.043, 'AGENT', 0.0024), ...rb(0.026, -0.03, 'TEST')); }
       else for (const s of [-1, 1]) items.push(...pb(x + s * 0.037, 0.018, 'AGENT ' + (s < 0 ? 1 : 2), 'SQUIB', 'DISCH', { cs: 0.0022 }));
       if (n !== 'APU') items.push(...rb(x + (n === 'ENG 1' ? -0.037 : 0.037), -0.02, 'TEST'));
@@ -250,7 +252,7 @@ Object.assign(PANELS, {
   cabPress: () => ({ title: 'CABIN PRESS', items: [...tg(-0.045, -0.008, 'MAN V/S CTL'), ...pb(-0.014, -0.006, 'MODE SEL', 'FAULT', 'MAN'), ...kn(0.017, -0.008, 'LDG ELEV', 0.0075, 'ldgElev'), ...pb(0.048, -0.006, 'DITCHING', '', 'ON', { guard: 'grey' })] }),
   extLt: () => ({ title: 'EXT LT', items: [
     ...[['STROBE', -0.045], ['BEACON', -0.015], ['WING', 0.015], ['NAV & LOGO', 0.045]].flatMap(([c, x]) => tg(x, 0.006, c)),
-    ...[['RWY TURN OFF', -0.045], ['LAND', -0.015], ['', 0.015], ['NOSE', 0.045]].flatMap(([c, x]) => tg(x, -0.022, c)),
+    ...[['RWY TURN OFF', -0.045], ['LAND', -0.015], ['', 0.015], ['NOSE', 0.045]].flatMap(([c, x]) => tg(x, -0.022, c, undefined, 'paddle')),
   ] }),
   apu: () => ({ title: 'APU', items: [...pb(0, 0.006, 'MASTER SW', 'FAULT', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuMaster' }), ...pb(0, -0.019, 'START', 'AVAIL', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuStart' })] }),
   signsIntLt: () => ({ title: 'INT LT', items: [
@@ -283,6 +285,8 @@ export function makeOverheadPanels(M, A, systemLen = 0.65) {
   const make = (key, w, hd, f) => {
     const def = PANELS[key];
     const spec = def(w, hd);
+    const VT = { fire: 'FIRE', hyd: 'HYD', fuel: 'FUEL', elec: 'ELEC', airCond: 'AIR COND' };
+    if (VT[key]) { spec.items = [...spec.items, ...vt(VT[key].replace(' ', ''), w / 2, hd)]; spec.title = ''; }
     const items = spec.items.map((i) => ({ ...i, y: i.y * f, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x, y * f]) } : {}) }));
     return buildPanel({ w, h: hd * f, name: key, bg: '#5d7380', ...spec, items }, M, A);
   };

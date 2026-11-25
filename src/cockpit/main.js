@@ -5,6 +5,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
+import { paintDisplays } from './displays.js';
 import { loadFonts } from './labels.js';
 
 await loadFonts();
@@ -93,3 +94,4 @@ renderer.setAnimationLoop(() => {
 document.getElementById('loading')?.remove();
 
 window.cockpit = { THREE, scene, camera, controls, renderer, refs, lite: LITE, invalidate: () => (dirty = 3) };
+try { paintDisplays(scene, refs); dirty = 3; } catch (e) { console.error('displays', e); }

@@ -568,7 +568,7 @@ function buildOverheadSurround(M) {
     const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, r0.distanceTo(r1), 16), dark);
     rail.position.copy(r0).add(r1).multiplyScalar(0.5); rail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), r1.clone().sub(r0).normalize()); rail.scale.set(1, 1, 1.4); grp.add(rail);
     // items on the fairing: two eyeball air outlets and a reading light toward the front
-    for (const [tt, k] of [[0.12, 'g'], [0.3, 'g'], [0.5, 'r']]) {
+    for (const [tt, k] of [[0.12, 'g'], [0.3, 'g']]) {
       const a = A[Math.round(tt * 24)], b = B[Math.round(tt * 24)]; const c = a.clone().lerp(b, 0.5);
       const nrm = b.clone().sub(a).cross(A[Math.round(tt * 24) + 1].clone().sub(a)).normalize(); if (nrm.y > 0) nrm.negate();
       const o = k === 'g' ? gasper(M) : readingLight(); o.position.copy(c).add(nrm.clone().multiplyScalar(0.004)); o.lookAt(c.clone().add(nrm)); grp.add(o);
@@ -763,6 +763,27 @@ function buildFittings(M, refs) {
     for (let i = 0; i <= 40; i++) { const z = 0.3 + 1.32 * i / 40; const y = sillY(z) - 0.02; const p = onHull(s, z, y, 0.0); L.push(p); const q = p.clone(); q.x -= s * 0.04; R.push(q); const r2 = q.clone(); r2.y -= 0.018; Rf.push(r2); }
     const ledge = M.module.clone(); ledge.side = THREE.DoubleSide; grp.add(stripMesh(L, R, ledge), stripMesh(R, Rf, ledge));
   }
+  // footwells: ribbed rudder pedals on their arms, the pedal housing with its PULL TO ADJUST handle
+  { const ribTex = (() => { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; const c = cv.getContext('2d'); c.fillStyle = '#4a5560'; c.fillRect(0, 0, 64, 256); c.fillStyle = '#2b333b'; for (let y = 0; y < 256; y += 8) c.fillRect(0, y, 64, 3); const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return tx; })();
+    const pedM = new THREE.MeshStandardMaterial({ map: ribTex, roughness: 0.7 }); const blk = new THREE.MeshStandardMaterial({ color: 0x15181b, roughness: 0.5 });
+    for (const s of [-1, 1]) {
+      for (const p of [-1, 1]) { const ped = rbox(0.09, 0.22, 0.016, 0.008, pedM); ped.position.set(s * D.SEAT_X + p * 0.1, 0.2, 0.02); ped.rotation.x = -0.45; grp.add(ped);
+        const arm = rbox(0.02, 0.16, 0.02, 0.005, blk); arm.position.set(s * D.SEAT_X + p * 0.1, 0.32, -0.04); arm.rotation.x = 0.6; grp.add(arm); }
+      const hous = rbox(0.11, 0.3, 0.12, 0.02, blk); hous.position.set(s * D.SEAT_X, 0.18, -0.06); grp.add(hous);
+      const hdl = new THREE.Group(); const t1 = rbox(0.05, 0.016, 0.012, 0.004, blk); t1.position.y = 0.03; hdl.add(t1); const st = rbox(0.012, 0.05, 0.01, 0.003, blk); hdl.add(st);
+      const lab = placard(A, 'PULL TO ADJUST', 0.045, 0.012, '#15181b', '#e8ebe6'); lab.position.set(0, 0.03, 0.007); hdl.add(lab);
+      const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.006, 32).rotateX(Math.PI / 2), blk); disk.position.z = -0.006; hdl.add(disk);
+      hdl.position.set(s * D.SEAT_X, 0.36, 0.0); hdl.rotation.x = -0.5; grp.add(hdl);
+    }
+  }
+  // rear area behind the seats (as photographed): portable extinguisher compartment, L/G PINS box, gloves, document holder
+  { const zr2 = D.REAR_WALL_Z - 0.02;
+    const pfe = placard(A, 'PORTABLE FIRE EXTIN', 0.16, 0.014, '#b3261e', '#f3f0e8'); pfe.position.set(0.86, 0.5, 1.45); pfe.rotation.y = -Math.PI / 2; grp.add(pfe);
+    const lgp = new THREE.Group(); const bx = rbox(0.3, 0.12, 0.25, 0.01, M.panelDark); lgp.add(bx); const lp = placard(A, 'L/G PINS', 0.09, 0.024); lp.position.set(0, 0, 0.127); lgp.add(lp);
+    lgp.position.set(-0.85, 0.07, 1.75); grp.add(lgp);
+    const glv = new THREE.Group(); const pouch = rbox(0.16, 0.24, 0.03, 0.02, new THREE.MeshStandardMaterial({ color: 0x1a1d21, roughness: 0.8 })); glv.add(pouch); const gp = placard(A, 'GLOVES', 0.08, 0.02); gp.position.z = 0.017; gp.rotation.z = 0.5; glv.add(gp);
+    glv.position.set(1.02, 1.0, zr2 - 0.25); glv.rotation.y = -Math.PI / 2; grp.add(glv);
+    const doc = rbox(0.22, 0.3, 0.004, 0.006, new THREE.MeshPhysicalMaterial({ color: 0xf2f2ee, roughness: 0.3, transparent: true, opacity: 0.85 })); doc.position.set(-1.05, 1.15, zr2 - 0.2); doc.rotation.y = Math.PI / 2; grp.add(doc); }
   // rear of the cockpit: CB panel behind the F/O, extinguisher, axe, oxygen bottle, folded jump seat, coat hooks
   const zr = D.REAR_WALL_Z - 0.012;
   const cbItems = [];

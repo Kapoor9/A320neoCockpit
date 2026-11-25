@@ -70,7 +70,7 @@ export function makeSidestick(M, side = -1) {
   const plateMat = new THREE.MeshStandardMaterial({ color: 0x93a6b1, roughness: 0.6 });   // light blue-grey stepped base, as on the aircraft
   const sizes = [0.13, 0.112, 0.094, 0.077, 0.06];
   const core = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.04, 24), M.rubber)); core.position.y = 0.02; g.add(core);
-  let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.004, w, 0.003, plateMat); p.position.y = yy + 0.002; g.add(p); yy += 0.0085; });
+  let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.009, w, 0.004, plateMat); p.position.y = yy + 0.0045; g.add(p); yy += 0.0085; });   // stacked stepped rubber boot
   const top = rbox(0.046, 0.004, 0.046, 0.002, M.rubber); top.position.y = yy + 0.002; g.add(top); yy += 0.004;
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.16, metalness: 0.1 });   // glossy black grip
   const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);

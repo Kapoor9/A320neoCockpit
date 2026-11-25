@@ -161,7 +161,12 @@ export function buildPanel(spec, M, atlas) {
         if (it.guard === 'red') { const lid = rbox(gw, gh, 0.0016, 0.0006, H.red); lid.position.z = 0.0105; b.add(lid); }
         else { for (const [w, h, x, y] of [[gw, 0.0016, 0, gh / 2 - 0.0008], [gw, 0.0016, 0, -gh / 2 + 0.0008], [0.0016, gh, gw / 2 - 0.0008, 0], [0.0016, gh, -gw / 2 + 0.0008, 0], [gw, 0.0012, 0, 0], [0.0012, gh, 0, 0]]) { const bar = rbox(w, h, 0.0016, 0.0005, H.cage); bar.position.set(x, y, 0.0105); b.add(bar); } }
         for (const sx of [-1, 1]) { const cheek = rbox(0.0016, gh, 0.0105, 0.0005, it.guard === 'red' ? H.red : H.cage); cheek.position.set(sx * (gw / 2 - 0.0008), 0, 0.0052); b.add(cheek); }
-      } else if (it.guard) {   // clear hood (fire pushbuttons)
+      } else if (it.guard === 'fire') {   // fire pushbutton: red-framed translucent cover, the FIRE / PUSH legend visible through it
+        const fr = new THREE.MeshStandardMaterial({ color: 0xa3261d, roughness: 0.45 });
+        const lid = rbox(pw + 0.006, ph + 0.006, 0.0018, 0.001, new THREE.MeshPhysicalMaterial({ color: 0xb0302a, roughness: 0.2, transparent: true, opacity: 0.38, depthWrite: false })); lid.position.z = 0.0105; lid.renderOrder = 5; b.add(lid);
+        for (const [w2, h2, x2, y2] of [[pw + 0.008, 0.003, 0, (ph + 0.005) / 2], [pw + 0.008, 0.003, 0, -(ph + 0.005) / 2], [0.003, ph + 0.008, (pw + 0.005) / 2, 0], [0.003, ph + 0.008, -(pw + 0.005) / 2, 0]]) { const bar = rbox(w2, h2, 0.011, 0.001, fr); bar.position.set(x2, y2, 0.0055); b.add(bar); }
+        const tab = rbox(0.012, 0.008, 0.003, 0.002, fr); tab.position.set(0, -(ph / 2 + 0.008), 0.009); b.add(tab);
+      } else if (it.guard) {   // clear hood
         const hood = rbox(pw + 0.008, ph + 0.008, 0.012, 0.003, H.clear); hood.position.z = 0.007; hood.renderOrder = 5; b.add(hood);
       }
       b.position.set(it.x, it.y, 0); g.add(b); if (it.id) controls[it.id] = b;
@@ -188,7 +193,8 @@ export function buildPanel(spec, M, atlas) {
       const bush = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.004, 20).rotateX(Math.PI / 2), H.chrome); bush.position.z = 0.0042; tg.add(bush);
       const bat = new THREE.Group(); bat.position.z = 0.006; bat.rotation.x = -0.35;
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0021, 0.0026, 0.012, 16).rotateX(Math.PI / 2), H.chrome); stem.position.z = 0.006; bat.add(stem);
-      const tip = rbox(0.0062, 0.0044, 0.0068, 0.0018, H.chrome); tip.position.z = 0.0135; bat.add(tip);
+      const tip = it.style === 'paddle' ? rbox(0.0105, 0.0032, 0.013, 0.0014, H.chrome) : rbox(0.0062, 0.0044, 0.0068, 0.0018, H.chrome);   // landing/nose lights: wide flat paddle
+      tip.position.z = it.style === 'paddle' ? 0.0165 : 0.0135; bat.add(tip);
       tg.add(bat); tg.userData.bat = bat;
       tg.position.set(it.x, it.y, 0); g.add(tg); if (it.id) controls[it.id] = tg;
     } else if (it.t === 'cb') {   // rows of push/pull circuit breakers
