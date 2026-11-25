@@ -30,7 +30,7 @@ export function makeMaterials() {
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
-    frame: std(0x3a3f43, 0.55, 0.2),     // window frames
+    frame: std(0x8798a2, 0.6),     // window frames
     carpet: std(0x283142, 0.98),
     seatFabric: std(0x6f8aa0, 0.95),   // light blue headrest fabric
     seatBlue: std(0x1e2a48, 0.95),     // navy pinstripe cushions
@@ -439,6 +439,10 @@ function buildGlareshield(M, refs) {
   };
   const gm = M.glare.clone(); gm.side = THREE.DoubleSide;
   grp.add(grid(top, gm), grid(rear, gm), grid(under, gm));
+  {
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2 * G.strip.half + 0.1, 32).rotateZ(Math.PI / 2), addGrain(new THREE.MeshStandardMaterial({ color: 0x1d2023, roughness: 0.6 }), 'matte'));
+    roll.scale.set(1, 1.35, 1); roll.position.set(0, G.topY - 0.006, G.strip.faceZ - 0.012); roll.castShadow = true; grp.add(roll);
+  }
   // the control strip: a housing that stands proud of the rear face, panels on its face
   const S = G.strip; const half = S.half;
   const housing = rbox(half * 2, S.h + 0.006, 0.05, 0.008, M.fcu);
@@ -650,6 +654,12 @@ function buildFittings(M, refs) {
     // escape rope compartment above the sliding window
     const er = new THREE.Group(); const lid = rbox(0.24, 0.07, 0.012, 0.006, M.panelDark); er.add(lid); const pl = placard(A, 'ESCAPE ROPE', 0.11, 0.022); pl.position.z = 0.008; er.add(pl);
     grp.add(onShell(er, s, 0.74, 1.5, [1, 0], 0.012));
+    {
+      const leather = addGrain(new THREE.MeshStandardMaterial({ color: 0x1e2227, roughness: 0.55, side: THREE.DoubleSide }), 'rubber');
+      const T = [], B2 = [];
+      for (let i = 0; i <= 40; i++) { const z = 0.66 + 1.0 * i / 40; T.push(onHull(s, z, 1.5, 0.012)); B2.push(onHull(s, z, 1.42, 0.012)); }
+      grp.add(stripMesh(T, B2, leather));
+    }
     // air outlets near the windows and on the ceiling edge
     grp.add(onShell(gasper(M), s, 0.5, 1.5, [1, 0], 0.012)); grp.add(onShell(gasper(M), s, 1.2, 1.56, [1, 0], 0.012));
     // reading light on the sidewall above the console
