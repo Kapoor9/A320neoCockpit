@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { buildPanel } from './panel.js';
 
 const FCU_BG = '#6e828c';
+const FCU_DARK = '#30373c';   // FCU and EFIS control panels are dark charcoal
 // amber LCD window (powered, idle values)
 function lcd(text, w, h) {
   const cv = document.createElement('canvas'); cv.width = Math.round(w * 6000); cv.height = Math.round(h * 6000); const c = cv.getContext('2d');
@@ -36,7 +37,7 @@ export function fcuPanel(M, A) {
     { t: 'key', x: 0.037, y: -0.03, w: 0.018, h: 0.011, s: 'EXPED', id: 'EXPED', bar: true },
     { t: 'key', x: 0.096, y: -0.03, w: 0.018, h: 0.011, s: 'APPR', id: 'APPR', bar: true },
     { t: 'text', x: 0.037, y: -0.044, s: '100     1000', size: 0.0034 });
-  const p = buildPanel({ w: W, h: H, items: fit(items, SX, SY), bg: FCU_BG, name: 'FCU' }, M, A);
+  const p = buildPanel({ w: W, h: H, items: fit(items, SX, SY), bg: FCU_DARK, name: 'FCU' }, M, A);
   // dark LCD windows above each knob
   p.userData.windows = {};
   for (const [t, x] of win) {
@@ -61,7 +62,7 @@ export function efisPanel(M, A, side) {
     { t: 'text', x: 0.012, y: -0.02, s: 'ADF   VOR', size: 0.0032 }, { t: 'text', x: 0.06, y: -0.02, s: 'ADF   VOR', size: 0.0032 },
     { t: 'toggle', x: 0.012, y: -0.034, id: 'nav1' }, { t: 'toggle', x: 0.06, y: -0.034, id: 'nav2' },
     { t: 'text', x: 0.012, y: -0.046, s: '1', size: 0.0036 }, { t: 'text', x: 0.06, y: -0.046, s: '2', size: 0.0036 });
-  const p = buildPanel({ w: 0.16, h: 0.076, items: fit(items, 0.84, 0.76), bg: FCU_BG, name: 'EFIS' + side }, M, A);
+  const p = buildPanel({ w: 0.16, h: 0.076, items: fit(items, 0.84, 0.76), bg: FCU_DARK, name: 'EFIS' + side }, M, A);
   const w = new THREE.Mesh(new THREE.PlaneGeometry(0.034, 0.012), lcd('1013', 0.034, 0.012)); w.position.set(-0.07 * 0.84, 0.034 * 0.76, 0.0008); w.name = 'baroWin'; p.add(w);
   return p;
 }

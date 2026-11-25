@@ -105,6 +105,13 @@ export function buildPanel(spec, M, atlas) {
     }
   }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  c.save(); c.strokeStyle = 'rgba(232,164,86,0.85)'; c.lineWidth = 0.0007 * PX_PER_M;
+  for (const it of spec.items || []) {
+    if (it.t !== 'pb' && it.t !== 'annun') continue;
+    const pw = (it.w || 0.017) + 0.0062, ph = (it.h || (it.t === 'pb' ? 0.017 : 0.009)) + 0.0062; const [x0, y0] = P(it.x - pw / 2, it.y + ph / 2);
+    c.strokeRect(x0, y0, pw * PX_PER_M, ph * PX_PER_M);
+  }
+  c.restore();
   const faceMat = addGrain(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }), 'paint');
   const gap = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.004, h + 0.004), new THREE.MeshBasicMaterial({ color: 0x07080a })); gap.position.z = -0.0085; g.add(gap);
   const plate = rbox(w - 0.001, h - 0.001, 0.009, 0.0035, M.module); plate.position.z = -0.0045; g.add(plate);

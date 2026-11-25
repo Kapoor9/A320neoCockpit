@@ -21,20 +21,20 @@ export function makeMaterials() {
     new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
   return {
     panel: std(0x72868f, 0.6),          // instrument panel blue-grey
-    panelDark: std(0x4b5b64, 0.66),      // panel frames and seams
+    panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x6b7f89, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x26292c, 0.9),           // anti-glare finish
+    glare: std(0x1d2023, 0.78),           // anti-glare finish
     fcu: std(0x6e828c, 0.6),
-    lining: std(0x8796a0, 0.85),         // upper sidewall lining
+    lining: std(0x8a9faa, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
     frame: std(0x3a3f43, 0.55, 0.2),     // window frames
     carpet: std(0x283142, 0.98),
-    seatFabric: std(0x4b535b, 0.95),
-    seatBlue: std(0x2f4466, 0.95),
-    seatShell: std(0x2e3337, 0.55),
+    seatFabric: std(0x6f8aa0, 0.95),   // light blue headrest fabric
+    seatBlue: std(0x1e2a48, 0.95),     // navy pinstripe cushions
+    seatShell: std(0x222936, 0.5),     // dark navy shells
     metal: std(0x9aa0a3, 0.35, 0.8),
     rubber: std(0x1c1e20, 0.9),
     bezel: std(0x2a2f33, 0.45, 0.1),
@@ -291,8 +291,11 @@ function buildWindowFrames(M) {
     grp.add(bar(lift(B, 0.02), lift(C, 0.02), 0.06, 0.035, f, nIn));
     {
       const xA = C.clone().sub(B).normalize(), yA = B.clone().sub(A).normalize(); const zA = xA.clone().cross(yA).normalize(); if (zA.dot(nIn) < 0) zA.negate();
-      const vis = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.13, 0.004), new THREE.MeshPhysicalMaterial({ color: 0x5a1712, roughness: 0.15, transparent: true, opacity: 0.72, depthWrite: false }));
+      const vis = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.13, 0.004), new THREE.MeshPhysicalMaterial({ color: 0xe8dcee, roughness: 0.1, transparent: true, opacity: 0.42, depthWrite: false }));
       vis.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA)); vis.position.copy(B.clone().lerp(C, 0.6)).add(yA.clone().multiplyScalar(-0.08)).add(nIn.clone().multiplyScalar(0.05)); vis.renderOrder = 11; grp.add(vis);
+      const armM = new THREE.MeshStandardMaterial({ color: 0x1b1e22, roughness: 0.45 });
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.16, 12), armM); arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), xA); arm.position.copy(vis.position).add(yA.clone().multiplyScalar(0.075)).add(zA.clone().multiplyScalar(0.012)); grp.add(arm);
+      const clamp = rbox(0.04, 0.03, 0.03, 0.008, armM); clamp.position.copy(arm.position).add(xA.clone().multiplyScalar(0.09)); grp.add(clamp);
     }
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
     // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
@@ -397,6 +400,11 @@ function buildMainPanel(M, refs) {
   on(MP.lightingPanel(M, refs.atlas, -1), -0.69, 0.75, 0.0); on(MP.lightingPanel(M, refs.atlas, 1), 0.69, 0.75, 0.0);
   // the lip under the PFD/ND pairs
   for (const s of [-1, 1]) { const lip = rbox(0.53, 0.035, 0.03, 0.006, M.panel); on(lip, s * 0.48, 0.62, 0.012); }
+  for (const s of [-1, 1]) {
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.44, 16).rotateZ(Math.PI / 2), M.metal); on(rail, s * 0.42, 0.598, 0.03);
+    const slot = rbox(0.46, 0.016, 0.01, 0.004, M.panelDark); on(slot, s * 0.42, 0.598, 0.018);
+    for (const [dx, w] of [[-0.17, 0.12], [0, 0.17], [0.17, 0.12]]) { const b = rbox(w, 0.032, 0.07, 0.008, dx ? M.panel : M.panelDark); on(b, s * 0.42 + dx, 0.552, 0.04); }
+  }
   return frame;
 }
 
@@ -494,6 +502,17 @@ function buildPedestal(M, refs) {
   refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.955);
   at(PED.genericPanel(M, A, 0.12, 0.085, 'COCKPIT DOOR', [['LOCK', 'UNLOCK'], ['VIDEO']]), -0.175, 0.955);
   at(PED.genericPanel(M, A, 0.12, 0.085, 'ATC / TCAS', [['STBY', 'AUTO', 'ON'], ['IDENT', 'TA', 'TA/RA']]), 0.175, 0.955);
+  // padded side rails along the pedestal edges and the ribbed rubber bumper across its rear (as photographed)
+  const pad = new THREE.MeshStandardMaterial({ color: 0x252c38, roughness: 0.55 });
+  for (const s of [-1, 1]) for (const [z0, z1, hw, y] of [[P.profile[0][0] + 0.05, P.aftZ, P.halfWidth, P.profile[1][1]], [P.aftZ, P.rearZ - 0.03, P.aftHalfWidth, P.profile[2][1]]]) {
+    const rail = rbox(0.03, 0.045, z1 - z0, 0.013, pad); rail.position.set(s * (hw + 0.008), y + 0.005, (z0 + z1) / 2); grp.add(rail);
+  }
+  const ribM = new THREE.MeshStandardMaterial({ color: 0x5f7380, roughness: 0.7 });
+  for (const s of [-1, 1]) {
+    const bump = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, P.aftHalfWidth - 0.04, 28).rotateZ(Math.PI / 2), ribM);
+    bump.position.set(s * (P.aftHalfWidth / 2 + 0.02), P.profile[2][1] - 0.01, P.rearZ - 0.005); grp.add(bump);
+    for (let k = 0; k < 9; k++) { const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.0226, 0.0226, P.aftHalfWidth - 0.05, 20, 1, false, k * 0.7, 0.18).rotateZ(Math.PI / 2), pad); rib.position.copy(bump.position); grp.add(rib); }
+  }
   return grp;
 }
 
@@ -572,10 +591,10 @@ function gasper(M) {   // ventilation outlet: ring with a swivelling eyeball
 }
 function speakerGrille(r = 0.04) {
   const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0x2b3034, roughness: 0.6 });
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.12, 10, 40), m); g.add(rim);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.14, 6, 8), m); rim.rotation.z = Math.PI / 8; g.add(rim);
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'); c.fillStyle = '#25292c'; c.fillRect(0, 0, 128, 128); c.fillStyle = '#0b0c0d';
   for (let y = 6; y < 128; y += 9) for (let x = 6 + ((y / 9) % 2) * 4; x < 128; x += 9) { c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill(); }
-  const tx = new THREE.CanvasTexture(cv); const face = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.7 })); face.position.z = -0.002; g.add(face);
+  const tx = new THREE.CanvasTexture(cv); const face = new THREE.Mesh(new THREE.CircleGeometry(r, 8).rotateZ(Math.PI / 8), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.7 })); face.position.z = -0.002; g.add(face);
   return g;
 }
 function readingLight() {

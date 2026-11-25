@@ -72,7 +72,7 @@ export function makeSidestick(M, side = -1) {
   const core = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.04, 24), M.rubber)); core.position.y = 0.02; g.add(core);
   let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.004, w, 0.003, plateMat); p.position.y = yy + 0.002; g.add(p); yy += 0.0085; });
   const top = rbox(0.046, 0.004, 0.046, 0.002, M.rubber); top.position.y = yy + 0.002; g.add(top); yy += 0.004;
-  const gripMat = new THREE.MeshStandardMaterial({ color: 0x1e2022, roughness: 0.55 });
+  const gripMat = new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.16, metalness: 0.1 });   // glossy black grip
   const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);
   // find surface points on the head to mount the button and the pad exactly on the grip
   const gp = grip.geometry.attributes.position, gn = grip.geometry.attributes.normal;
@@ -182,7 +182,7 @@ export function makeThrustQuadrant(M, atlas) {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.028, 0, pivotZ); g.add(pivot);
     const arm = rbox(0.009, 0.03, armLen, 0.004, M.metal);   // broad lever blade running in the gate slot arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
-    const handle = rbox(0.0545, 0.03, 0.026, 0.01, M.rubber); handle.position.set(-s * 0.0008, 0.003, armLen + 0.008); pivot.add(handle);
+    const handle = rbox(0.0545, 0.03, 0.026, 0.01, new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.18, metalness: 0.1 })); handle.position.set(-s * 0.0008, 0.003, armLen + 0.008); pivot.add(handle);
     const grip = rbox(0.0545, 0.012, 0.012, 0.004, M.panelDark); grip.position.set(-s * 0.0008, 0.017, armLen + 0.004); pivot.add(grip);
     const face = rbox(0.05, 0.005, 0.02, 0.002, M.panelDark); face.position.set(-s * 0.0008, -0.014, armLen + 0.008); pivot.add(face);
     // A/THR instinctive disconnect pushbutton on the outboard side
