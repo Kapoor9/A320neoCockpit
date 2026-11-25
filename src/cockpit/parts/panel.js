@@ -9,6 +9,47 @@ import { addGrain } from '../surface.js';
 const PX_PER_M = 2600;
 const rbox = (w, h, d, r, mat) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2) * 0.98), mat); m.castShadow = true; m.receiveShadow = true; return m; };
 
+
+// ---- Airbus (Korry) pushbutton faces: black lens, upper legend (FAULT, amber / SMOKE, FIRE red /
+// AVAIL, OPEN green) and lower legend (OFF, ALTN, MAN, OVRD white in a thin frame; ON blue).
+// Unlit, the legends are dim but legible, as in daylight on the real panel.
+const LEGEND_COLOURS = {
+  FAULT: '#b88a2c', DISCH: '#b88a2c', SQUIB: '#c9ccc8', LO: '#b88a2c', SMOKE: '#b8402e', FIRE: '#b8402e',
+  AVAIL: '#4f9c5a', OPEN: '#4f9c5a', 'SYS ON': '#4f9c5a', ON: '#5a86c4', ALIGN: '#c9ccc8',
+};
+const legendColour = (s, lower) => LEGEND_COLOURS[s] || (lower ? '#c9ccc8' : '#b88a2c');
+const faceCache = new Map();
+export function korryFace(top, bottom, aspect = 1) {
+  const key = `${top}|${bottom}|${aspect.toFixed(2)}`; if (faceCache.has(key)) return faceCache.get(key);
+  const H = 128, W = Math.round(H * aspect); const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  c.fillStyle = '#0b0c0d'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#16181a'; c.fillRect(0, H / 2 - 1, W, 2);                       // seam between the two legend windows
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  const fit = (s, maxW, size) => { let z = size; c.font = `600 ${z}px ${FONT_PANEL}`; while (c.measureText(s).width > maxW && z > 10) { z -= 1; c.font = `600 ${z}px ${FONT_PANEL}`; } };
+  if (top) { fit(top, W * 0.84, H * 0.25); c.fillStyle = legendColour(top, false); c.fillText(top, W / 2, H * 0.27); }
+  if (bottom) {
+    fit(bottom, W * 0.66, H * 0.23); const col = legendColour(bottom, true); c.fillStyle = col; c.fillText(bottom, W / 2, H * 0.73);
+    if (col === '#c9ccc8') { const tw = Math.min(W * 0.8, c.measureText(bottom).width + H * 0.16); c.strokeStyle = 'rgba(201,204,200,0.75)'; c.lineWidth = H * 0.022; c.strokeRect(W / 2 - tw / 2, H * 0.6, tw, H * 0.26); }
+  }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.0, emissiveMap: tex, emissive: 0x000000 });
+  faceCache.set(key, mat); return mat;
+}
+// shared hardware materials
+const HW = {};
+function hw() {
+  if (HW.bezel) return HW;
+  HW.bezel = new THREE.MeshStandardMaterial({ color: 0xaeb2b2, roughness: 0.38, metalness: 0.55 });      // satin silver Korry bezel
+  HW.knob = new THREE.MeshStandardMaterial({ color: 0x5f6467, roughness: 0.58, metalness: 0.1 });         // light grey selector knobs
+  HW.knobDark = new THREE.MeshStandardMaterial({ color: 0x232628, roughness: 0.55 });
+  HW.chrome = new THREE.MeshStandardMaterial({ color: 0xc4c7c8, roughness: 0.25, metalness: 0.85 });
+  HW.red = new THREE.MeshStandardMaterial({ color: 0xa3261d, roughness: 0.45 });
+  HW.cage = new THREE.MeshStandardMaterial({ color: 0x151719, roughness: 0.5 });
+  HW.clear = new THREE.MeshPhysicalMaterial({ color: 0xc9cfd2, roughness: 0.15, transparent: true, opacity: 0.35, depthWrite: false });
+  HW.pointer = new THREE.MeshBasicMaterial({ color: 0xe6e8e4 });
+  return HW;
+}
+
 // spec: { w, h, title?, items: [...] }
 // item types:
 //   { t:'text', x, y, s:'LABEL', size=0.006, align='center', weight=600 }
@@ -26,7 +67,7 @@ export function buildPanel(spec, M, atlas) {
   const cw = Math.round(w * PX_PER_M), ch = Math.round(h * PX_PER_M);
   const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
   const c = cv.getContext('2d');
-  c.fillStyle = spec.bg || '#56646e'; c.fillRect(0, 0, cw, ch);
+  c.fillStyle = spec.bg || '#434d54'; c.fillRect(0, 0, cw, ch);
   const P = (x, y) => [(x + w / 2) * PX_PER_M, (h / 2 - y) * PX_PER_M];
   c.strokeStyle = c.fillStyle = '#e8ebe6'; c.lineCap = 'round'; c.lineJoin = 'round';
   const text = (s, x, y, size = 0.006, align = 'center', weight = 600) => {
@@ -35,7 +76,7 @@ export function buildPanel(spec, M, atlas) {
   };
   if (spec.title) text(spec.title, 0, h / 2 - 0.007, 0.0065);
   for (const it of spec.items || []) {
-    if (it.t === 'text') text(it.s, it.x, it.y, it.size, it.align, it.weight);
+    if (it.t === 'text') { text(it.s, it.x, it.y, it.size, it.align, it.weight); if (it.boxed) { c.font = `600 ${(it.size || 0.006) * PX_PER_M}px ${FONT_PANEL}`; const tw = c.measureText(String(it.s)).width + (it.size || 0.006) * PX_PER_M * 0.8, th = (it.size || 0.006) * PX_PER_M * 1.5; const [px, py] = P(it.x, it.y); c.lineWidth = 0.0005 * PX_PER_M; c.strokeRect(px - tw / 2, py - th / 2, tw, th); } }
     else if (it.t === 'line') { c.lineWidth = (it.w || 0.0006) * PX_PER_M; c.beginPath(); it.pts.forEach(([x, y], i) => (i ? c.lineTo(...P(x, y)) : c.moveTo(...P(x, y)))); c.stroke(); }
     else if (it.t === 'box') { c.lineWidth = 0.0006 * PX_PER_M; const [x0, y0] = P(it.x - it.w / 2, it.y + it.h / 2); c.strokeRect(x0, y0, it.w * PX_PER_M, it.h * PX_PER_M); }
     else if (it.t === 'knob' && it.ring !== false) { // white tick ring around selectors
@@ -54,40 +95,54 @@ export function buildPanel(spec, M, atlas) {
   const lensOff = new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.25, metalness: 0.1 });
   const bezelMat = new THREE.MeshStandardMaterial({ color: 0x7d868b, roughness: 0.45, metalness: 0.35 });   // satin anodised Korry bezel
   for (const it of spec.items || []) {
+    const H = hw();
     if (it.t === 'knob') {
-      const r = it.r || 0.011; const k = new THREE.Group();
-      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.18, 0.003, 32).rotateX(Math.PI / 2), M.panelDark); skirt.position.z = 0.0015; k.add(skirt);
-      // Airbus selector: round knob with a raised pointer bar across it
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, 0.012, 32).rotateX(Math.PI / 2), it.light ? M.trim : M.rubber); body.position.z = 0.009; body.castShadow = true; k.add(body);
+      // Airbus rotary selector: tapered light-grey body on a thin skirt, a raised pointer fin across the top
+      const r = it.r || 0.011; const k = new THREE.Group(); const km = it.dark ? H.knobDark : H.knob;
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.18, r * 1.22, 0.0018, 36).rotateX(Math.PI / 2), km); skirt.position.z = 0.0009; k.add(skirt);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.78, r * 0.95, 0.008, 36).rotateX(Math.PI / 2), km); body.position.z = 0.0058; body.castShadow = true; k.add(body);
       if (it.pointer !== false) {
-        const bar = rbox(r * 0.42, r * 2.2, 0.008, 0.002, it.light ? M.trim : M.rubber); bar.position.z = 0.017; k.add(bar);
-        const line = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.12, r * 0.95), M.pointer); line.position.set(0, r * 0.55, 0.0212); k.add(line);
+        // bar knob: a tall fin, tapered toward its top edge, spanning the knob
+        const fin = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.16, r * 0.3, 0.012, 4, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, 3.4, 1), km);
+        fin.position.set(0, 0, 0.0158); fin.castShadow = true; k.add(fin);
+        const line = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.09, r * 0.75), H.pointer); line.position.set(0, r * 0.62, 0.0219); k.add(line);
       }
       k.position.set(it.x, it.y, 0); k.rotation.z = THREE.MathUtils.degToRad(-(it.angle || 0)); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'pb') {
+      // Korry pushbutton, Airbus style: almost flush - a thin satin bezel and a black lens 4 mm proud
       const pw = it.w || 0.017, ph = it.h || 0.017; const b = new THREE.Group();
-      const frame = rbox(pw + 0.003, ph + 0.003, 0.004, 0.001, bezelMat); frame.position.z = 0.002; b.add(frame);
-      const cap = rbox(pw, ph, 0.009, 0.0012, capMat); cap.position.z = 0.0065; b.add(cap);
-      const lens = new THREE.Mesh(new THREE.PlaneGeometry(pw * 0.86, ph * 0.86), lensOff); lens.position.z = 0.0112; b.add(lens);
-      (it.legends || []).forEach((lg, i) => {
-        if (!lg) return; const lab = atlas.mesh(lg, ph * 0.26, { px: 30, color: '#6e767a', weight: 600 }, pw * 0.8);
-        lab.position.set(0, ph * (i === 0 ? 0.2 : -0.2), 0.0114); b.add(lab);
-      });
-      if (it.guard) {   // hinged cover over the button (red for fire/critical items, translucent grey otherwise)
-        const gm = new THREE.MeshStandardMaterial({ color: it.guard === 'red' ? 0x9a2b22 : it.guard === 'clear' ? 0xb9c0c4 : 0x6a7378, roughness: it.guard === 'clear' ? 0.25 : 0.4, transparent: true, opacity: it.guard === 'red' ? 0.55 : it.guard === 'clear' ? 0.62 : 0.4, depthWrite: false });
-        const lid = rbox(pw + 0.007, ph + 0.007, 0.002, 0.001, gm); lid.position.z = 0.0175; b.add(lid);
-        for (const sx of [-1, 1]) { const ch = rbox(0.002, ph + 0.007, 0.016, 0.0006, gm); ch.position.set(sx * (pw / 2 + 0.0035), 0, 0.009); b.add(ch); }
+      const well = new THREE.Mesh(new THREE.PlaneGeometry(pw + 0.0036, ph + 0.0036), new THREE.MeshBasicMaterial({ color: 0x050606 })); well.position.z = 0.0002; b.add(well);
+      const bez = rbox(pw + 0.0024, ph + 0.0024, 0.0042, 0.0007, H.bezel); bez.position.z = 0.0021; b.add(bez);
+      const lens = rbox(pw - 0.0004, ph - 0.0004, 0.0044, 0.0004, capMat); lens.position.z = 0.0024; b.add(lens);
+      const [top, bot] = it.legends || [];
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(pw - 0.0012, ph - 0.0012), korryFace(top, bot, pw / ph)); face.position.z = 0.00465; b.add(face);
+      b.userData.face = face;
+      if (it.guard === 'red' || it.guard === 'grey') {
+        // hinged guard, closed: red solid cover, or a black open cage
+        const gw = pw + 0.009, gh = ph + 0.009;
+        if (it.guard === 'red') { const lid = rbox(gw, gh, 0.0016, 0.0006, H.red); lid.position.z = 0.0105; b.add(lid); }
+        else { for (const [w, h, x, y] of [[gw, 0.0016, 0, gh / 2 - 0.0008], [gw, 0.0016, 0, -gh / 2 + 0.0008], [0.0016, gh, gw / 2 - 0.0008, 0], [0.0016, gh, -gw / 2 + 0.0008, 0], [gw, 0.0012, 0, 0], [0.0012, gh, 0, 0]]) { const bar = rbox(w, h, 0.0016, 0.0005, H.cage); bar.position.set(x, y, 0.0105); b.add(bar); } }
+        for (const sx of [-1, 1]) { const cheek = rbox(0.0016, gh, 0.0105, 0.0005, it.guard === 'red' ? H.red : H.cage); cheek.position.set(sx * (gw / 2 - 0.0008), 0, 0.0052); b.add(cheek); }
+      } else if (it.guard) {   // clear hood (fire pushbuttons)
+        const hood = rbox(pw + 0.008, ph + 0.008, 0.012, 0.003, H.clear); hood.position.z = 0.007; hood.renderOrder = 5; b.add(hood);
       }
       b.position.set(it.x, it.y, 0); g.add(b); if (it.id) controls[it.id] = b;
     } else if (it.t === 'key') {
-      const k = rbox(it.w, it.h, 0.007, 0.0012, capMat); k.position.set(it.x, it.y, 0.0035); g.add(k);
-      if (it.s) { const lab = atlas.mesh(it.s, it.h * 0.42, { px: 32, weight: 600 }, it.w * 0.86); lab.position.set(it.x, it.y, 0.0072); g.add(lab); }
-      if (it.id) controls[it.id] = k;
+      // momentary key: same Korry construction, single white legend
+      const k = new THREE.Group();
+      const bez = rbox(it.w + 0.002, it.h + 0.002, 0.0036, 0.0006, H.bezel); bez.position.z = 0.0018; k.add(bez);
+      const lens = rbox(it.w - 0.0004, it.h - 0.0004, 0.0038, 0.0004, capMat); lens.position.z = 0.0021; k.add(lens);
+      if (it.s) { const lab = atlas.mesh(it.s, it.h * 0.4, { px: 32, weight: 600, color: '#c9ccc8' }, it.w * 0.84); lab.position.set(0, 0, 0.0041); k.add(lab); }
+      k.position.set(it.x, it.y, 0); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'toggle') {
+      // Airbus lever-lock toggle: knurled chrome bushing and a stubby bat with a flattened tip
       const tg = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.003, 20).rotateX(Math.PI / 2), M.metal); base.position.z = 0.0015; tg.add(base);
-      const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.0018, 0.0026, 0.016, 12), M.metal); bat.position.set(0, 0.004, 0.009); bat.rotation.x = 0.6; tg.add(bat);
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 12, 8), M.metal); tip.position.set(0, 0.0085, 0.0155); tg.add(tip);
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.0022, 6).rotateX(Math.PI / 2), H.chrome); nut.position.z = 0.0011; tg.add(nut);
+      const bush = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.004, 20).rotateX(Math.PI / 2), H.chrome); bush.position.z = 0.0042; tg.add(bush);
+      const bat = new THREE.Group(); bat.position.z = 0.006; bat.rotation.x = -0.35;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0021, 0.0026, 0.012, 16).rotateX(Math.PI / 2), H.chrome); stem.position.z = 0.006; bat.add(stem);
+      const tip = rbox(0.0062, 0.0044, 0.0068, 0.0018, H.chrome); tip.position.z = 0.0135; bat.add(tip);
+      tg.add(bat); tg.userData.bat = bat;
       tg.position.set(it.x, it.y, 0); g.add(tg); if (it.id) controls[it.id] = tg;
     } else if (it.t === 'cb') {   // rows of push/pull circuit breakers
       const n = it.cols * it.rows;
@@ -105,9 +160,10 @@ export function buildPanel(spec, M, atlas) {
       const cen = new THREE.Mesh(new THREE.CircleGeometry(r * 0.92, 40), lensOff); cen.position.set(it.x, it.y, -0.001); g.add(cen);
       if (it.eyeball) { const e = new THREE.Mesh(new THREE.SphereGeometry(r * 0.62, 24, 16), M.panelDark); e.position.set(it.x, it.y, 0.0); e.scale.z = 0.6; g.add(e);
         const hole = new THREE.Mesh(new THREE.CircleGeometry(r * 0.28, 24), capMat); hole.position.set(it.x, it.y, r * 0.38); g.add(hole); }
-    } else if (it.t === 'annun') {   // fixed annunciator light (dark until lit)
-      const a = rbox(it.w || 0.016, it.h || 0.009, 0.004, 0.001, lensOff); a.position.set(it.x, it.y, 0.002); g.add(a);
-      const lab = atlas.mesh(it.s, (it.h || 0.009) * 0.55, { px: 30, color: '#6e767a' }, (it.w || 0.016) * 0.85); lab.position.set(it.x, it.y, 0.0042); g.add(lab);
+    } else if (it.t === 'annun') {   // fixed annunciator: flush black lens with its legend, dark until lit
+      const aw = it.w || 0.016, ah = it.h || 0.009;
+      const bez = rbox(aw + 0.0018, ah + 0.0018, 0.0022, 0.0005, H.bezel); bez.position.set(it.x, it.y, 0.0011); g.add(bez);
+      const a = new THREE.Mesh(new THREE.PlaneGeometry(aw, ah), korryFace(it.s, '', aw / ah)); a.position.set(it.x, it.y, 0.0023); g.add(a);
       if (it.id) controls[it.id] = a;
     }
   }

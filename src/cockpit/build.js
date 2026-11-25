@@ -18,9 +18,9 @@ export function makeMaterials() {
   const std = (color, roughness, metalness = 0, extra = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
   return {
-    panel: std(0x5a666e, 0.62),          // instrument panel blue-grey
+    panel: std(0x465159, 0.62),          // instrument panel blue-grey
     panelDark: std(0x47525a, 0.66),      // panel frames and seams
-    module: std(0x56626a, 0.58),         // individual 146 mm system panels
+    module: std(0x3c454c, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
     fcu: std(0x4f5a62, 0.6),
