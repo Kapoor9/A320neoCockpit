@@ -6,8 +6,9 @@ import { buildPanel } from './panel.js';
 const PB = 0.019;   // Korry pushbutton size (m)
 
 // evenly spaced row of pushbuttons with captions above: [caption, topLegend, bottomLegend, opts]
-function pbRow(w, y, list, { cap = 0.0042, gap = 0.0145, size = PB } = {}) {
+function pbRow(w, y, list, { cap = 0.0042, gap = 0.0145, size = PB, line = false } = {}) {
   const items = []; const n = list.length;
+  if (line) items.push({ t: 'line', pts: [[-w / 2 + (w / n) * 0.5, y], [-w / 2 + (w / n) * (n - 0.5), y]], w: 0.0007 });   // white flow line behind the row
   list.forEach(([caption, top, bot, opts = {}], i) => {
     const x = -w / 2 + (w / n) * (i + 0.5) + (opts.dx || 0);
     if (caption) items.push({ t: 'text', x, y: y + size / 2 + gap * 0.55, s: caption, size: cap });
@@ -78,27 +79,27 @@ export const PANELS = {
   },
   hyd: (w, h) => ({ title: 'HYD', items: [
     { t: 'text', x: -0.12, y: 0.022, s: 'GREEN', size: 0.0034 }, { t: 'text', x: -0.02, y: 0.022, s: 'BLUE', size: 0.0034 }, { t: 'text', x: 0.1, y: 0.022, s: 'YELLOW', size: 0.0034 },
-    ...pbRow(w, -0.012, [['ENG 1\nPUMP', 'FAULT', 'OFF'], ['RAT MAN ON', '', '', { guard: 'grey' }], ['ELEC PUMP', 'FAULT', 'OFF'], ['PTU', 'FAULT', 'OFF'], ['ENG 2\nPUMP', 'FAULT', 'OFF'], ['ELEC PUMP', 'FAULT', 'ON']], { cap: 0.0032 }),
+    ...pbRow(w, -0.012, [['ENG 1\nPUMP', 'FAULT', 'OFF'], ['RAT MAN ON', '', '', { guard: 'grey' }], ['ELEC PUMP', 'FAULT', 'OFF'], ['PTU', 'FAULT', 'OFF'], ['ENG 2\nPUMP', 'FAULT', 'OFF'], ['ELEC PUMP', 'FAULT', 'ON']], { cap: 0.0032, line: true }),
   ] }),
   fuel: (w, h) => ({ title: 'FUEL', items: [
     { t: 'text', x: -0.115, y: 0.034, s: 'L TK PUMPS', size: 0.0034 }, { t: 'text', x: 0, y: 0.034, s: 'CTR TK PUMPS', size: 0.0034 }, { t: 'text', x: 0.115, y: 0.034, s: 'R TK PUMPS', size: 0.0034 },
-    ...pbRow(w, 0.012, [['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['MODE SEL', 'FAULT', 'MAN'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF']], { cap: 0.0034 }),
+    ...pbRow(w, 0.012, [['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['MODE SEL', 'FAULT', 'MAN'], ['2', 'FAULT', 'OFF'], ['1', 'FAULT', 'OFF'], ['2', 'FAULT', 'OFF']], { cap: 0.0034, line: true }),
     ...pbRow(w, -0.03, [['X FEED', 'OPEN', 'ON']]),
   ] }),
   elec: (w, h) => {
     const items = [
       { t: 'text', x: -0.1, y: 0.056, s: 'BAT 1', size: 0.0038 }, { t: 'text', x: -0.035, y: 0.056, s: 'BAT 2', size: 0.0038 },
       ...pbRow(0.15, 0.03, [['', 'FAULT', 'OFF'], ['', 'FAULT', 'OFF']]).map((i) => ({ ...i, x: i.x - 0.067 })),
-      { t: 'text', x: 0.09, y: 0.05, s: 'AC ESS FEED', size: 0.0034 }, ...pbRow(0.02, 0.03, [['', 'FAULT', 'ALTN']]).map((i) => ({ ...i, x: i.x + 0.09 })),
+      { t: 'text', x: 0.09, y: 0.05, s: 'AC ESS FEED', size: 0.0034 }, { t: 'text', x: -0.067, y: 0.012, s: 'DC BAT', size: 0.003, boxed: true }, ...pbRow(0.02, 0.03, [['', 'FAULT', 'ALTN']]).map((i) => ({ ...i, x: i.x + 0.09 })),
       ...pbRow(w, -0.005, [['IDG 1', 'FAULT', '', { guard: 'grey' }], ['GALY & CAB', 'FAULT', 'OFF'], ['COMMERCIAL', '', 'OFF'], ['IDG 2', 'FAULT', '', { guard: 'grey' }]], { cap: 0.0032 }),
-      ...pbRow(w, -0.045, [['GEN 1', 'FAULT', 'OFF'], ['APU GEN', 'FAULT', 'OFF'], ['BUS TIE', '', 'OFF'], ['EXT PWR', 'AVAIL', 'ON'], ['GEN 2', 'FAULT', 'OFF']], { cap: 0.0034 }),
+      ...pbRow(w, -0.045, [['GEN 1', 'FAULT', 'OFF'], ['APU GEN', 'FAULT', 'OFF'], ['BUS TIE', '', 'OFF'], ['EXT PWR', 'AVAIL', 'ON'], ['GEN 2', 'FAULT', 'OFF']], { cap: 0.0034, line: true }),
     ];
     return { title: 'ELEC', items };
   },
   airCond: (w, h) => ({ title: 'AIR COND', items: [
     ...selector(-0.09, 0.028, 'CKPT', ['COLD', 'HOT'], 'tCkpt'), ...selector(-0.03, 0.028, 'FWD CABIN', ['COLD', 'HOT'], 'tFwd'), ...selector(0.03, 0.028, 'AFT CABIN', ['COLD', 'HOT'], 'tAft'),
     ...pbRow(0.03, 0.028, [['HOT AIR', 'FAULT', 'OFF']]).map((i) => ({ ...i, x: i.x + 0.105 })),
-    ...pbRow(w, -0.024, [['ENG 1\nBLEED', 'FAULT', 'OFF'], ['PACK 1', 'FAULT', 'OFF'], ['', '', '', { w: 0.001, h: 0.001 }], ['APU BLEED', 'FAULT', 'ON'], ['PACK 2', 'FAULT', 'OFF'], ['ENG 2\nBLEED', 'FAULT', 'OFF']], { cap: 0.0032 }),
+    ...pbRow(w, -0.024, [['ENG 1\nBLEED', 'FAULT', 'OFF'], ['PACK 1', 'FAULT', 'OFF'], ['', '', '', { w: 0.001, h: 0.001 }], ['APU BLEED', 'FAULT', 'ON'], ['PACK 2', 'FAULT', 'OFF'], ['ENG 2\nBLEED', 'FAULT', 'OFF']], { cap: 0.0032, line: true }),
     ...selector(-0.004, -0.026, 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 'xbleed'),
     ...selector(-0.12, -0.052, '', ['LO', 'NORM', 'HI'], 'packFlow', 0.007), { t: 'text', x: -0.095, y: -0.052, s: 'PACK FLOW', size: 0.0032, align: 'left' },
     ...pbRow(0.02, -0.054, [['RAM AIR', '', 'ON', { guard: 'grey' }]]).map((i) => ({ ...i, x: i.x + 0.11 })),

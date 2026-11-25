@@ -7,7 +7,7 @@ import { addGrain } from './surface.js';
 import { LabelAtlas } from './labels.js';
 import { makeMCDU } from './parts/mcdu.js';
 import { makeSidestick, makeTiller, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
-import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
+import { fcuPanel, efisPanel, warningPanel, stripEndPanel } from './parts/glareshield.js';
 import * as PED from './parts/pedestal.js';
 import * as MP from './parts/mainpanel.js';
 import { makeOverheadPanels, makeAftPanels } from './parts/overhead.js';
@@ -25,7 +25,7 @@ export function makeMaterials() {
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
     fcu: std(0x4a555d, 0.6),
-    lining: std(0x8a949a, 0.85),         // upper sidewall lining
+    lining: std(0x5d686f, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
@@ -38,7 +38,7 @@ export function makeMaterials() {
     rubber: std(0x1c1e20, 0.9),
     bezel: std(0x2a2f33, 0.45, 0.1),
     // display glass with an anti-glare coating: soft reflections, no hard sun hotspot
-    screen: new THREE.MeshPhysicalMaterial({ color: 0x07090b, roughness: 0.32, metalness: 0, clearcoat: 0.45, clearcoatRoughness: 0.35 }),
+    screen: new THREE.MeshPhysicalMaterial({ color: 0x0a0c0d, roughness: 0.45, metalness: 0.0, clearcoat: 0.25, clearcoatRoughness: 0.35, envMapIntensity: 0.35 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0xcfe0ea, roughness: 0.02, transmission: 0, transparent: true, opacity: 0.08, depthWrite: false }),
     screw: std(0x6f767a, 0.4, 0.7),
     pointer: std(0xd8dbd6, 0.5),
@@ -223,6 +223,38 @@ function buildShell(M) {
   const door = rbox(0.72, 1.85, 0.04, 0.01, M.trim); door.position.set(0.0, 0.93, z1 - 0.03); grp.add(door);
 
   grp.add(buildWindowFrames(M));
+  grp.add(buildShellFittings(M));
+  return grp;
+}
+
+// a flat part lying on the shell at (side, z, y), its long side along `along` (z,y direction)
+function onShell(mesh, s, z, y, along = [1, 0], inset = 0.006) {
+  const p = onHull(s, z, y, inset);
+  const n = new THREE.Vector3(-p.x, 1.1 - p.y, 0).normalize();                  // into the cockpit
+  const a = new THREE.Vector3(0, along[1], along[0]).normalize(); const t = a.clone().sub(n.clone().multiplyScalar(a.dot(n))).normalize();
+  const xA = t.clone().cross(n);
+  mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, t, n)); mesh.position.copy(p); return mesh;
+}
+function buildShellFittings(M) {
+  const grp = new THREE.Group();
+  const lens = new THREE.MeshStandardMaterial({ color: 0xd9d4c4, roughness: 0.6, emissive: 0x000000 });
+  const visorMat = new THREE.MeshPhysicalMaterial({ color: 0x3c4a3f, roughness: 0.2, transparent: true, opacity: 0.55, depthWrite: false });
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x2a2e31, roughness: 0.5 });
+  for (const s of [-1, 1]) {
+    // dome / ceiling lights beside the overhead (measured: x 0.40-0.52, along the slope)
+    const zc = 1.29; let y = 1.4; while (y < crownAt(zc) && hullHW(zc, y) > 0.46) y += 0.005;
+    const dl = rbox(0.11, 0.43, 0.012, 0.02, lens); grp.add(onShell(dl, s, zc, y, [0.94, 0.33], 0.004));
+    const dlf = rbox(0.124, 0.444, 0.008, 0.024, M.frame); grp.add(onShell(dlf, s, zc, y, [0.94, 0.33], 0.0));
+    // sliding-window unlock handle on the aft frame of window 2
+    const h = new THREE.Group(); const hb = rbox(0.022, 0.09, 0.018, 0.006, handleMat); hb.position.z = 0.012; h.add(hb);
+    const grip = rbox(0.03, 0.03, 0.03, 0.01, handleMat); grip.position.set(0, -0.04, 0.03); h.add(grip);
+    grp.add(onShell(h, s, 0.94, 1.08, [0, 1], 0.03));
+    // oxygen mask stowage box in the side console, outboard of the seat
+    const box = new THREE.Group(); const bx = rbox(0.13, 0.16, 0.09, 0.008, M.panelDark); bx.position.z = 0.045; box.add(bx);
+    const flap = rbox(0.12, 0.07, 0.006, 0.003, M.module); flap.position.set(0, 0.04, 0.092); box.add(flap);
+    const pt = rbox(0.05, 0.016, 0.006, 0.002, new THREE.MeshStandardMaterial({ color: 0xc9cccc, roughness: 0.5 })); pt.position.set(0, -0.03, 0.093); box.add(pt);
+    box.position.set(s * (hullHW(0.72, 0.6) - 0.12), 0.56, 0.72); box.rotation.x = -Math.PI / 2; grp.add(box);
+  }
   return grp;
 }
 
@@ -400,12 +432,10 @@ function buildGlareshield(M, refs) {
   const place = (p, x) => { p.position.set(x, S.y, S.faceZ + 0.004); grp.add(p); return p; };
   refs.fcu = place(fcuPanel(M, A), G.fcu.x);
   refs.efis = [place(efisPanel(M, A, 1), -G.efis.x), place(efisPanel(M, A, 2), G.efis.x)];
-  refs.warn = [place(warningPanel(M, A), -G.warn.x), place(warningPanel(M, A), G.warn.x)];
-  // outboard ends of the strip: blank face with the side-stick priority arrow light
-  for (const s of [-1, 1]) {
-    const end = rbox(half - G.warn.x - G.warn.w / 2 - 0.006, S.h - 0.004, 0.004, 0.002, M.fcu); place(end, s * (G.warn.x + G.warn.w / 2 + (half - G.warn.x - G.warn.w / 2) / 2)); end.position.z = S.faceZ + 0.002;
-    const arrow = rbox(0.016, 0.012, 0.003, 0.001, new THREE.MeshStandardMaterial({ color: 0x3a1210, roughness: 0.3 })); place(arrow, s * 0.565); arrow.position.z = S.faceZ + 0.005;
-  }
+  refs.warn = [place(warningPanel(M, A, -1), -G.warn.x), place(warningPanel(M, A, 1), G.warn.x)];
+  // outboard ends of the strip
+  const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
+  for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
   return grp;
 }
 
@@ -437,7 +467,7 @@ function buildPedestal(M, refs) {
     at(PED.genericPanel(M, A, 0.138, 0.075, s < 0 ? 'LIGHTING' : 'WX RADAR', [['FLOOD', 'INTEG', 'CONSOLE'], ['SYS 1', 'SYS 2', 'GAIN']]), s * 0.181, 0.646);
   }
   // thrust quadrant flanked by the pitch trim wheels
-  const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.55); refs.thrust = tq;
+  const tq = makeThrustQuadrant(M, A); at(tq.group, 0, 0.525); refs.thrust = tq;
   refs.trimWheels = [];
   for (const s of [-1, 1]) { const w = makeTrimWheel(M, s); w.position.set(s * 0.097, 0.33, 0.565); grp.add(w); refs.trimWheels.push(w); }
   // engine panel behind the levers

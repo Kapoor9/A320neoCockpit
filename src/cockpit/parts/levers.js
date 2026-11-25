@@ -118,17 +118,18 @@ export function makeTiller(M) {
 export const DETENT_DEG = { REV: -14, IDLE: 0, N45: 11, CL: 22, FLX: 33, TOGA: 45 };
 export function makeThrustQuadrant(M, atlas) {
   const g = new THREE.Group();
-  const pivotZ = -0.14, armLen = 0.255;   // arc top ~9 cm above the pedestal
+  // measured: the lever gates are a tight drum, radius ~7.8 cm about a pivot at deck level, top ~9.5 cm up
+  const pivotZ = 0.0, armLen = 0.125, A0 = -1.35, A1 = 1.35;
   // central housing with two curved lever slots
   const base = rbox(0.16, 0.26, 0.012, 0.004, M.panelDark); base.position.set(0, 0.04, 0.0); g.add(base);
   // raised centre divider between the two lever tracks
   const divShape = new THREE.Shape(); divShape.moveTo(0, 0);
-  for (let i = 0; i <= 24; i++) { const a = -0.42 + 1.37 * (i / 24); divShape.lineTo(Math.sin(a) * (armLen - 0.035), Math.cos(a) * (armLen - 0.035) + pivotZ); }
-  divShape.lineTo(Math.sin(0.95) * (armLen - 0.035), pivotZ + 0.02); divShape.lineTo(Math.sin(-0.42) * (armLen - 0.035), pivotZ + 0.02); divShape.closePath();
+  for (let i = 0; i <= 32; i++) { const a = A0 + (A1 - A0) * (i / 32); divShape.lineTo(Math.sin(a) * (armLen - 0.03), Math.cos(a) * (armLen - 0.03) + pivotZ); }
+  divShape.lineTo(Math.sin(A1) * (armLen - 0.03), pivotZ); divShape.lineTo(Math.sin(A0) * (armLen - 0.03), pivotZ); divShape.closePath();
   const div = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(divShape, { depth: 0.02, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelOffset: -0.002, bevelSegments: 2 }).rotateY(Math.PI / 2), M.module));
   div.position.x = -0.01; g.add(div);
   // curved top over which the levers travel (a cylinder segment)
-  const rArc = armLen - 0.045, a0 = -0.42, a1 = 0.95;
+  const rArc = armLen - 0.047, a0 = A0, a1 = A1;
   const arcMat = M.module.clone(); arcMat.side = THREE.DoubleSide;
   // the arc surface, interrupted by the two lever slots
   const edges = [-0.074, -0.0335, -0.0225, 0.0225, 0.0335, 0.074];
@@ -155,7 +156,7 @@ export function makeThrustQuadrant(M, atlas) {
   for (const x of [-0.074, 0.074]) {
     const sh = new THREE.Shape(); sh.moveTo(0, 0);
     for (let i = 0; i <= 24; i++) { const a = a0 + (a1 - a0) * (i / 24); sh.lineTo(Math.sin(a) * rArc, Math.cos(a) * rArc + pivotZ); }
-    sh.lineTo(Math.sin(a1) * rArc, pivotZ + 0.02); sh.lineTo(Math.sin(a0) * rArc, pivotZ + 0.02); sh.closePath();
+    sh.lineTo(Math.sin(a1) * rArc, pivotZ); sh.lineTo(Math.sin(a0) * rArc, pivotZ); sh.closePath();
     const cheek = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }).rotateY(Math.PI / 2), M.panelDark));
     cheek.position.x = x - 0.003; g.add(cheek);
   }
@@ -179,15 +180,16 @@ export function makeThrustQuadrant(M, atlas) {
   const btnMat = new THREE.MeshStandardMaterial({ color: 0x9a2b22, roughness: 0.45 });
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.028, 0, pivotZ); g.add(pivot);
-    const arm = rbox(0.009, 0.014, armLen, 0.003, M.metal); arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
+    const arm = rbox(0.008, 0.012, armLen, 0.003, M.metal); arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
-    const handle = rbox(0.052, 0.034, 0.03, 0.013, M.rubber); handle.position.set(s * 0.018, 0.004, armLen + 0.006); pivot.add(handle);
-    const face = rbox(0.046, 0.006, 0.024, 0.003, M.panelDark); face.position.set(s * 0.018, -0.016, armLen + 0.006); pivot.add(face);
+    const handle = rbox(0.05, 0.03, 0.026, 0.012, M.rubber); handle.position.set(s * 0.017, 0.003, armLen + 0.008); pivot.add(handle);
+    const grip = rbox(0.05, 0.012, 0.012, 0.005, M.panelDark); grip.position.set(s * 0.017, 0.017, armLen + 0.004); pivot.add(grip);
+    const face = rbox(0.044, 0.005, 0.02, 0.002, M.panelDark); face.position.set(s * 0.017, -0.014, armLen + 0.008); pivot.add(face);
     // A/THR instinctive disconnect pushbutton on the outboard side
     const b = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 20).rotateZ(Math.PI / 2), btnMat));
-    b.position.set(s * 0.045, 0.004, armLen + 0.006); pivot.add(b);
+    b.position.set(s * 0.043, 0.003, armLen + 0.008); pivot.add(b);
     // reverse thrust latch lever in front of the handle
-    const latch = rbox(0.03, 0.008, 0.02, 0.003, M.metal); latch.position.set(s * 0.012, 0.022, armLen - 0.014); latch.rotation.x = 0.5; pivot.add(latch);
+    const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(s * 0.012, 0.02, armLen - 0.012); latch.rotation.x = 0.5; pivot.add(latch);
     pivot.rotation.x = 0; levers.push(pivot);
   }
   const set = (deg) => levers.forEach((l) => (l.rotation.x = -THREE.MathUtils.degToRad(deg)));

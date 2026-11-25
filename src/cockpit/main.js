@@ -29,7 +29,7 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBas
 ground.rotation.x = -Math.PI / 2; ground.position.y = -1.2; envScene.add(ground);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(envScene, 0.02).texture;
-scene.environmentIntensity = 0.55;
+scene.environmentIntensity = 0.8;
 
 // Sunlight through the windshield, sky fill, and a faint warm dome light
 const sun = new THREE.DirectionalLight(0xfff1dd, 3.0);
@@ -40,10 +40,10 @@ Object.assign(sun.shadow.camera, { left: -2.0, right: 2.0, top: 2.0, bottom: -2.
 sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 3;
 scene.add(sun, sun.target);
 // ground colour = light bouncing back up off the panels, floor and seats onto the overhead
-scene.add(new THREE.HemisphereLight(0xcad8e6, 0x8c877f, 0.7));
+scene.add(new THREE.HemisphereLight(0xcad8e6, 0x8c877f, 1.0));
 const dome = new THREE.PointLight(0xfff0da, 0.45, 3.2, 2); dome.position.set(0, 1.85, 1.3); scene.add(dome);
 // soft upward bounce from the sunlit pedestal and panels, so the overhead is never pitch black
-const bounce = new THREE.PointLight(0xe9e3d8, 0.55, 2.6, 2); bounce.position.set(0, 0.75, 0.75); scene.add(bounce);
+const bounce = new THREE.PointLight(0xe9e3d8, 0.8, 2.6, 2); bounce.position.set(0, 0.75, 0.75); scene.add(bounce);
 
 const camera = new THREE.PerspectiveCamera(68, 1, 0.01, 1500);
 const { refs } = buildCockpit(scene);
