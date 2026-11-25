@@ -160,12 +160,37 @@ export function warningPanel(M, A, side = -1) {
   return p;
 }
 
-// outboard end of the strip: AUTO LAND light and the side-stick priority arrow
-export function stripEndPanel(M, A, side, w) {
-  const items = [
-    { t: 'text', x: side * (w / 2 - 0.05), y: 0.018, s: 'AUTO LAND', size: 0.003 },
-    { t: 'annun', x: side * (w / 2 - 0.05), y: 0.004, w: 0.02, h: 0.012, s: 'AUTO LAND', id: 'autoland' },
-    { t: 'annun', x: -side * (w / 2 - 0.105), y: 0.002, w: 0.018, h: 0.016, s: side < 0 ? '◄' : '►', id: 'sspArrow' },
-  ];
-  return buildPanel({ w, h: 0.076, items, bg: FCU_BG, name: 'stripEnd' + side }, M, A);
+// long glareshield panel in front of each pilot (captain: side -1). Positions follow the photo; control
+// positions mirror on the F/O side, legends read the same way round. Unlit lenses look black.
+export function glareSidePanel(M, A, side, x0, x1, th, h = 0.066) {
+  const c = Math.cos(th), xc = (x0 + x1) / 2, w = (x1 - x0) / c;
+  const U = (ax) => ((ax - xc) / c) * side;
+  const items = []; const T = (s, ax, y, size, dx = 0) => items.push({ t: 'text', s, x: U(ax) + dx, y, size });
+  const dimR = ['#3a1a16', '#3a1a16'], dimA = ['#3a2c14', '#3a2c14'];
+  // inboard column: CHRONO, SIDE STICK PRIORITY
+  T('CHRONO', 0.303, 0.0255, 0.0036); items.push({ t: 'rbtn', x: U(0.303), y: 0.0125, r: 0.0072, id: 'chrono' });
+  T('SIDE STICK PRIORITY', 0.303, -0.0015, 0.0029); items.push({ t: 'pb', x: U(0.303), y: -0.0175, w: 0.021, h: 0.02, legends: ['', ''], cols: dimR, id: 'ssp' });
+  // MASTER WARN over MASTER CAUT
+  items.push({ t: 'pb', x: U(0.392), y: 0.0135, w: 0.022, h: 0.021, legends: ['MASTER', 'WARN'], cols: dimR, id: 'masterWarn' });
+  items.push({ t: 'pb', x: U(0.389), y: -0.0145, w: 0.022, h: 0.021, legends: ['MASTER', 'CAUT'], cols: dimA, id: 'masterCaut' });
+  const div = (ax) => items.push({ t: 'line', pts: [[U(ax), h / 2 - 0.005], [U(ax), -h / 2 + 0.005]], w: 0.0008, col: '#f0a868' });
+  div(0.425);
+  // HUD: DECLUTTER pushbutton, OFF-BRT knob, NORM / X WIND switch
+  T('HUD', 0.482, 0.0245, 0.0058);
+  T('DECLUTTER', 0.448, 0.014, 0.0034); items.push({ t: 'rbtn', x: U(0.448), y: -0.003, r: 0.0074, id: 'hudDeclutter' });
+  const kx = U(0.482); items.push({ t: 'knob', x: kx, y: -0.002, r: 0.0088, angle: 35, id: 'hudBrt' });
+  items.push({ t: 'text', s: 'OFF', x: kx - 0.0145, y: -0.0135, size: 0.0032 }, { t: 'text', s: 'BRT', x: kx + 0.0145, y: -0.0135, size: 0.0032 });
+  { const pts = []; for (let i = 0; i <= 18; i++) { const a = Math.PI * (1.15 - 1.3 * i / 18); pts.push([kx + Math.cos(a) * 0.0128, -0.002 + Math.sin(a) * 0.0128]); } items.push({ t: 'line', pts, w: 0.0007, col: '#e8d48a' });
+    items.push({ t: 'line', pts: [[kx + 0.0098, -0.0118], [kx + 0.0115, -0.0098], [kx + 0.0128, -0.0122]], w: 0.0007, col: '#e8d48a' }); }
+  const tx = U(0.52); items.push({ t: 'toggle', x: tx, y: 0.0, id: 'hudMode' }, { t: 'text', s: 'NORM', x: tx, y: 0.0145, size: 0.0031 }, { t: 'text', s: 'X WIND', x: tx, y: -0.0145, size: 0.0031 });
+  div(0.545);
+  // priority light (unlit)
+  items.push({ t: 'pb', x: U(0.567), y: 0.0, w: 0.021, h: 0.02, legends: ['', ''], cols: dimR, id: 'sspArrow' });
+  const p = buildPanel({ w, h, items, bg: '#7d919b', plate: M.fcu, name: 'glareSide' + side }, M, A);
+  // switch recess and extra screws as on the aircraft
+  const rec = new THREE.Mesh(new THREE.CircleGeometry(0.0062, 32), new THREE.MeshBasicMaterial({ color: 0x0b0c0d })); rec.position.set(tx, 0, 0.0003); p.add(rec);
+  const sg = new THREE.CylinderGeometry(0.0026, 0.0026, 0.0012, 14).rotateX(Math.PI / 2);
+  for (const [ax, y] of [[0.348, -0.014], [0.503, 0.026], [0.586, 0.0]]) { const s = new THREE.Mesh(sg, M.screw); s.position.set(U(ax), y, 0.0006); p.add(s); }
+  p.userData.masterWarn = p.userData.controls.masterWarn; p.userData.masterCaut = p.userData.controls.masterCaut;
+  return p;
 }

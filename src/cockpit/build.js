@@ -7,7 +7,7 @@ import { addGrain } from './surface.js';
 import { LabelAtlas } from './labels.js';
 import { makeMCDU } from './parts/mcdu.js';
 import { makeSidestick, makeTiller, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
-import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
+import { fcuPanel, efisPanel, glareSidePanel } from './parts/glareshield.js';
 import * as PED from './parts/pedestal.js';
 import * as MP from './parts/mainpanel.js';
 import { makeOverheadPanels, makeAftPanels } from './parts/overhead.js';
@@ -24,7 +24,7 @@ export function makeMaterials() {
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x7a8e98, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x30363c, 0.78),          // thin dark glareshield cap           // anti-glare finish
+    glare: std(0x202326, 0.8),          // thin dark glareshield cap           // anti-glare finish
     fcu: std(0x7a8e98, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x7a8e98, 0.8),         // upper sidewall lining
@@ -424,13 +424,14 @@ function buildGlareshield(M, refs) {
   // (carrying the FCU strip) straight across the centre and swept forward into the corner posts
   const W = D.WINDSHIELD; const xEnd = W.outerBottom[0] - 0.01;
   const zf = (ax) => W.innerBottom[2] + 0.012 + (ax / W.outerBottom[0]) * (W.outerBottom[2] - W.innerBottom[2]);
-  const zr = () => G.strip.faceZ + 0.008;   // the cap overhangs the panel strip by a few millimetres all the way across
-  const drop = (ax) => (ax < 0.27 ? 0 : ax < 0.33 ? 0.1 * (ax - 0.27) ** 2 / 0.12 : 0.1 * (ax - 0.3));   // outer sections ease into a slope down toward the posts
+  const ssO = (ax) => THREE.MathUtils.smoothstep(ax, 0.258, 0.29);
+  const zr = (ax = 0) => G.strip.faceZ + 0.008 + 0.007 * ssO(ax);   // the cap overhangs the panel strip by a few millimetres all the way across
+  const drop = (ax) => (ax < 0.268 ? 0 : ax < 0.284 ? 0.1 * (ax - 0.268) ** 2 / 0.032 : 0.1 * (ax - 0.276));   // outer sections bend down at the EFIS joint toward the posts
   const yF = (ax) => 0.905 + (ax / W.outerBottom[0]) * 0.03 - drop(ax);                 // top at the glass, following the pane's lower edge
   const yT = (t, ax) => {                                                      // rises to the crest, rolls over to the rear face
     const crest = G.strip.y + G.strip.h / 2 + 0.03 - drop(ax);   // thin cap, its lip just clears the top of the strip
     const r = yF(ax) + (crest - yF(ax)) * Math.sin(Math.min(t / 0.8, 1) * Math.PI / 2);
-    return t > 0.8 ? r - 0.022 * ((t - 0.8) / 0.2) ** 2 : r;
+    return t > 0.8 ? r - (0.022 + 0.01 * ssO(ax)) * ((t - 0.8) / 0.2) ** 2 : r;
   };
   const nx = 70, nt = 16; const top = [], rear = [], under = [];
   for (let i = 0; i <= nx; i++) {
@@ -459,7 +460,8 @@ function buildGlareshield(M, refs) {
   // outboard housings: one moulded piece each side, flush with the black block, its face easing down
   // the bend and narrowing smoothly toward the window post; rounded top and bottom edges roll back
   const zF = S.faceZ + 0.002, RAD = 0.009;
-  const hgt = (ax) => S.h + 0.004 - THREE.MathUtils.smoothstep(ax, 0.27, 0.34) * 0.016 - THREE.MathUtils.smoothstep(ax, 0.47, xEnd + 0.03) * 0.03;
+  const hgt = (ax) => S.h + 0.004 - THREE.MathUtils.smoothstep(ax, 0.262, 0.282) * 0.012;
+  const BX = 0.6;   // the outboard end block starts here
   const yTop = (ax) => S.y + S.h / 2 + 0.002 - drop(ax), yBot = (ax) => yTop(ax) - hgt(ax), yMid = (ax) => yTop(ax) - hgt(ax) / 2;
   const prof = (ax) => { const yt = yTop(ax), yb = yBot(ax); const p = [[zF - 0.04, yt]];
     for (let k = 0; k <= 5; k++) { const a = (Math.PI / 2) * (1 - k / 5); p.push([zF - RAD + Math.cos(a) * RAD, yt - RAD + Math.sin(a) * RAD]); }
@@ -467,7 +469,7 @@ function buildGlareshield(M, refs) {
     p.push([zF - 0.05, yb]); return p; };
   for (const s of [-1, 1]) {
     const rows = []; const n = 70;
-    for (let i = 0; i <= n; i++) { const ax = cw + ((xEnd - cw) * i) / n; rows.push(prof(ax).map(([z, y]) => new THREE.Vector3(s * ax, y, z))); }
+    for (let i = 0; i <= n; i++) { const ax = cw + ((xEnd - cw) * i) / n; rows.push(prof(ax).map(([z, y]) => new THREE.Vector3(s * ax, y, z - (ax > BX ? 0.012 : 0)))); }
     const mesh = grid(rows, M.fcu); const g = mesh.geometry; const nz = g.attributes.normal.getZ(7 + 14 * 35);   // a face vertex mid-way along
     if (nz < 0) { const ix = g.index.array; for (let k = 0; k < ix.length; k += 3) { const tmp = ix[k + 1]; ix[k + 1] = ix[k + 2]; ix[k + 2] = tmp; } g.index.needsUpdate = true; g.computeVertexNormals(); }
     grp.add(mesh);
@@ -484,16 +486,27 @@ function buildGlareshield(M, refs) {
   const place = (p, x) => { const ax = Math.abs(x); p.position.set(x, S.y - drop(ax), S.faceZ + 0.004); if (ax > cw) p.rotation.z = -Math.sign(x) * th; grp.add(p); return p; };
   refs.fcu = place(fcuPanel(M, A), G.fcu.x);
   refs.efis = [place(efisPanel(M, A, 1), -G.efis.x), place(efisPanel(M, A, 2), G.efis.x)];
-  refs.warn = [flush(warningPanel(M, A, -1), -G.warn.x, G.warn.w, 0.064), flush(warningPanel(M, A, 1), G.warn.x, G.warn.w, 0.064)];
-  // AUTO LAND light and the side-stick priority arrow, set straight into the housing face
-  const bez = new THREE.MeshStandardMaterial({ color: 0x7d868b, roughness: 0.45, metalness: 0.35 });
-  const lensAt = (x, top, col) => { const ax = Math.abs(x); const L = new THREE.Group();
-    const well = new THREE.Mesh(new THREE.PlaneGeometry(0.023, 0.023), seamMat); well.position.z = -0.0002; L.add(well);
-    const b = rbox(0.021, 0.021, 0.003, 0.0008, bez); b.position.z = 0.0012; L.add(b);
-    const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.0175, 0.0175), PED.korryLens ? PED.korryLens(top, col) : new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.25 })); lens.position.z = 0.0029; L.add(lens);
-    L.position.set(x, yMid(ax), zF + 0.0004); L.rotation.z = -Math.sign(x) * th; grp.add(L); return L; };
-  refs.autoland = [lensAt(-0.56, 'AUTO LAND', '#b8402e'), lensAt(0.56, 'AUTO LAND', '#b8402e')];
-  refs.sspArrow = [lensAt(-0.49, '►', '#b8402e'), lensAt(0.49, '◄', '#b8402e')];
+  // one long panel each side from the EFIS joint to the outboard face: CHRONO / SIDE STICK PRIORITY,
+  // MASTER WARN / CAUT | HUD | priority light; then the AUTO LAND light on the tapering face
+  const PX0 = 0.279, PX1 = 0.595, PH = 0.066;
+  refs.warn = [-1, 1].map((s) => { const p = glareSidePanel(M, A, s, PX0, PX1, th, PH); return flush(p, s * (PX0 + PX1) / 2, p.userData.size[0], PH); });
+  const bez = new THREE.MeshStandardMaterial({ color: 0x3f4448, roughness: 0.4, metalness: 0.4 });
+  const lensAt = (x, top) => { const ax = Math.abs(x); const L = new THREE.Group();
+    const well = new THREE.Mesh(new THREE.PlaneGeometry(0.0235, 0.0235), seamMat); well.position.z = -0.0002; L.add(well);
+    const b = rbox(0.0215, 0.0215, 0.003, 0.0008, bez); b.position.z = 0.0012; L.add(b);
+    const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.018, 0.018), PED.korryLens(top, '#2a1512')); lens.position.z = 0.0029; L.add(lens);
+    L.position.set(x, yMid(ax) + 0.002, zF + 0.0084); L.rotation.z = -Math.sign(x) * th; grp.add(L); return L; };
+  // outboard end block: a separate moulding standing proud of the long panel, with a clear dark step
+  // where they meet and a pointed outer end
+  for (const s of [-1, 1]) {
+    const L = (xEnd - 0.004 - BX) / Math.cos(th), H = hgt(BX) - 0.002, D = 0.05, bv = 0.004;
+    const pts = [[0.003, -H / 2], [L - 0.034, -H / 2], [L, 0.006], [L - 0.014, H / 2], [0.003, H / 2]].map(([u, v]) => new THREE.Vector2(s * u, v));
+    const bg = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: D, bevelEnabled: true, bevelThickness: bv, bevelSize: bv, bevelSegments: 4, curveSegments: 4 });
+    const blk = new THREE.Mesh(bg, M.fcu); blk.castShadow = blk.receiveShadow = true;
+    const holder = new THREE.Group(); holder.position.set(s * BX, yMid(BX), zF + 0.0075 - D - bv); holder.rotation.z = -s * th; holder.add(blk); grp.add(holder);
+    const step = new THREE.Mesh(new THREE.PlaneGeometry(0.005, H + 0.006), seamMat); step.position.set(s * (BX - 0.001), yMid(BX), zF + 0.0003); step.rotation.z = -s * th; grp.add(step);
+  }
+  refs.autoland = [lensAt(-0.735, 'AUTO LAND'), lensAt(0.735, 'AUTO LAND')];
   for (const s of [-1, 1]) {
     // end face of the glareshield: closes the side of the cap and runs down onto the sill shelf
     const ax = xEnd, f0 = zf(ax), r0 = zr(ax), yb = yBot(ax);
