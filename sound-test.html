@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A320neo Cockpit · Sound test</title>
+<style>
+  :root{
+    --bg:#2b3035; --panel:#4b555c; --panel-edge:#3c454b; --engrave:#e4e6e1; --dim:#9aa3a8;
+    /* annunciator colours: muted, as they look on the real panel by day */
+    --amber:#c9922e; --green:#5fae6e; --blue:#5b93c9; --white:#d8dbd6; --red:#c2463c;
+    --lens-off:#22272b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--engrave);font:14px/1.4 "Helvetica Neue",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+  header{padding:18px 20px 6px}
+  h1{font-size:17px;font-weight:600;letter-spacing:.06em;margin:0 0 4px;text-transform:uppercase}
+  header p{margin:0;color:var(--dim);font-size:13px}
+  main{display:grid;gap:14px;padding:14px 20px 40px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));max-width:1200px}
+  .panel{background:var(--panel);border:1px solid var(--panel-edge);border-radius:4px;padding:14px 14px 16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.25)}
+  .panel h2{margin:0 0 12px;font-size:11px;letter-spacing:.14em;font-weight:600;text-transform:uppercase;color:var(--engrave);
+    border-bottom:1px solid rgba(228,230,225,.35);padding-bottom:6px}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+  .ctl{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:64px}
+  .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--engrave)}
+  .hint{font-size:12px;color:var(--dim);margin-top:10px}
+
+  /* Korry-style pushbutton: square lens, two legend halves */
+  .pb{width:56px;height:56px;background:#1c2024;border:2px solid #15191c;border-radius:3px;padding:3px;cursor:pointer;
+    display:grid;grid-template-rows:1fr 1fr;gap:2px;box-shadow:0 2px 0 #121518, inset 0 1px 0 rgba(255,255,255,.05)}
+  .pb:active{transform:translateY(1px);box-shadow:0 1px 0 #121518}
+  .pb span{display:flex;align-items:center;justify-content:center;font:600 9px/1 Arial,sans-serif;letter-spacing:.06em;
+    background:var(--lens-off);color:#3a4147;border-radius:1px}
+  .pb span.on{color:var(--c)}
+  .pb .a{--c:var(--amber)} .pb .g{--c:var(--green)} .pb .b{--c:var(--blue)} .pb .w{--c:var(--white)} .pb .r{--c:var(--red)}
+
+  /* large glareshield master lights */
+  .master{width:70px;height:54px;border-radius:3px;border:2px solid #15191c;background:var(--lens-off);cursor:pointer;
+    font:700 10px/1.15 Arial,sans-serif;letter-spacing:.06em;color:#3a4147;text-align:center;box-shadow:0 2px 0 #121518}
+  .master.on.warn{color:var(--red);background:#2c1d1c}
+  .master.on.caut{color:var(--amber);background:#2c251a}
+
+  /* toggle switch */
+  .tog{width:30px;height:62px;border-radius:15px;background:#1c2024;border:2px solid #15191c;position:relative;cursor:pointer}
+  .tog::after{content:"";position:absolute;left:6px;width:14px;height:24px;border-radius:7px;top:30px;transition:top .08s;
+    background:linear-gradient(#cfd3d4,#8c9396);box-shadow:0 2px 2px rgba(0,0,0,.5)}
+  .tog.up::after{top:4px}
+
+  /* thrust levers */
+  .thr{display:flex;gap:18px;align-items:stretch}
+  .gate{display:flex;flex-direction:column-reverse;gap:6px}
+  .gate button{width:120px;padding:9px 6px;background:#30373c;border:1px solid #23292d;border-radius:3px;color:var(--engrave);
+    font:600 11px/1 Arial,sans-serif;letter-spacing:.08em;cursor:pointer;text-align:left}
+  .gate button.sel{background:#5a646b;border-color:#7d878d}
+  .status{font:12px/1.5 ui-monospace,Menlo,monospace;color:#7fc48c;background:#14181b;border-radius:3px;padding:8px 10px;min-height:76px;flex:1}
+
+  .clicks{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+  .clicks button{background:#30373c;border:1px solid #23292d;border-radius:3px;color:var(--engrave);padding:10px 6px;
+    font:600 10px/1.2 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+  .clicks button:active{background:#262c30}
+
+  #gate{position:fixed;inset:0;background:rgba(20,23,26,.94);display:flex;align-items:center;justify-content:center;z-index:5}
+  #gate div{text-align:center;max-width:360px;padding:24px}
+  #startBtn{margin-top:14px;padding:12px 22px;background:#4b555c;border:1px solid #6b757c;border-radius:3px;color:var(--engrave);
+    font:600 13px Arial,sans-serif;letter-spacing:.1em;cursor:pointer}
+  #bar{height:3px;background:#3a4248;margin-top:14px;border-radius:2px;overflow:hidden}
+  #bar i{display:block;height:100%;width:0;background:#9aa3a8}
+  footer{padding:0 20px 30px;color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div id="gate"><div>
+  <h1>A320neo sound test</h1>
+  <p style="color:var(--dim)">Use headphones. Browsers only allow sound after a tap.</p>
+  <button id="startBtn">START</button>
+  <div id="bar"><i></i></div>
+</div></div>
+
+<header>
+  <h1>A320neo · Sound test board</h1>
+  <p>Ambience runs underneath everything. Each event plays on top of it, never as a second ambience.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Cockpit ambience</h2>
+    <div class="row">
+      <div class="ctl"><button class="pb" id="amb"><span class="w">OFF</span><span class="b">ON</span></button><div class="lbl">Ambience</div></div>
+    </div>
+    <p class="hint">Seamless loop with slow level drift, made to run for hours.</p>
+  </section>
+
+  <section class="panel">
+    <h2>APU</h2>
+    <div class="row">
+      <div class="ctl"><button class="pb" id="apuMaster"><span class="a">FAULT</span><span class="b">ON</span></button><div class="lbl">Master sw</div></div>
+      <div class="ctl"><button class="pb" id="apuStart"><span class="g">AVAIL</span><span class="b">ON</span></button><div class="lbl">Start</div></div>
+    </div>
+    <p class="hint">MASTER SW on, then START. AVAIL lights when the APU is running. MASTER SW off spools it down.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Engines</h2>
+    <div class="row">
+      <div class="ctl"><div class="tog" id="eng1" role="button" aria-label="Engine 1 master"></div><div class="lbl">Eng 1</div></div>
+      <div class="ctl"><div class="tog" id="eng2" role="button" aria-label="Engine 2 master"></div><div class="lbl">Eng 2</div></div>
+      <div class="ctl"><button class="pb" id="autoStart"><span class="w">AUTO</span><span class="b">SEQ</span></button><div class="lbl">Eng 2 → 1</div></div>
+    </div>
+    <p class="hint">Master switch up = ON (starts the engine), down = OFF (shutdown). AUTO SEQ starts engine 2, then engine 1 overlapping it.</p>
+  </section>
+
+  <section class="panel" style="grid-column:1/-1">
+    <h2>Thrust levers</h2>
+    <div class="thr">
+      <div class="gate" id="gateBtns">
+        <button data-d="IDLE" class="sel">IDLE</button>
+        <button data-d="N45">45 % · STABILISE</button>
+        <button data-d="CL">CL</button>
+        <button data-d="FLX">FLX / MCT</button>
+      </div>
+      <div class="status" id="status">Engines off. Start an engine to hear thrust changes.</div>
+    </div>
+    <p class="hint">Moving up plays your real recorded spool-up. Moving down walks back through it, slower, like a real spool-down. A steady position loops for as long as it stays there.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Warnings</h2>
+    <div class="row">
+      <div class="ctl"><button class="master warn" id="mw">MASTER<br>WARN</button><div class="lbl">Push to silence</div></div>
+      <div class="ctl"><button class="master caut" id="mc">MASTER<br>CAUT</button><div class="lbl">Push to reset</div></div>
+      <div class="ctl"><button class="pb" id="fireTest"><span class="r">FIRE</span><span class="w">TEST</span></button><div class="lbl">Hold</div></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div class="ctl"><button class="pb" id="cautDemo"><span class="a">CAUT</span><span class="w">DEMO</span></button><div class="lbl">Trigger caution</div></div>
+      <div class="ctl"><button class="pb" id="apDisc"><span class="r">AP</span><span class="w">DISC</span></button><div class="lbl">Sidestick btn</div></div>
+      <div class="ctl"><button class="pb" id="apLost"><span class="r">AP</span><span class="a">LOST</span></button><div class="lbl">Involuntary</div></div>
+    </div>
+    <p class="hint">Fire test: hold for the repetitive chime and MASTER WARN. AP LOST repeats the cavalry charge until you press AP DISC.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Signs</h2>
+    <div class="row">
+      <div class="ctl"><div class="tog" id="belts" role="button"></div><div class="lbl">Seat belts</div></div>
+      <div class="ctl"><div class="tog" id="smoke" role="button"></div><div class="lbl">No smoking</div></div>
+    </div>
+    <p class="hint">Each switch change plays the cabin chime.</p>
+  </section>
+
+  <section class="panel" style="grid-column:1/-1">
+    <h2>Control clicks · one sound per control type</h2>
+    <div class="clicks" id="clicks"></div>
+  </section>
+</main>
+<footer>All recorded sounds are the owner's own recordings. Click, APU, shutdown and caution chime sounds are synthesised.</footer>
+
+<script type="module">
+import { CockpitAudio, CLICKS } from './src/audio/audioEngine.js';
+const A = new CockpitAudio();
+const $ = (id) => document.getElementById(id);
+const lit = (btn, i, on) => btn.querySelectorAll('span')[i].classList.toggle('on', on);
+const status = (t) => { $('status').textContent = t; };
+
+$('startBtn').onclick = async () => {
+  $('startBtn').disabled = true; $('startBtn').textContent = 'LOADING…';
+  try {
+    await A.init((p) => { $('bar').firstElementChild.style.width = (p * 100) + '%'; });
+    $('gate').remove();
+    A.startAmbience(); lit($('amb'), 1, true);
+  } catch (e) { $('startBtn').textContent = 'COULD NOT LOAD SOUNDS'; console.error(e); }
+};
+
+// Ambience
+let ambOn = true;
+$('amb').onclick = () => { A.click('pushbutton'); ambOn = !ambOn; ambOn ? A.startAmbience() : A.stopAmbience(); lit($('amb'), 1, ambOn); lit($('amb'), 0, !ambOn); };
+
+// APU
+let apuMaster = false;
+$('apuMaster').onclick = () => {
+  A.click('pushbutton'); apuMaster = !apuMaster; lit($('apuMaster'), 1, apuMaster);
+  if (!apuMaster) { A.apuStop(); lit($('apuStart'), 0, false); lit($('apuStart'), 1, false); }
+};
+$('apuStart').onclick = () => {
+  A.click('pushbutton');
+  if (!apuMaster || A.apuState === 'starting' || A.apuState === 'running') return;
+  lit($('apuStart'), 1, true); A.apuStart();
+};
+A.on((ev, d) => {
+  if (ev === 'apu' && d === 'avail') { lit($('apuStart'), 1, false); lit($('apuStart'), 0, true); }
+  if (ev === 'engine') {
+    const names = { starting: 'starting', running: 'running at idle', off: 'off' };
+    status(`ENG ${d.n} ${names[d.state]}.`);
+  }
+  if (ev === 'thrust') status(d.state === 'MOVING' ? `Thrust moving to ${label(d.to)}…` : `Thrust steady at ${label(d.state)}, looping.`);
+});
+const label = (d) => ({ IDLE: 'IDLE', N45: '45 %', CL: 'CL', FLX: 'FLX/MCT' })[d];
+
+// Engines
+const engUp = { 1: false, 2: false };
+const setEng = (n, on) => {
+  if (engUp[n] === on) return;
+  engUp[n] = on; $('eng' + n).classList.toggle('up', on); A.click('eng_master');
+  on ? A.engineStart(n) : A.engineStop(n);
+};
+$('eng1').onclick = () => setEng(1, !engUp[1]);
+$('eng2').onclick = () => setEng(2, !engUp[2]);
+$('autoStart').onclick = () => {
+  A.click('pushbutton'); lit($('autoStart'), 1, true);
+  setEng(2, true); setTimeout(() => setEng(1, true), 20000);
+  setTimeout(() => lit($('autoStart'), 1, false), 21000);
+};
+
+// Thrust levers
+document.querySelectorAll('#gateBtns button').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('#gateBtns button').forEach((x) => x.classList.remove('sel'));
+  b.classList.add('sel'); A.click('thrust_detent'); A.setThrust(b.dataset.d);
+});
+
+// Warnings
+const mwLight = (on) => $('mw').classList.toggle('on', on);
+const mcLight = (on) => $('mc').classList.toggle('on', on);
+const fireDown = (e) => { e.preventDefault(); A.click('pushbutton'); lit($('fireTest'), 0, true); mwLight(true); A.masterWarning(true); };
+const fireUp = () => { if (!$('fireTest').querySelector('.on')) return; lit($('fireTest'), 0, false); mwLight(false); A.masterWarning(false); };
+$('fireTest').addEventListener('pointerdown', fireDown);
+['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => $('fireTest').addEventListener(ev, fireUp));
+$('mw').onclick = () => { A.click('pushbutton'); A.masterWarning(false); A.apDisconnectContinuous(false); mwLight(false); lit($('apLost'), 0, false); lit($('apLost'), 1, false); };
+$('cautDemo').onclick = () => { A.click('pushbutton'); mcLight(true); A.masterCaution(); };
+$('mc').onclick = () => { A.click('pushbutton'); mcLight(false); };
+let apLost = false;
+$('apDisc').onclick = () => {
+  A.click('sidestick_btn');
+  if (apLost) { apLost = false; A.apDisconnectContinuous(false); mwLight(false); lit($('apLost'), 0, false); lit($('apLost'), 1, false); return; }
+  A.apDisconnect();
+};
+$('apLost').onclick = () => {
+  A.click('pushbutton'); apLost = true; mwLight(true); lit($('apLost'), 0, true); lit($('apLost'), 1, true);
+  A.apDisconnectContinuous(true);
+};
+
+// Signs
+const sign = (id) => { const el = $(id); el.onclick = () => { el.classList.toggle('up'); A.click('toggle'); setTimeout(() => A.signsChime(), 120); }; };
+sign('belts'); sign('smoke');
+
+// Click gallery
+const names = { pushbutton: 'Pushbutton', toggle: 'Toggle switch', guard_open: 'Guard open', guard_close: 'Guard close',
+  knob_detent: 'Knob turn', knob_pushpull: 'FCU knob push/pull', selector: 'Rotary selector', eng_master: 'Eng master',
+  thrust_detent: 'Thrust detent', mcdu_key: 'MCDU key', sidestick_btn: 'Sidestick button', lever_heavy: 'Flap / gear lever' };
+for (const t of CLICKS) {
+  const b = document.createElement('button'); b.textContent = names[t] ?? t;
+  b.onclick = () => {
+    if (t === 'knob_detent') { [0, 70, 140, 210].forEach((ms) => setTimeout(() => A.click(t), ms)); return; }
+    A.click(t);
+  };
+  $('clicks').appendChild(b);
+}
+</script>
+</body>
+</html>
