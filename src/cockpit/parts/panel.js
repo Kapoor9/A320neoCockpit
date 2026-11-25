@@ -26,7 +26,7 @@ export function buildPanel(spec, M, atlas) {
   const cw = Math.round(w * PX_PER_M), ch = Math.round(h * PX_PER_M);
   const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
   const c = cv.getContext('2d');
-  c.fillStyle = spec.bg || '#5b676f'; c.fillRect(0, 0, cw, ch);
+  c.fillStyle = spec.bg || '#56646e'; c.fillRect(0, 0, cw, ch);
   const P = (x, y) => [(x + w / 2) * PX_PER_M, (h / 2 - y) * PX_PER_M];
   c.strokeStyle = c.fillStyle = '#e8ebe6'; c.lineCap = 'round'; c.lineJoin = 'round';
   const text = (s, x, y, size = 0.006, align = 'center', weight = 600) => {
@@ -52,6 +52,7 @@ export function buildPanel(spec, M, atlas) {
   const controls = {};
   const capMat = new THREE.MeshStandardMaterial({ color: 0x23272a, roughness: 0.5 });
   const lensOff = new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.25, metalness: 0.1 });
+  const bezelMat = new THREE.MeshStandardMaterial({ color: 0x7d868b, roughness: 0.45, metalness: 0.35 });   // satin anodised Korry bezel
   for (const it of spec.items || []) {
     if (it.t === 'knob') {
       const r = it.r || 0.011; const k = new THREE.Group();
@@ -65,13 +66,18 @@ export function buildPanel(spec, M, atlas) {
       k.position.set(it.x, it.y, 0); k.rotation.z = THREE.MathUtils.degToRad(-(it.angle || 0)); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'pb') {
       const pw = it.w || 0.017, ph = it.h || 0.017; const b = new THREE.Group();
-      const frame = rbox(pw + 0.003, ph + 0.003, 0.004, 0.001, M.panelDark); frame.position.z = 0.002; b.add(frame);
+      const frame = rbox(pw + 0.003, ph + 0.003, 0.004, 0.001, bezelMat); frame.position.z = 0.002; b.add(frame);
       const cap = rbox(pw, ph, 0.009, 0.0012, capMat); cap.position.z = 0.0065; b.add(cap);
       const lens = new THREE.Mesh(new THREE.PlaneGeometry(pw * 0.86, ph * 0.86), lensOff); lens.position.z = 0.0112; b.add(lens);
       (it.legends || []).forEach((lg, i) => {
-        if (!lg) return; const lab = atlas.mesh(lg, ph * 0.26, { px: 30, color: '#4a5055', weight: 600 }, pw * 0.8);
+        if (!lg) return; const lab = atlas.mesh(lg, ph * 0.26, { px: 30, color: '#6e767a', weight: 600 }, pw * 0.8);
         lab.position.set(0, ph * (i === 0 ? 0.2 : -0.2), 0.0114); b.add(lab);
       });
+      if (it.guard) {   // hinged cover over the button (red for fire/critical items, translucent grey otherwise)
+        const gm = new THREE.MeshStandardMaterial({ color: it.guard === 'red' ? 0x9a2b22 : it.guard === 'clear' ? 0xb9c0c4 : 0x6a7378, roughness: it.guard === 'clear' ? 0.25 : 0.4, transparent: true, opacity: it.guard === 'red' ? 0.55 : it.guard === 'clear' ? 0.62 : 0.4, depthWrite: false });
+        const lid = rbox(pw + 0.007, ph + 0.007, 0.002, 0.001, gm); lid.position.z = 0.0175; b.add(lid);
+        for (const sx of [-1, 1]) { const ch = rbox(0.002, ph + 0.007, 0.016, 0.0006, gm); ch.position.set(sx * (pw / 2 + 0.0035), 0, 0.009); b.add(ch); }
+      }
       b.position.set(it.x, it.y, 0); g.add(b); if (it.id) controls[it.id] = b;
     } else if (it.t === 'key') {
       const k = rbox(it.w, it.h, 0.007, 0.0012, capMat); k.position.set(it.x, it.y, 0.0035); g.add(k);
@@ -83,9 +89,25 @@ export function buildPanel(spec, M, atlas) {
       const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.0018, 0.0026, 0.016, 12), M.metal); bat.position.set(0, 0.004, 0.009); bat.rotation.x = 0.6; tg.add(bat);
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 12, 8), M.metal); tip.position.set(0, 0.0085, 0.0155); tg.add(tip);
       tg.position.set(it.x, it.y, 0); g.add(tg); if (it.id) controls[it.id] = tg;
+    } else if (it.t === 'cb') {   // rows of push/pull circuit breakers
+      const n = it.cols * it.rows;
+      const collar = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.002, 16).rotateX(Math.PI / 2), M.trim, n);
+      const capG = new THREE.CylinderGeometry(0.0032, 0.0034, 0.009, 16).rotateX(Math.PI / 2);
+      const caps = new THREE.InstancedMesh(capG, capMat, n); const m4 = new THREE.Matrix4(); let k = 0;
+      for (let r = 0; r < it.rows; r++) for (let q = 0; q < it.cols; q++) {
+        const x = it.x + (q - (it.cols - 1) / 2) * it.dx, y = it.y - r * it.dy;
+        m4.makeTranslation(x, y, 0.001); collar.setMatrixAt(k, m4); m4.makeTranslation(x, y, 0.0055); caps.setMatrixAt(k, m4); k++;
+      }
+      g.add(collar, caps);
+    } else if (it.t === 'round') {   // gasper / speaker grille: recessed ring with a dark centre
+      const r = it.r || 0.02;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.16, 12, 40), M.panelDark); ring.position.set(it.x, it.y, 0.002); g.add(ring);
+      const cen = new THREE.Mesh(new THREE.CircleGeometry(r * 0.92, 40), lensOff); cen.position.set(it.x, it.y, -0.001); g.add(cen);
+      if (it.eyeball) { const e = new THREE.Mesh(new THREE.SphereGeometry(r * 0.62, 24, 16), M.panelDark); e.position.set(it.x, it.y, 0.0); e.scale.z = 0.6; g.add(e);
+        const hole = new THREE.Mesh(new THREE.CircleGeometry(r * 0.28, 24), capMat); hole.position.set(it.x, it.y, r * 0.38); g.add(hole); }
     } else if (it.t === 'annun') {   // fixed annunciator light (dark until lit)
       const a = rbox(it.w || 0.016, it.h || 0.009, 0.004, 0.001, lensOff); a.position.set(it.x, it.y, 0.002); g.add(a);
-      const lab = atlas.mesh(it.s, (it.h || 0.009) * 0.55, { px: 30, color: '#4a5055' }, (it.w || 0.016) * 0.85); lab.position.set(it.x, it.y, 0.0042); g.add(lab);
+      const lab = atlas.mesh(it.s, (it.h || 0.009) * 0.55, { px: 30, color: '#6e767a' }, (it.w || 0.016) * 0.85); lab.position.set(it.x, it.y, 0.0042); g.add(lab);
       if (it.id) controls[it.id] = a;
     }
   }

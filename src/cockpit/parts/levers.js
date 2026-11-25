@@ -79,7 +79,8 @@ export function makeSidestick(M, side = -1) {
   let inb = null, topP = null; const vtx = new THREE.Vector3();
   for (let i = 0; i < gp.count; i++) {
     vtx.fromBufferAttribute(gp, i);
-    if (vtx.z < -0.05 && vtx.z > -0.066 && vtx.y > 0.095 && vtx.y < 0.112 && (!inb || -side * vtx.x > -side * inb.p.x)) inb = { p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
+    const score = vtx.y + 0.45 * (-side * vtx.x);   // high up, leaning to the inboard edge
+    if (vtx.z < -0.05 && vtx.z > -0.066 && (!inb || score > inb.s)) inb = { s: score, p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
     if (vtx.z < -0.035 && vtx.z > -0.06 && (!topP || vtx.y > topP.p.y)) topP = { p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
   }
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });

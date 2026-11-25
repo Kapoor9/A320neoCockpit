@@ -9,6 +9,7 @@ import { makeMCDU } from './parts/mcdu.js';
 import { makeSidestick, makeTiller, makeThrustQuadrant, makeTrimWheel } from './parts/levers.js';
 import { fcuPanel, efisPanel, warningPanel } from './parts/glareshield.js';
 import * as PED from './parts/pedestal.js';
+import { makeOverheadPanels, makeAftPanels } from './parts/overhead.js';
 
 // ---------------------------------------------------------------- materials
 // Colours: Airbus flight-deck blue-grey panels, near-black anti-glare glareshield,
@@ -332,26 +333,17 @@ function buildOverhead(M, refs) {
   const housing = rbox(O.halfWidth * 2 + 0.06, len + 0.04, 0.09, 0.015, M.panelDark);
   housing.position.set(0, 0, -0.045 - 0.006); frame.add(housing);
   refs.overhead = frame;
-  // 146 mm system panels in 4 columns, rows of varying height (as on the real overhead)
-  const cols = 4, colW = (O.halfWidth * 2) / cols;
-  const rows = [0.10, 0.095, 0.09, 0.075, 0.11, 0.085, 0.10, 0.075, 0.08, 0.09];
-  let y = len / 2 - 0.015; const screws = [];
-  for (const h of rows) {
-    for (let c = 0; c < cols; c++) {
-      const m = rbox(colW - 0.006, h - 0.006, 0.012, 0.004, M.module);
-      m.position.set(-O.halfWidth + colW * (c + 0.5), y - h / 2, 0.0); frame.add(m);
-      screws.push(...corners(-O.halfWidth + colW * (c + 0.5), y - h / 2, colW - 0.006, h - 0.006, 0.0065));
-      // placeholder pushbutton rows (to be replaced by real controls in Stage 4)
-      const n = 3 + ((c + Math.round(h * 100)) % 3);
-      for (let k = 0; k < n; k++) {
-        const pb = rbox(0.024, 0.024, 0.01, 0.003, M.bezel);
-        pb.position.set(-O.halfWidth + colW * c + (colW / (n + 1)) * (k + 1), y - h / 2 - 0.005, 0.009); frame.add(pb);
-      }
-    }
-    y -= h;
-    if (y < -len / 2 + 0.05) break;
+  // real A320 system panels: three columns, aft at the top as read; they fill the forward
+  // O.systemLen of the overhead, the aft remainder carries circuit breakers and maintenance items
+  refs.overheadPanels = {};
+  const sysTop = -len / 2 + O.systemLen;
+  for (const { panel, x, yFromTop, key } of makeOverheadPanels(M, refs.atlas, O.systemLen)) {
+    panel.position.set(x, sysTop - yFromTop, 0.0); frame.add(panel); refs.overheadPanels[key] = panel;
   }
-  addScrews(frame, screws, M);
+  const aftLen = len / 2 - sysTop - 0.006 - 0.004;
+  for (const { panel, x, key } of makeAftPanels(M, refs.atlas, aftLen)) {
+    panel.position.set(x, sysTop + 0.006 + aftLen / 2, 0.0); frame.add(panel); refs.overheadPanels[key] = panel;
+  }
   return frame;
 }
 

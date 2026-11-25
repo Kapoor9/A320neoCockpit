@@ -41,7 +41,7 @@ export const PEDESTAL = {
   rearZ: 1.04,
 };
 
-export const OVERHEAD = { halfWidth: 0.32, front: [0.45, 1.45], rear: [1.45, 1.80] };
+export const OVERHEAD = { halfWidth: 0.32, front: [0.452, 1.445], rear: [1.495, 1.81], systemLen: 0.65 };
 
 // side console (lower than the seat armrest) with the sidestick and steering tiller, measured from the reference
 export const CONSOLE = { innerX: 0.74, topY: 0.505, z0: 0.05, z1: 0.75 };
