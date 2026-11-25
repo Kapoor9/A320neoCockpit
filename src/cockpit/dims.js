@@ -37,9 +37,11 @@ export const GLARE = {
 };
 
 export const PEDESTAL = {
-  halfWidth: 0.25,
-  // side profile [z, y] from the panel back to the rear face
-  profile: [[0.02, 0.45], [0.40, 0.38], [1.02, 0.38]],
+  halfWidth: 0.265,      // forward section: MCDUs, radio panels, thrust quadrant (measured)
+  aftHalfWidth: 0.205,   // aft section behind z 0.68: speed brake, flaps, parking brake, door
+  aftZ: 0.68,
+  // side profile [z, y] from the panel face back to the rear face
+  profile: [[0.13, 0.45], [0.40, 0.38], [1.02, 0.38]],
   rearZ: 1.04,
 };
 

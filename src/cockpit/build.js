@@ -25,7 +25,7 @@ export function makeMaterials() {
     seam: std(0x2b3236, 0.8),
     glare: std(0x26292c, 0.9),           // anti-glare finish
     fcu: std(0x4a555d, 0.6),
-    lining: std(0x5d686f, 0.85),         // upper sidewall lining
+    lining: std(0x485157, 0.85),         // upper sidewall lining
     lowerWall: std(0x667078, 0.8),       // lower sidewall, blue-grey
     ceiling: std(0x939ca1, 0.88),
     trim: std(0x7d8286, 0.7),
@@ -436,6 +436,12 @@ function buildGlareshield(M, refs) {
   // outboard ends of the strip
   const ew = half - G.warn.x - G.warn.w / 2 - 0.004;
   for (const s of [-1, 1]) place(stripEndPanel(M, A, s, ew), s * (G.warn.x + G.warn.w / 2 + 0.002 + ew / 2));
+  for (const s of [-1, 1]) {   // the strip turns aft at x 0.67 and runs on to the corner post
+    const wing = new THREE.Group(); const ww = 0.15;
+    const face = rbox(ww, S.h, 0.03, 0.006, M.fcu); face.position.set(s * ww / 2, 0, -0.015); wing.add(face);
+    const lt = rbox(0.012, 0.008, 0.004, 0.0015, new THREE.MeshStandardMaterial({ color: 0x1b2a44, roughness: 0.3 })); lt.position.set(s * 0.05, 0.004, 0.002); wing.add(lt);
+    wing.position.set(s * half, S.y, S.faceZ); wing.rotation.y = -s * 0.62; grp.add(wing);
+  }
   return grp;
 }
 
@@ -443,8 +449,11 @@ function buildGlareshield(M, refs) {
 function buildPedestal(M, refs) {
   const P = D.PEDESTAL; const grp = new THREE.Group(); const A = refs.atlas;
   const top = P.profile; const last = top[top.length - 1];
-  const prof = [[0.02, 0.0], ...top, [P.rearZ, last[1] - 0.02], [P.rearZ, 0.0]];
-  grp.add(extrudeProfile(prof, -P.halfWidth, P.halfWidth, M.panelDark, 0.012));
+  // two sections: the wide forward body and the narrower aft body (measured)
+  const fwd = [[top[0][0], 0.0], top[0], top[1], [P.aftZ, top[1][1]], [P.aftZ, 0.0]];
+  const aft = [[P.aftZ, 0.0], [P.aftZ, top[1][1]], last, [P.rearZ, last[1] - 0.02], [P.rearZ, 0.0]];
+  grp.add(extrudeProfile(fwd, -P.halfWidth, P.halfWidth, M.panelDark, 0.012));
+  grp.add(extrudeProfile(aft, -P.aftHalfWidth, P.aftHalfWidth, M.panelDark, 0.012));
 
   // forward slope: MCDU 1 | SWITCHING + ECAM control panel | MCDU 2
   const [a, b] = [top[0], top[1]];
@@ -527,21 +536,28 @@ function buildConsolesAndSeats(M, refs) {
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
 
-    // seat
+    // pilot seat (measured): cushion top 0.43 m, z 0.72-1.05; raked back to 0.97 m; separate
+    // headrest to 1.23 m; short armrests at 0.6 m; single central column on floor tracks
     const seat = new THREE.Group(); const S = D.SEAT;
-    const col = rbox(0.18, S.panY - 0.12, 0.3, 0.02, M.seatShell); col.position.set(0, (S.panY - 0.12) / 2, 0); seat.add(col);
-    const rail = rbox(0.5, 0.04, 0.55, 0.01, M.metal); rail.position.set(0, 0.02, 0.02); seat.add(rail);
-    const pan = rbox(0.5, 0.1, 0.48, 0.045, M.seatFabric); pan.position.set(0, S.panY - 0.05, 0); seat.add(pan);
-    const panInsert = rbox(0.32, 0.02, 0.42, 0.01, M.seatBlue); panInsert.position.set(0, S.panY + 0.005, 0); seat.add(panInsert);
-    const back = rbox(0.48, S.backTop - S.panY, 0.12, 0.05, M.seatFabric);
-    back.position.set(0, (S.backTop + S.panY) / 2, S.backZ - S.panZ); back.rotation.x = -0.12; seat.add(back);
-    const backInsert = rbox(0.3, S.backTop - S.panY - 0.18, 0.02, 0.01, M.seatBlue);
-    backInsert.position.set(0, (S.backTop + S.panY) / 2 - 0.02, S.backZ - S.panZ - 0.07); backInsert.rotation.x = -0.12; seat.add(backInsert);
-    const head = rbox(0.3, 0.17, 0.1, 0.045, M.seatFabric); head.position.set(0, S.backTop + 0.1, S.backZ - S.panZ + 0.03); head.rotation.x = -0.12; seat.add(head);
+    const track = rbox(0.34, 0.025, 0.62, 0.006, M.metal); track.position.set(0, 0.0125, 0.06); seat.add(track);
+    const foot = rbox(0.26, 0.05, 0.22, 0.012, M.seatShell); foot.position.set(0, 0.05, 0.165); seat.add(foot);
+    const col = rbox(0.17, 0.27, 0.11, 0.02, M.seatShell); col.position.set(0, 0.19, 0.165); seat.add(col);
+    const frame = rbox(0.46, 0.06, 0.34, 0.02, M.seatShell); frame.position.set(0, 0.33, 0.0); seat.add(frame);
+    const cush = rbox(0.42, 0.07, 0.33, 0.03, M.seatBlue); cush.position.set(0, 0.39, -0.005); cush.rotation.x = -0.06; seat.add(cush);
+    const backG = new THREE.Group(); backG.position.set(0, 0.40, 0.17); backG.rotation.x = 0.23; seat.add(backG);
+    const shell = rbox(0.40, 0.57, 0.09, 0.03, M.seatShell); shell.position.set(0, 0.285, 0.02); backG.add(shell);
+    const pad = rbox(0.34, 0.5, 0.04, 0.02, M.seatBlue); pad.position.set(0, 0.29, -0.035); backG.add(pad);
+    const vest = rbox(0.075, 0.026, 0.006, 0.003, new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.5 })); vest.position.set(0, 0.47, 0.067); backG.add(vest);
+    const vl = refs.atlas.mesh('LIFE VEST', 0.012, { px: 32, weight: 600, color: '#f2efe8' }, 0.068); vl.position.set(0, 0.47, 0.0705); backG.add(vl);
+    const post = rbox(0.03, 0.06, 0.03, 0.008, M.metal); post.position.set(0, 0.6, 0.02); backG.add(post);
+    const head = rbox(0.31, 0.22, 0.09, 0.04, M.seatFabric); head.position.set(0, 0.72, 0.01); backG.add(head);
+    const headTop = rbox(0.29, 0.02, 0.07, 0.008, M.seatBlue); headTop.position.set(0, 0.825, 0.0); backG.add(headTop);
     for (const a of [-1, 1]) {
-      const arm = rbox(0.06, 0.05, 0.36, 0.02, M.seatShell); arm.position.set(a * 0.29, S.panY + 0.2, 0.02); seat.add(arm);
+      const arm = rbox(0.05, 0.045, 0.24, 0.018, M.seatShell); arm.position.set(a * 0.25, 0.58, 0.08); seat.add(arm);
+      const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.05, 16).rotateZ(Math.PI / 2), M.trim); knob.position.set(a * 0.25, 0.585, -0.045); seat.add(knob);
+      const stay = rbox(0.03, 0.17, 0.03, 0.008, M.seatShell); stay.position.set(a * 0.25, 0.49, 0.17); seat.add(stay);
     }
-    seat.position.set(s * D.SEAT_X, 0, S.panZ); grp.add(seat);
+    seat.position.set(s * D.SEAT_X, 0, 0.885); grp.add(seat);
 
     // rudder pedals under the panel
     for (const p of [-1, 1]) {
