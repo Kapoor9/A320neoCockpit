@@ -132,8 +132,13 @@ export class CockpitAudio {
   }
   masterCaution() { this.play('master_caution', { bus: 'chimes' }); }
   signsChime() { this.play('chime_signs', { bus: 'chimes' }); }
-  // Instinctive disconnect (sidestick button / FCU): one cavalry charge.
-  apDisconnect() { this.play('ap_disconnect', { bus: 'warnings' }); }
+  // Instinctive disconnect (sidestick button): one cavalry charge, ≤ 1.5 s as on the aircraft.
+  // A second press stops it at once.
+  apDisconnect() {
+    if (this.apOnce) { this.fadeOut(this.apOnce, 0.03); this.apOnce = null; return; }
+    const v = this.play('ap_disconnect_cycle', { bus: 'warnings' });
+    this.apOnce = v; v.src.onended = () => { if (this.apOnce === v) this.apOnce = null; };
+  }
   // Involuntary disconnect: cavalry charge repeats until cancelled.
   apDisconnectContinuous(on) {
     if (on && !this.apc) this.apc = this.play('ap_disconnect_cycle', { bus: 'warnings', loop: true });
