@@ -59,7 +59,9 @@ export class CockpitAudio {
     ];
     let done = 0;
     await Promise.all(names.map(async (n) => {
-      const res = await fetch(`${SOUND_DIR}${n}.flac`);
+      // Loops are WAV so they join with no gap; everything else is MP3.
+      const ext = n.endsWith('_loop') ? 'wav' : 'mp3';
+      const res = await fetch(`${SOUND_DIR}${n}.${ext}`);
       if (!res.ok) throw new Error(`Missing sound ${n}`);
       const buf = await c.decodeAudioData(await res.arrayBuffer());
       this.buffers.set(n, buf);

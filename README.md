@@ -25,7 +25,7 @@ Any static server works, e.g. `python3 -m http.server` in this folder, then open
 ## Folders
 
 - `src/audio/` — the audio engine (ambience, engines, APU, warnings, clicks)
-- `public/sounds/` — the sounds the site plays (FLAC, gapless loops)
+- `public/sounds/` — the sounds the site plays (loops as WAV so they join with no gap, the rest as MP3)
 - `assets/raw-audio/` — original recordings, untouched
 - `tools/audio/` — scripts that turned the recordings into loops and made the synthesised sounds
 
