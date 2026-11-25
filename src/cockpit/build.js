@@ -144,9 +144,11 @@ function sillY(z) {
   if (z <= p[0]) return 0.92;
   return p[1] + (q[1] - p[1]) * Math.min(1, (z - p[0]) / (q[0] - p[0]));
 }
+// windshield opening outline as seen along the fuselage axis: centreline to the outer pane edge (x, y)
+const WS_XY = [[0.0, D.WINDSHIELD.innerBottom[1] - 0.01], [D.WINDSHIELD.outerBottom[0] + 0.005, D.WINDSHIELD.outerBottom[1] - 0.01], [D.WINDSHIELD.outerTop[0] + 0.005, D.WINDSHIELD.outerTop[1] + 0.005], [0.0, D.WINDSHIELD.innerTop[1] + 0.005]];
 function shellCell(x, y, z) {   // 'open' (windshield region), 'glass' (side window) or null (lining)
   const ax = Math.abs(x);
-  if (z < 0.66 && y > sillY(z) && z < wsTopZ(ax)) return 'open';
+  if (z < 0.72 && inPoly([ax, y], WS_XY)) return 'open';   // exactly the windshield panes' outline
   if (ax > 0.5 && (inPoly([z, y], D.SIDE_WINDOWS.w2) || inPoly([z, y], D.SIDE_WINDOWS.w3))) return 'glass';
   return null;
 }
@@ -163,11 +165,12 @@ function glslPoly(name, poly) {
 function openingGLSL() {
   const W = D.WINDSHIELD, S = D.SIDE_WINDOWS; const f = (v) => v.toFixed(4);
   return `
+${glslPoly('inWSq', WS_XY)}
 ${glslPoly('inW2', S.w2)}
 ${glslPoly('inW3', S.w3)}
 float wsTopZ(float ax){ return ax < ${f(W.outerTop[0])} ? ${f(W.innerTop[2])} + (ax-${f(W.innerTop[0])})/${f(W.outerTop[0] - W.innerTop[0])}*${f(W.outerTop[2] - W.innerTop[2])} : 0.66; }
 float sillY(float z){ if(z<=${f(S.w2[0][0])}) return 0.92; return ${f(S.w2[0][1])} + ${f(S.w2[1][1] - S.w2[0][1])}*min(1.0,(z-${f(S.w2[0][0])})/${f(S.w2[1][0] - S.w2[0][0])}); }
-bool inWS(vec3 p){ return p.z<0.66 && p.y>sillY(p.z) && p.z<wsTopZ(abs(p.x)); }
+bool inWS(vec3 p){ return p.z<0.72 && inWSq(vec2(abs(p.x), p.y)); }
 bool inSideWin(vec3 p){ if(abs(p.x)<0.5) return false; vec2 q=vec2(p.z,p.y); return inW2(q)||inW3(q); }`;
 }
 function addOpeningClip(material, mode) {
@@ -200,7 +203,7 @@ function buildShell(M) {
     // a cell touching an opening is left out of the wall (the frames cover the edge), so that
     // nothing jagged reaches the shadow and ambient-occlusion passes
     if (cells.some((q) => q === 'glass')) idx.glass.push(a, b, c, a, c, d);
-    if (cells.some((q) => q)) continue;
+    if (cells.every((q) => q === 'open')) continue;   // keep edge cells: the shader trims them exactly to the opening
     idx.lining.push(a, b, c, a, c, d);
   }
   const mk = (ix, mat) => {
