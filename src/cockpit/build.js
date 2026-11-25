@@ -11,6 +11,7 @@ import { fcuPanel, efisPanel, warningPanel, stripEndPanel } from './parts/glares
 import * as PED from './parts/pedestal.js';
 import * as MP from './parts/mainpanel.js';
 import { makeOverheadPanels, makeAftPanels } from './parts/overhead.js';
+import { buildPanel } from './parts/panel.js';
 
 // ---------------------------------------------------------------- materials
 // Colours: Airbus flight-deck blue-grey panels, near-black anti-glare glareshield,
@@ -218,9 +219,9 @@ function buildShell(M) {
   grp.add(floor);
 
   // rear bulkhead with the cockpit door
-  const rw = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 2.2), M.lining); rw.position.set(0, 1.05, z1 - 0.005); rw.rotation.y = Math.PI;
+  const rw = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 2.2), addGrain(new THREE.MeshStandardMaterial({ color: 0x353c41, roughness: 0.85, side: THREE.DoubleSide }), 'lining')); rw.position.set(0, 1.05, z1 - 0.005); rw.rotation.y = Math.PI;
   grp.add(rw);
-  const door = rbox(0.72, 1.85, 0.04, 0.01, M.trim); door.position.set(0.0, 0.93, z1 - 0.03); grp.add(door);
+  const door = rbox(0.72, 1.85, 0.04, 0.01, M.panelDark); door.position.set(0.0, 0.93, z1 - 0.03); grp.add(door);
 
   grp.add(buildWindowFrames(M));
   grp.add(buildShellFittings(M));
@@ -519,10 +520,157 @@ function buildOverhead(M, refs) {
 }
 
 // ---------------------------------------------------------------- side consoles, sidesticks, seats, pedals
+
+// ---------------------------------------------------------------- flight-deck equipment (A320 layout)
+function cyl(r0, r1, h, mat, seg = 24) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, seg), mat); m.castShadow = true; m.receiveShadow = true; return m; }
+function headset(M) {
+  const g = new THREE.Group(); const blk = new THREE.MeshStandardMaterial({ color: 0x17191b, roughness: 0.55 }); const pad = new THREE.MeshStandardMaterial({ color: 0x222426, roughness: 0.9 });
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.007, 10, 32, Math.PI), blk); band.castShadow = true; g.add(band);
+  for (const s of [-1, 1]) {
+    const cup = cyl(0.036, 0.038, 0.032, blk, 28); cup.rotation.z = Math.PI / 2; cup.position.set(s * 0.08, -0.012, 0); g.add(cup);
+    const cush = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.009, 10, 24), pad); cush.rotation.y = Math.PI / 2; cush.position.set(s * 0.062, -0.012, 0); g.add(cush);
+  }
+  const boom = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-0.095, -0.02, 0), new THREE.Vector3(-0.1, -0.07, 0.04), new THREE.Vector3(-0.07, -0.11, 0.08)]), 16, 0.003, 8), blk); g.add(boom);
+  const mic = cyl(0.007, 0.007, 0.02, pad, 12); mic.rotation.x = Math.PI / 2; mic.position.set(-0.07, -0.11, 0.085); g.add(mic);
+  const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-0.09, -0.03, 0), new THREE.Vector3(-0.07, -0.2, 0.01), new THREE.Vector3(-0.03, -0.33, -0.01), new THREE.Vector3(0.02, -0.42, 0.0)]), 24, 0.0022, 6), blk); g.add(cable);
+  return g;
+}
+function extinguisher() {
+  const g = new THREE.Group(); const red = new THREE.MeshStandardMaterial({ color: 0xa3221b, roughness: 0.35, metalness: 0.2 }); const blk = new THREE.MeshStandardMaterial({ color: 0x1a1c1e, roughness: 0.5 });
+  const body = cyl(0.042, 0.042, 0.28, red, 32); body.position.y = 0.14; g.add(body);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.042, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), red); top.position.y = 0.28; g.add(top);
+  const valve = cyl(0.012, 0.014, 0.04, blk); valve.position.y = 0.33; g.add(valve);
+  const lever = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.008, 0.016), blk); lever.position.set(0.02, 0.35, 0); lever.rotation.z = -0.25; g.add(lever);
+  for (const y of [0.06, 0.22]) { const band = cyl(0.046, 0.046, 0.02, blk, 32); band.position.y = y; g.add(band); }
+  return g;
+}
+function crashAxe() {
+  const g = new THREE.Group(); const yel = new THREE.MeshStandardMaterial({ color: 0xc99a1d, roughness: 0.5 }); const steel = new THREE.MeshStandardMaterial({ color: 0x9da2a4, roughness: 0.3, metalness: 0.8 });
+  const handle = cyl(0.014, 0.016, 0.34, yel, 16); handle.position.y = 0.17; g.add(handle);
+  const grip = cyl(0.017, 0.017, 0.1, new THREE.MeshStandardMaterial({ color: 0x1b1c1d, roughness: 0.8 }), 16); grip.position.y = 0.06; g.add(grip);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.012), steel); head.position.set(0.025, 0.34, 0); g.add(head);
+  return g;
+}
+function oxyBottle() {
+  const g = new THREE.Group(); const grn = new THREE.MeshStandardMaterial({ color: 0x2f6a3c, roughness: 0.4, metalness: 0.2 });
+  const b = cyl(0.05, 0.05, 0.3, grn, 32); b.position.y = 0.15; g.add(b);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.05, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), grn); cap.position.y = 0.3; g.add(cap);
+  const reg = cyl(0.02, 0.02, 0.05, new THREE.MeshStandardMaterial({ color: 0xb8bcbd, metalness: 0.8, roughness: 0.3 })); reg.position.y = 0.36; g.add(reg);
+  return g;
+}
+function gasper(M) {   // ventilation outlet: ring with a swivelling eyeball
+  const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0x8f969a, roughness: 0.4, metalness: 0.3 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.006, 10, 28), m); g.add(ring);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.02, 20, 14), m); ball.scale.z = 0.6; ball.position.z = 0.004; g.add(ball);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.009, 20), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); hole.position.z = 0.0165; g.add(hole);
+  return g;
+}
+function speakerGrille(r = 0.04) {
+  const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0x2b3034, roughness: 0.6 });
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.12, 10, 40), m); g.add(rim);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'); c.fillStyle = '#25292c'; c.fillRect(0, 0, 128, 128); c.fillStyle = '#0b0c0d';
+  for (let y = 6; y < 128; y += 9) for (let x = 6 + ((y / 9) % 2) * 4; x < 128; x += 9) { c.beginPath(); c.arc(x, y, 2.6, 0, 7); c.fill(); }
+  const tx = new THREE.CanvasTexture(cv); const face = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.7 })); face.position.z = -0.002; g.add(face);
+  return g;
+}
+function readingLight() {
+  const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0x2a2e31, roughness: 0.5 });
+  const base = cyl(0.022, 0.022, 0.012, m); base.rotation.x = Math.PI / 2; g.add(base);
+  const neck = cyl(0.006, 0.006, 0.07, m, 12); neck.rotation.x = Math.PI / 2; neck.position.z = 0.04; g.add(neck);
+  const head = cyl(0.018, 0.024, 0.045, m); head.rotation.x = 0.9; head.position.set(0, -0.012, 0.08); g.add(head);
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(0.02, 20), new THREE.MeshStandardMaterial({ color: 0xd8d3c2, roughness: 0.3 })); lens.position.set(0, -0.03, 0.094); lens.rotation.x = 0.9 - Math.PI / 2; g.add(lens);
+  return g;
+}
+function flashlight() {
+  const g = new THREE.Group(); const blk = new THREE.MeshStandardMaterial({ color: 0x1b1d1f, roughness: 0.5 }); const yel = new THREE.MeshStandardMaterial({ color: 0xc39b22, roughness: 0.5 });
+  const body = cyl(0.018, 0.018, 0.2, blk); g.add(body); const headp = cyl(0.026, 0.02, 0.05, yel); headp.position.y = 0.12; g.add(headp);
+  const clip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.012), new THREE.MeshStandardMaterial({ color: 0x55595c, roughness: 0.5 })); clip.position.z = -0.02; g.add(clip);
+  return g;
+}
+function placard(A, text, w, h, bg = '#b3261e', fg = '#f3f0e8') {
+  const g = new THREE.Group();
+  const p = rbox(w, h, 0.003, 0.002, new THREE.MeshStandardMaterial({ color: new THREE.Color(bg), roughness: 0.5 })); g.add(p);
+  const l = A.mesh(text, h * 0.55, { px: 36, weight: 600, color: fg }, w * 0.9); l.position.z = 0.0018; g.add(l); return g;
+}
+
+function buildFittings(M, refs) {
+  const grp = new THREE.Group(); const A = refs.atlas; const W = D.WINDSHIELD;
+  // standby compass at the top of the windshield centre post
+  const comp = new THREE.Group(); const cb = rbox(0.075, 0.055, 0.06, 0.008, M.panelDark); comp.add(cb);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.026), new THREE.MeshStandardMaterial({ color: 0xd9d6c8, roughness: 0.4 })); win.position.z = 0.031; comp.add(win);
+  const card = A.mesh('N  3  6  E', 0.012, { px: 32, weight: 600, color: '#15181a' }, 0.046); card.position.z = 0.032; comp.add(card);
+  comp.position.set(0, W.innerTop[1] - 0.06, W.innerTop[2] + 0.07); comp.rotation.x = -0.3; grp.add(comp); refs.compass = comp;
+  // windshield wipers parked along the lower edge, outside the glass
+  const wm = new THREE.MeshStandardMaterial({ color: 0x141617, roughness: 0.6 });
+  for (const s of [-1, 1]) {
+    const a = new THREE.Vector3(s * 0.1, W.innerBottom[1] + 0.03, W.innerBottom[2] - 0.03), b = new THREE.Vector3(s * 0.62, W.innerBottom[1] + 0.05, W.innerBottom[2] + 0.31);
+    const arm = rbox(0.012, a.distanceTo(b), 0.01, 0.003, wm); arm.position.copy(a).add(b).multiplyScalar(0.5);
+    arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); arm.position.y -= 0.0; arm.position.z -= 0.035; grp.add(arm);
+    const piv = cyl(0.014, 0.014, 0.02, wm); piv.position.set(s * 0.62, W.innerBottom[1] + 0.04, W.innerBottom[2] + 0.27); grp.add(piv);
+  }
+  // panel floodlights under the glareshield
+  const G = D.GLARE;
+  for (const s of [-1, 1]) {
+    const fl = rbox(0.17, 0.014, 0.03, 0.005, M.panelDark); fl.position.set(s * 0.52, G.underY - 0.008, G.strip.faceZ - 0.06); grp.add(fl);
+    const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.018), new THREE.MeshStandardMaterial({ color: 0x7c7466, roughness: 0.3, emissive: 0x000000 }));
+    lens.rotation.x = Math.PI / 2; lens.position.set(s * 0.52, G.underY - 0.0155, G.strip.faceZ - 0.06); grp.add(lens);
+  }
+  // loudspeaker grilles on the outboard main panel
+  const P = D.PANEL; const t = THREE.MathUtils.degToRad(P.tiltDeg);
+  for (const s of [-1, 1]) { const sp = speakerGrille(0.034); const yl = D.PANEL_Y(0.63); sp.position.set(s * 0.71, P.baseY + yl * Math.cos(t), P.faceZ - yl * Math.sin(t) + 0.004); sp.rotation.x = -t; grp.add(sp); }
+  for (const s of [-1, 1]) {
+    // headset hanging on its hook on the post between the side windows
+    const hz = 1.02, hy = 1.3; const hook = onHull(s, hz, hy, 0.03);
+    const hk = cyl(0.006, 0.006, 0.05, M.metal, 10); hk.rotation.z = Math.PI / 2; hk.position.copy(hook); grp.add(hk);
+    const hs = headset(M); hs.position.set(hook.x - s * 0.02, hook.y - 0.01, hook.z); hs.rotation.y = Math.PI / 2; grp.add(hs);
+    // escape rope compartment above the sliding window
+    const er = new THREE.Group(); const lid = rbox(0.24, 0.07, 0.012, 0.006, M.panelDark); er.add(lid); const pl = placard(A, 'ESCAPE ROPE', 0.11, 0.022); pl.position.z = 0.008; er.add(pl);
+    grp.add(onShell(er, s, 0.74, 1.5, [1, 0], 0.012));
+    // air outlets near the windows and on the ceiling edge
+    grp.add(onShell(gasper(M), s, 0.5, 1.5, [1, 0], 0.012)); grp.add(onShell(gasper(M), s, 1.2, 1.56, [1, 0], 0.012));
+    // reading light on the sidewall above the console
+    grp.add(onShell(readingLight(), s, 0.42, 0.92, [1, 0], 0.0));
+    // stowed sun visor, flat against the lining above the sliding window
+    const visor = rbox(0.3, 0.17, 0.006, 0.012, new THREE.MeshPhysicalMaterial({ color: 0x2d3a33, roughness: 0.25, transparent: true, opacity: 0.7 }));
+    grp.add(onShell(visor, s, 0.62, 1.47, [1, 0], 0.012));
+    // map / document pocket and flashlight on the sidewall beside the seat
+    const pocket = new THREE.Group(); const pk = rbox(0.3, 0.16, 0.05, 0.01, M.panelDark); pk.position.z = 0.025; pocket.add(pk);
+    const lip = rbox(0.3, 0.02, 0.06, 0.006, M.module); lip.position.set(0, 0.075, 0.03); pocket.add(lip); grp.add(onShell(pocket, s, 1.0, 0.68, [1, 0], 0.0));
+    const fls = flashlight(); grp.add(onShell(fls, s, 1.38, 0.62, [0, 1], 0.03));
+  }
+  for (const s of [-1, 1]) {
+    const L = [], R = [], Rf = [];
+    for (let i = 0; i <= 40; i++) { const z = 0.3 + 1.32 * i / 40; const y = sillY(z) - 0.02; const p = onHull(s, z, y, 0.0); L.push(p); const q = p.clone(); q.x -= s * 0.07; R.push(q); const r2 = q.clone(); r2.y -= 0.03; Rf.push(r2); }
+    const ledge = M.module.clone(); ledge.side = THREE.DoubleSide; grp.add(stripMesh(L, R, ledge), stripMesh(R, Rf, ledge));
+  }
+  // rear of the cockpit: CB panel behind the F/O, extinguisher, axe, oxygen bottle, folded jump seat, coat hooks
+  const zr = D.REAR_WALL_Z - 0.012;
+  const cbItems = [];
+  for (let r = 0; r < 10; r++) cbItems.push({ t: 'cb', x: 0, y: 0.32 - r * 0.068, cols: 18, rows: 1, dx: 0.021, dy: 0 }, { t: 'line', pts: [[-0.2, 0.345 - r * 0.068], [0.2, 0.345 - r * 0.068]], w: 0.0005 });
+  const cbp = buildPanel({ w: 0.42, h: 0.72, name: 'cb120VU', items: [{ t: 'text', x: 0, y: 0.348, s: '120VU', size: 0.006 }, ...cbItems] }, M, A);
+  cbp.position.set(0.78, 1.15, zr); cbp.rotation.y = Math.PI; grp.add(cbp);
+  const ext = extinguisher(); ext.position.set(1.05, 0.35, zr - 0.06); grp.add(ext);
+  const brk = rbox(0.1, 0.05, 0.03, 0.006, M.metal); brk.position.set(1.05, 0.5, zr - 0.015); grp.add(brk);
+  const axe = crashAxe(); axe.position.set(-1.05, 0.95, zr - 0.02); grp.add(axe);
+  const ox = oxyBottle(); ox.position.set(-0.85, 0.3, zr - 0.06); grp.add(ox);
+  const js = new THREE.Group(); const jsb = rbox(0.44, 0.5, 0.06, 0.03, M.seatShell); jsb.position.y = 0.25; js.add(jsb);
+  const jsc = rbox(0.38, 0.42, 0.03, 0.02, M.seatBlue); jsc.position.set(0, 0.25, -0.04); js.add(jsc);
+  js.position.set(-0.6, 0.55, zr - 0.04); grp.add(js);
+  for (const x of [-0.95, 0.5]) { const hk = cyl(0.008, 0.008, 0.04, M.metal, 10); hk.rotation.x = Math.PI / 2; hk.position.set(x, 1.7, zr - 0.02); grp.add(hk); }
+  const lv = placard(A, 'LIFE VEST', 0.09, 0.03); lv.position.set(-0.6, 0.45, zr - 0.075); lv.rotation.y = Math.PI; grp.add(lv);
+  // door: handle, viewer, decompression panels, placard
+  const dz = zr - 0.05; const dm = new THREE.MeshStandardMaterial({ color: 0x1c1f21, roughness: 0.5 });
+  const handle = rbox(0.14, 0.03, 0.03, 0.01, M.metal); handle.position.set(0.26, 1.0, dz); grp.add(handle);
+  const viewer = cyl(0.012, 0.012, 0.01, dm); viewer.rotation.x = Math.PI / 2; viewer.position.set(0, 1.5, dz); grp.add(viewer);
+  for (const y of [0.35, 1.7]) { const dp = rbox(0.5, 0.18, 0.01, 0.01, dm); dp.position.set(0, y, dz); grp.add(dp); for (let k = 0; k < 6; k++) { const sl = rbox(0.44, 0.008, 0.012, 0.003, M.panelDark); sl.position.set(0, y - 0.07 + k * 0.028, dz - 0.003); grp.add(sl); } }
+  const dpl = placard(A, 'COCKPIT DOOR', 0.16, 0.03, '#2b3034', '#e8ebe6'); dpl.position.set(0, 1.25, dz - 0.005); dpl.rotation.y = Math.PI; grp.add(dpl);
+  return grp;
+}
+
 function buildConsolesAndSeats(M, refs) {
   const grp = new THREE.Group(); const C = D.CONSOLE;
   for (const s of [-1, 1]) {
-    const outer = 1.0;
+    const outer = hullHW((C.z0 + C.z1) / 2, C.topY) + 0.05;   // runs into the sidewall
     const con = rbox(outer - C.innerX, C.topY, C.z1 - C.z0, 0.02, M.panelDark);
     con.position.set(s * (C.innerX + outer) / 2, C.topY / 2, (C.z0 + C.z1) / 2); grp.add(con);
     const top = rbox(outer - C.innerX - 0.02, 0.012, C.z1 - C.z0 - 0.02, 0.004, M.module);
@@ -535,6 +683,14 @@ function buildConsolesAndSeats(M, refs) {
     const til = makeTiller(M); til.position.set(s * D.TILLER.x, C.topY + 0.004, D.TILLER.z); grp.add(til); refs[s < 0 ? 'tillerCpt' : 'tillerFo'] = til;
     // folding table stowed in front of the console
     const tbl = rbox(0.3, 0.012, 0.2, 0.004, M.module); tbl.position.set(s * 0.82, C.topY - 0.06, -0.02); tbl.rotation.z = s * 0.06; grp.add(tbl);
+    const clip = rbox(0.22, 0.01, 0.02, 0.003, M.metal); clip.position.set(s * 0.82, C.topY - 0.05, -0.1); grp.add(clip);
+    // aft lateral console beside the seat: cup holder, ashtray, stowage
+    const az0 = C.z1, az1 = 1.32, ain = 0.86, aout = hullHW((az0 + az1) / 2, 0.45) + 0.05, aTop = 0.46;
+    const acon = rbox(aout - ain, aTop, az1 - az0, 0.02, M.panelDark); acon.position.set(s * (ain + aout) / 2, aTop / 2, (az0 + az1) / 2); grp.add(acon);
+    const atop = rbox(aout - ain - 0.02, 0.01, az1 - az0 - 0.02, 0.004, M.module); atop.position.set(s * (ain + aout) / 2, aTop + 0.005, (az0 + az1) / 2); grp.add(atop);
+    const cup = cyl(0.04, 0.04, 0.012, new THREE.MeshStandardMaterial({ color: 0x0f1011, roughness: 0.8 }), 28); cup.position.set(s * (ain + 0.08), aTop + 0.006, az0 + 0.12); grp.add(cup);
+    const cupR = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.004, 8, 28), M.metal); cupR.rotation.x = Math.PI / 2; cupR.position.set(s * (ain + 0.08), aTop + 0.012, az0 + 0.12); grp.add(cupR);
+    const ash = rbox(0.08, 0.012, 0.06, 0.004, M.metal); ash.position.set(s * (ain + 0.2), aTop + 0.012, az0 + 0.12); grp.add(ash);
 
     // pilot seat (measured): cushion top 0.43 m, z 0.72-1.05; raked back to 0.97 m; separate
     // headrest to 1.23 m; short armrests at 0.6 m; single central column on floor tracks
@@ -600,7 +756,7 @@ export function buildCockpit(scene) {
   const M = finish(makeMaterials()); const refs = { atlas: new LabelAtlas(2048) };
   const root = new THREE.Group(); root.name = 'cockpit';
   root.add(buildShell(M), buildMainPanel(M, refs), buildGlareshield(M, refs), buildPedestal(M, refs),
-    buildOverhead(M, refs), buildConsolesAndSeats(M, refs));
+    buildOverhead(M, refs), buildConsolesAndSeats(M, refs), buildFittings(M, refs));
   root.traverse((o) => { if (o.isMesh && o.material !== M.glass) { o.castShadow ??= true; o.receiveShadow = true; } });
   scene.add(root);
   buildOutside(scene);
