@@ -24,7 +24,7 @@ export function makeMaterials() {
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x7a8e98, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x202326, 0.8),          // thin dark glareshield cap           // anti-glare finish
+    glare: std(0x67605a, 0.95, 0, { envMapIntensity: 0.05 }),          // thin dark glareshield cap           // anti-glare finish
     fcu: std(0x7a8e98, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x7a8e98, 0.8),         // upper sidewall lining
@@ -1095,7 +1095,7 @@ export const SUN_DIR = new THREE.Vector3(-0.32, 0.62, -0.72).normalize();   // h
 export function makeSky(radius = 400) {
   return new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 24), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color(0x5f8bbd) }, horizon: { value: new THREE.Color(0xd6e1e7) }, ground: { value: new THREE.Color(0x8d908c) }, sun: { value: SUN_DIR } },
+    uniforms: { top: { value: new THREE.Color(0x86a8cc) }, horizon: { value: new THREE.Color(0xe4eaee) }, ground: { value: new THREE.Color(0x8d908c) }, sun: { value: SUN_DIR } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 ground; uniform vec3 sun; varying vec3 vP;
       void main(){ float h=vP.y;

@@ -20,7 +20,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;   // neutral, sim-like colour response
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = LITE ? THREE.PCFSoftShadowMap : THREE.VSMShadowMap;   // VSM: wide soft sun penumbras on laptops
 
 const scene = new THREE.Scene();
 
@@ -38,10 +38,10 @@ sun.position.copy(SUN_DIR).multiplyScalar(12).add(new THREE.Vector3(0, 0.8, 0.5)
 sun.target.position.set(0, 0.8, 0.5);
 sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 1024 : 4096, LITE ? 1024 : 4096);
 Object.assign(sun.shadow.camera, { left: -2.0, right: 2.0, top: 2.0, bottom: -2.0, near: 2, far: 30 });
-sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 3;
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 6; sun.shadow.blurSamples = 16;
 scene.add(sun, sun.target);
 // ground colour = light bouncing back up off the panels, floor and seats onto the overhead
-scene.add(new THREE.HemisphereLight(0xcad8e6, 0x8c877f, 1.0));
+scene.add(new THREE.HemisphereLight(0xdde3e8, 0x8c877f, 1.0));
 const dome = new THREE.PointLight(0xfff0da, 0.45, 3.2, 2); dome.position.set(0, 1.85, 1.3); scene.add(dome);
 // soft upward bounce from the sunlit pedestal and panels, so the overhead is never pitch black
 const bounce = new THREE.PointLight(0xe9e3d8, 0.8, 2.6, 2); bounce.position.set(0, 0.75, 0.75); scene.add(bounce);
