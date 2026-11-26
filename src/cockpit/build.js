@@ -286,6 +286,11 @@ function A_LBL(s, h) {
   const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Mesh(new THREE.PlaneGeometry(h * 2, h), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false }));
 }
 export const LP_ZF = (y) => { const t = Math.min(1, Math.max(0, (y - 0.795) / 0.075)); return 0.24 + 0.095 * t * t * (3 - 2 * t); };   // front edge of the lower pillar, side view
+const LP_VE = 0.45;   // the post's flared foot merges into the lower pillar at this height (v)
+const lpAt = (s, v, u) => { const y = 0.95 - 0.148 * v; const zf = LP_ZF(y), zb = 0.47 + 0.25 * (1 - Math.cos(v * Math.PI / 2));
+  const dep = (0.072 + 0.1 * (v * v * (3 - 2 * v)));
+  const e = Math.min(Math.sin(Math.PI / 2 * Math.min(1, u / 0.1)), 1 - 0.65 * THREE.MathUtils.smoothstep(u, 0.55, 1));
+  return onHull(s, zf + (zb - zf) * u, y, Math.max(0.002, 0.004 + dep * e)); };
 function buildWindowFrames(M) {
   const grp = new THREE.Group(); const f = M.frame.clone(); f.side = THREE.DoubleSide;
   // stepped mouldings: retainer (metal), then three tiers; risers a shade darker than the ledges
@@ -352,22 +357,20 @@ function buildWindowFrames(M) {
         const a = at(0.004, 0.009), b = top; const mid = a.clone().lerp(b, 0.5); const inw = new THREE.Vector3(-s, 0, 0);
         rows[0].push(at(0.016, 0.002)); rows[1].push(at(0.016, 0.0075)); rows[2].push(a); rows[3].push(a.clone().lerp(b, 0.25).addScaledVector(inw, 0.008));
         rows[4].push(mid.addScaledVector(inw, 0.01)); rows[5].push(b); };
-      // below the post: down the window's front corner onto the lower pillar's top
-      for (let k = 4; k >= 1; k--) { const y = W2[0][1] - 0.03 * k / 4, z = W2[0][0] + 0.01 * k / 4;
-        add(z, y, onHull(s, LP_ZF(y) + 0.02, y, 0.07)); }
-      for (let i = 0; i <= n; i++) { const t = i / n; add(W2[0][0] + ez * t, W2[0][1] + ey * t, Ri[i].clone()); }
+      // toward the bottom the aft edge flares out in one smooth curve, so the post widens down onto the lower pillar's top
+      const FL = 0.11, N2 = 3 * n;
+      for (let i = 0; i <= N2; i++) { const t = i / N2; const u = Math.min(1, t / 0.55); const fl = FL * (1 - u) * (1 - u);
+        const fi = t * n, i0 = Math.min(n - 1, Math.floor(fi)), fr = fi - i0; const top = Ri[i0].clone().lerp(Ri[i0 + 1], fr);
+        add(W2[0][0] + ez * t + fl, W2[0][1] + ey * t, top); }
+      // the flared foot lands exactly on the lower pillar's top edge: no gap, no ledge
+      { const UJ = [1, 0.97, 0.9, 0.6, 0.35, 0.14], NB = Math.round(N2 * 0.3); rows.forEach((r, j) => { const tgt = lpAt(s, 0, UJ[j]);
+          for (let i = 0; i <= NB; i++) { const w = (1 - i / NB) ** 2; r[i].lerp(tgt, w); } }); }
       for (let j = 0; j < 5; j++) { const m = stripMesh(rows[j], rows[j + 1], j === 0 ? metal : f); m.castShadow = m.receiveShadow = true; grp.add(m); } }
     // lower pillar: the post carries on below the sill as one moulding, widening aft as it runs down
     // into the side wall; edges roll down onto the lining, the front edge meets the dark connector
     { const nu = 28, nv = 40, rows = [];
       const GL = D.GLARE, rEnd = GL.strip.faceZ + 0.03, yEnd = 0.86;   // the glareshield end occupies x < 0.87 here
-      for (let iv = 0; iv <= nv; iv++) { const v = iv / nv, y = 0.95 - 0.148 * v; const zf = LP_ZF(y), zb = 0.4 + 0.32 * (1 - Math.cos(v * Math.PI / 2));
-        const dep = 0.072 + 0.1 * (v * v * (3 - 2 * v)); const row = [];   // stands proud of the wall, sweeping out onto the shelf top
-        for (let iu = 0; iu <= nu; iu++) { const u = iu / nu; const z = zf + (zb - zf) * u;
-          const e = Math.min(Math.sin(Math.PI / 2 * Math.min(1, u / 0.1)), 1 - 0.65 * THREE.MathUtils.smoothstep(u, 0.55, 1));
-          const d = 0.004 + dep * e;
-          row.push(onHull(s, z, y, Math.max(0.002, d))); }
-        rows.push(row); }
+      for (let iv = 0; iv <= nv; iv++) { const v = iv / nv; const row = []; for (let iu = 0; iu <= nu; iu++) row.push(lpAt(s, v, iu / nu)); rows.push(row); }
       { const pp = [], ix = []; const m = nu + 1; rows.forEach((r) => r.forEach((q) => pp.push(q.x, q.y, q.z)));
         for (let i = 0; i < nv; i++) for (let k = 0; k < nu; k++) { const a = i * m + k, b = (i + 1) * m + k; ix.push(a, b, b + 1, a, b + 1, a + 1); }
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3)); g.setIndex(ix); g.computeVertexNormals();
