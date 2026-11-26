@@ -4,7 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { INTEGRAL } from './parts/panel.js';
+import { INTEGRAL, KORRY } from './parts/panel.js';
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
 import { paintDisplays } from './displays.js';
@@ -18,7 +18,8 @@ const LITE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, inn
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, LITE ? 1.5 : 2));
+const DPR_FULL = Math.min(window.devicePixelRatio, LITE ? 1.25 : 1.5), DPR_MOVE = LITE ? 0.8 : 1.0;
+renderer.setPixelRatio(DPR_FULL);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;   // neutral, sim-like colour response
 renderer.toneMappingExposure = 1.0;
@@ -39,9 +40,11 @@ scene.environmentIntensity = 0.8;
 const sun = new THREE.DirectionalLight(0xfff1dd, 3.0);
 sun.position.copy(SUN_DIR).multiplyScalar(12).add(new THREE.Vector3(0, 0.8, 0.5));
 sun.target.position.set(0, 0.8, 0.5);
-sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 1024 : 4096, LITE ? 1024 : 4096);
+sun.castShadow = true; sun.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -2.0, right: 2.0, top: 2.0, bottom: -2.0, near: 2, far: 30 });
-sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 6; sun.shadow.blurSamples = 16;
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 6; sun.shadow.blurSamples = 12;
+// the cockpit and the sun do not move: draw the shadow map once, not every frame
+renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
 scene.add(sun, sun.target);
 // ground colour = light bouncing back up off the panels, floor and seats onto the overhead
 scene.add(new THREE.HemisphereLight(0xdde3e8, 0x8c877f, 1.0));
@@ -61,8 +64,8 @@ if (!LITE) {
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   gtao = new GTAOPass(scene, camera, 1, 1);
-  gtao.updateGtaoMaterial({ radius: 0.13, distanceExponent: 1.4, thickness: 0.8, scale: 1.15, samples: 24 });   // contact shadows in every panel gap and around every control
-  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  gtao.updateGtaoMaterial({ radius: 0.13, distanceExponent: 1.4, thickness: 0.8, scale: 1.15, samples: 12 });   // contact shadows in every panel gap and around every control
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 8 });
   gtao.blendIntensity = 1.0;
   composer.addPass(gtao);
   // glow around lit lights and displays only (threshold above anything the daylight scene reaches, the sun disc aside)
@@ -85,10 +88,11 @@ let night = false;
 function setNight(on) {
   night = on; sun.intensity = on ? 0 : 3.0; hemi.intensity = on ? 0.04 : 1.0; scene.environmentIntensity = on ? 0.03 : 0.8;
   dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.14 : 0));
-  for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.6 : 0, on ? 1.3 : 0, on ? 0.95 : 0); }
+  for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.05 : 0, on ? 0.96 : 0, on ? 0.8 : 0); }   // panel legends: bright warm white
+  for (const m of KORRY) { m.emissive.setScalar(on ? 0.9 : 0); }   // pushbutton legends readable
   scene.traverse((o) => { if (o.userData.isSky) o.visible = !on; if (o.userData.nightOnly) o.visible = on; });
   if (scene.fog) scene.fog.color.set(on ? 0x06080c : 0xdbe3e8);
-  scene.background = on ? new THREE.Color(0x05070b) : null; renderer.toneMappingExposure = on ? 1.25 : 1.0; dirty = 3;
+  scene.background = on ? new THREE.Color(0x05070b) : null; renderer.toneMappingExposure = on ? 1.25 : 1.0; renderer.shadowMap.needsUpdate = true; dirty = 3;
 }
 { const b = document.createElement('button'); b.textContent = 'Night'; b.onclick = () => { setNight(!night); b.classList.toggle('sel', night); }; bar.appendChild(b); }
 const mark = (key) => bar.querySelectorAll('button[data-view]').forEach((b) => b.classList.toggle('sel', b.dataset.view === key));
@@ -105,10 +109,18 @@ window.addEventListener('resize', resize); resize();
 
 // Render only when something changes: saves battery on laptops and phones
 let lastKey = '';
+// While the view moves: lower resolution and no ambient-occlusion/bloom passes, so it stays smooth.
+// As soon as it stops: one full-quality frame (high resolution, AO, bloom).
+let moving = false, still = 0;
+const setQuality = (full) => {
+  const pr = full ? DPR_FULL : DPR_MOVE; if (renderer.getPixelRatio() !== pr) { renderer.setPixelRatio(pr); resize(); }
+  if (gtao) gtao.enabled = full; if (bloom) bloom.enabled = full;
+};
 renderer.setAnimationLoop(() => {
   controls.update();
   const key = camera.position.toArray().concat(camera.quaternion.toArray(), [camera.fov]).map((v) => v.toFixed(5)).join();
-  if (key !== lastKey) { dirty = 2; lastKey = key; }
+  if (key !== lastKey) { lastKey = key; if (!moving) { moving = true; setQuality(false); } still = 0; dirty = Math.max(dirty, 1); }
+  else if (moving && ++still > 8) { moving = false; setQuality(true); dirty = 2; }
   if (dirty > 0) { composer ? composer.render() : renderer.render(scene, camera); dirty--; }
 });
 document.getElementById('loading')?.remove();

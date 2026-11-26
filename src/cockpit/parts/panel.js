@@ -7,7 +7,8 @@ import { FONT_PANEL } from '../labels.js';
 import { addGrain } from '../surface.js';
 
 const PX_PER_M = 2600;
-export const INTEGRAL = new Set();   // panel faces with integral lighting (dark by day)
+export const INTEGRAL = new Set();
+export const KORRY = new Set();      // pushbutton legend faces (legends readable at night)   // panel faces with integral lighting (dark by day)
 const rbox = (w, h, d, r, mat) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2) * 0.98), mat); m.castShadow = true; m.receiveShadow = true; return m; };
 
 
@@ -34,7 +35,7 @@ export function korryFace(top, bottom, aspect = 1, cols = null) {
   }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.0, emissiveMap: tex, emissive: 0x000000 });
-  faceCache.set(key, mat); return mat;
+  KORRY.add(mat); faceCache.set(key, mat); return mat;
 }
 // shared hardware materials
 const HW = {};
@@ -123,8 +124,10 @@ export function buildPanel(spec, M, atlas) {
   // integral (back) lighting: the engraved legends, lines and pushbutton surrounds are the translucent parts that
   // glow at night; build that mask from the painted face (anything much brighter than the paint)
   const em = document.createElement('canvas'); em.width = cw; em.height = ch; { const ex = em.getContext('2d'); const src = c.getImageData(0, 0, cw, ch); const d = src.data;
-    for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]); if (mx < 175) { d[i] = d[i + 1] = d[i + 2] = 0; } else { const k = (mx - 175) / 80; d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; } }
-    ex.putImageData(src, 0, 0); }
+    for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]); if (mx < 160) { d[i] = d[i + 1] = d[i + 2] = 0; } else { const k = Math.min(1, (mx - 160) / 50); d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; } }
+    ex.putImageData(src, 0, 0);
+    // thicken the lit strokes by a pixel so small legends stay legible at night (backlit engraving blooms slightly)
+    ex.globalCompositeOperation = 'lighten'; ex.globalAlpha = 0.45; ex.drawImage(em, 1, 0); ex.drawImage(em, 0, 1); }
   const emTex = new THREE.CanvasTexture(em); emTex.colorSpace = THREE.SRGBColorSpace;
   const faceMat = addGrain(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissiveMap: emTex, emissive: 0x000000 }), 'paint');
   INTEGRAL.add(faceMat);
