@@ -83,7 +83,7 @@ export function gearBrakePlate(M, A) {
     it({ t: 'line', px: 0, py: 0, pts: [L(1535, 228), L(1952, 228)], w: 0.0007 }),
     it({ t: 'text', px: 1690, py: 250, s: 'AUTO BRK', size: 0.0062 }),
     it({ t: 'text', px: 1602, py: 276, s: 'LO', size: 0.0042 }), it({ t: 'text', px: 1682, py: 276, s: 'MED', size: 0.0042 }), it({ t: 'text', px: 1785, py: 276, s: 'MAX', size: 0.0042 }),
-    it({ t: 'pb', px: 1603, py: 330, w: 0.018, h: 0.018, legends: ['DECEL', 'ON'], id: 'abrkLO' }), it({ t: 'pb', px: 1683, py: 330, w: 0.018, h: 0.018, legends: ['DECEL', 'ON'], id: 'abrkMED' }), it({ t: 'pb', px: 1785, py: 330, w: 0.018, h: 0.018, legends: ['DECEL', 'ON'], id: 'abrkMAX' }),
+    it({ t: 'pb', px: 1603, py: 330, w: 0.018, h: 0.018, legends: ['', ''], id: 'abrkLO' }), it({ t: 'pb', px: 1683, py: 330, w: 0.018, h: 0.018, legends: ['', ''], id: 'abrkMED' }), it({ t: 'pb', px: 1785, py: 330, w: 0.018, h: 0.018, legends: ['', ''], id: 'abrkMAX' }),
     it({ t: 'text', px: 1900, py: 248, s: 'A/SKID &', size: 0.0046 }), it({ t: 'text', px: 1900, py: 270, s: 'N/W STRG', size: 0.0046 }),
     it({ t: 'toggle', px: 1905, py: 322, id: 'askid' }), it({ t: 'text', px: 1956, py: 293, s: 'ON', size: 0.0038 }), it({ t: 'text', px: 1960, py: 357, s: 'OFF', size: 0.0038 }),
     it({ t: 'line', px: 0, py: 0, pts: [L(1542, 386), L(1972, 386)], w: 0.0007 }),

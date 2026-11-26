@@ -24,7 +24,7 @@ export function makeMaterials() {
     panelDark: std(0x2b3341, 0.6),     // dark navy console tops, pedestal body      // panel frames and seams
     module: std(0x7a8e98, 0.58),         // individual 146 mm system panels
     seam: std(0x2b3236, 0.8),
-    glare: std(0x67605a, 0.95, 0, { envMapIntensity: 0.05 }),          // thin dark glareshield cap           // anti-glare finish
+    glare: std(0x56585b, 0.95, 0, { envMapIntensity: 0.05 }),          // thin dark glareshield cap           // anti-glare finish
     fcu: std(0x7a8e98, 0.6),
     consoleTop: std(0x343d4c, 0.55),   // dark navy console tops (as photographed)
     lining: std(0x7a8e98, 0.8),         // upper sidewall lining
@@ -447,6 +447,15 @@ function buildWindowFrames(M) {
     grp.add(onShell(rbox(0.13, 0.011, 0.006, 0.005, blk), s, 0.8, 1.462, [1, 0], 0.066));
     const ov = rbox(0.05, 0.1, 0.01, 0.024, blk); grp.add(onShell(ov, s, 1.02, 1.12, [0, 1], 0.065));
     const dot = new THREE.Mesh(new THREE.CircleGeometry(0.004, 16), new THREE.MeshStandardMaterial({ color: 0x050505 })); dot.position.z = 0.0052; ov.add(dot);
+    // sliding-window latch: brushed plate with screws and a black slot on the lower frame, chrome latch handle in front
+    { const pl = new THREE.Group(); const chrome = new THREE.MeshStandardMaterial({ color: 0xc4c7c8, roughness: 0.25, metalness: 0.85 });
+      const plateM = new THREE.MeshStandardMaterial({ color: 0xb6bcbf, roughness: 0.35, metalness: 0.7 });
+      pl.add(rbox(0.15, 0.05, 0.003, 0.004, plateM)); const slot = rbox(0.1, 0.009, 0.004, 0.003, blk); slot.position.set(-0.012, 0.009, 0.001); pl.add(slot);
+      for (const [x, y] of [[-0.066, 0.017], [0.066, 0.017], [-0.066, -0.017], [0.066, -0.017]]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.001, 12).rotateX(Math.PI / 2), chrome); sc.position.set(x, y, 0.002); pl.add(sc); }
+      { const z = 0.66, y = 0.806; pl.position.set(s * (hullHW(z, 0.8) - 0.085), y, z); pl.rotation.set(-Math.PI / 2, 0, s * Math.PI / 2); pl.rotateX(-s * 0.12); grp.add(pl); }   // lying on the sill shelf
+      const lt = new THREE.Group(); const bar = rbox(0.004, 0.03, 0.004, 0.0015, chrome); bar.position.set(-0.008, 0, 0.012); lt.add(bar); const bar2 = bar.clone(); bar2.position.x = 0.008; lt.add(bar2);
+      const top = rbox(0.02, 0.004, 0.004, 0.0015, chrome); top.position.set(0, 0.015, 0.012); lt.add(top); for (const x of [-0.008, 0.008]) { const st = rbox(0.004, 0.004, 0.012, 0.0015, chrome); st.position.set(x, -0.015, 0.006); lt.add(st); }
+      { const z = 0.76, y = 0.806; lt.position.set(s * (hullHW(z, 0.8) - 0.06), y, z); lt.rotation.set(-Math.PI / 2, 0, s * Math.PI / 2); grp.add(lt); } }
   }
   return grp;
 }
@@ -618,6 +627,10 @@ function buildGlareshield(M, refs) {
         for (let iv = 0; iv <= NV; iv++) { const v = iv / NV, y = yt + (ylo - yt) * v; row.push(new THREE.Vector3(s * x, y, S.faceZ - 0.012 - 0.04 * v * u)); }
         rows.push(row); }
       grp.add(grid(rows, jm)); }
+    // the strip between the panel's outboard edge and the side wall, below the housing: dark, closed down to the console
+    { const jm2 = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide }); const q = [];
+      for (let k = 0; k <= 10; k++) { const y = 0.735 + (0.9 - 0.735) * k / 10; q.push([new THREE.Vector3(s * 0.799, y, 0.035), new THREE.Vector3(s * 0.799, y, LP_ZF(y))]); }
+      grp.add(grid(q, jm2)); }
     const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.92, yLo = 0.735, xIn = 0.813, r = 0.014;
     const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
     const rows = []; const nv = 24;

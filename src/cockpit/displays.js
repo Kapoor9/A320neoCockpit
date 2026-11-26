@@ -58,26 +58,43 @@ function pfd(side) {
   return cv;
 }
 function nd() {
+  // ARC mode, 40 NM: heading scale across the top, range arcs, flight plan from the gate to the runway
   const [cv, c] = canvas();
-  txt(c, 'GS', 30, 22, C.w, 16, 'left'); txt(c, '0', 72, 22, C.g, 18); txt(c, 'TAS', 100, 22, C.w, 16, 'left'); txt(c, '---', 140, 22, C.g, 16, 'left');
-  txt(c, '2000 323°', 490, 22, C.w, 18, 'right'); txt(c, '1.8 NM', 490, 44, C.g, 16, 'right');
-  c.strokeStyle = C.w; c.lineWidth = 2.5; c.beginPath(); c.arc(256, 268, 170, 0, Math.PI * 2); c.stroke();
-  for (let i = 0; i < 72; i++) { const a = (i / 72) * Math.PI * 2; const l = i % 2 ? 8 : 16; c.beginPath(); c.moveTo(256 + Math.sin(a) * 170, 268 - Math.cos(a) * 170); c.lineTo(256 + Math.sin(a) * (170 - l), 268 - Math.cos(a) * (170 - l)); c.stroke(); }
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; txt(c, String(i * 3), 256 + Math.sin(a) * 146, 268 - Math.cos(a) * 146, C.w, i % 3 ? 16 : 22); }
-  c.setLineDash([10, 10]); c.beginPath(); c.arc(256, 268, 85, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
-  c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.moveTo(250, 300); c.lineTo(276, 210); c.lineTo(470, 196); c.stroke();
-  c.fillStyle = C.y; c.fillRect(252, 254, 8, 36); c.fillRect(234, 266, 44, 6); c.fillRect(246, 284, 20, 4);
-  c.beginPath(); c.moveTo(256, 92); c.lineTo(246, 76); c.lineTo(266, 76); c.closePath(); c.fill();
-  c.strokeStyle = C.c; c.lineWidth = 2; c.beginPath(); c.moveTo(232, 300); c.lineTo(236, 308); c.stroke(); txt(c, 'LFBO', 296, 300, C.w, 14);
-  c.strokeStyle = C.w; c.strokeRect(150, 478, 212, 26); txt(c, 'GPS PRIMARY', 256, 491, C.g, 16);
+  const ox = 256, oy = 426, R = 330, hdg = 54; const ang = (h) => THREE.MathUtils.degToRad(h - hdg - 90);
+  const P = (h, r) => [ox + Math.cos(ang(h)) * r, oy + Math.sin(ang(h)) * r];
+  txt(c, 'GS', 14, 18, C.w, 15, 'left'); txt(c, '0', 46, 18, C.g, 17, 'left'); txt(c, 'TAS', 66, 18, C.w, 15, 'left'); txt(c, '---', 104, 18, C.g, 15, 'left');
+  txt(c, '---/---', 14, 38, C.g, 15, 'left');
+  txt(c, 'TOSIT', 498, 18, C.w, 16, 'right'); txt(c, '138°', 498, 38, C.g, 16, 'right'); txt(c, '12.4 NM', 498, 58, C.g, 16, 'right'); txt(c, '06:41', 498, 78, C.g, 16, 'right');
+  c.save(); c.beginPath(); c.rect(0, 60, 512, 420); c.clip();
+  c.strokeStyle = C.w; c.lineWidth = 2.2; c.beginPath(); c.arc(ox, oy, R, ang(hdg - 50), ang(hdg + 50)); c.stroke();
+  for (let h = hdg - 50; h <= hdg + 50; h++) { if (h % 5) continue; const [x0, y0] = P(h, R), [x1, y1] = P(h, R - (h % 10 ? 9 : 17)); c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    if (h % 10 === 0) { const [tx, ty] = P(h, R - 34); txt(c, String(((h % 360) + 360) % 360 / 10 | 0), tx, ty, C.w, (h % 30 === 0) ? 22 : 16); } }
+  c.setLineDash([9, 9]); c.lineWidth = 1.6; for (const r of [R * 0.5, R * 0.75]) { c.beginPath(); c.arc(ox, oy, r, ang(hdg - 50), ang(hdg + 50)); c.stroke(); } c.setLineDash([]);
+  txt(c, '10', P(hdg - 42, R * 0.5)[0], P(hdg - 42, R * 0.5)[1], C.c, 14); txt(c, '20', P(hdg - 44, R * 0.75)[0], P(hdg - 44, R * 0.75)[1], C.c, 14);
+  // flight plan: green line from the aircraft through the departure points, waypoint stars and idents
+  const fp = [[0, 0], [hdg + 2, 60], [hdg + 18, 160], [hdg + 30, 250], [hdg + 46, 360]]; const pts = fp.map(([h, r]) => (r ? P(h, r) : [ox, oy]));
+  c.strokeStyle = C.g; c.lineWidth = 2.6; c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+  ['', 'D054B', 'TOSIT', 'NARAK', 'GAI'].forEach((n, i) => { if (!i) return; const [x, y] = pts[i]; if (y < 80) return; c.strokeStyle = i === 2 ? C.w : C.g; c.lineWidth = 2; c.beginPath();
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; c.moveTo(x, y); c.lineTo(x + Math.cos(a) * 8, y + Math.sin(a) * 8); } c.stroke(); txt(c, n, x + 10, y - 12, i === 2 ? C.w : C.g, 14, 'left'); });
+  // airport symbol and runway
+  c.strokeStyle = C.w; c.lineWidth = 3; const [rx, ry] = P(hdg - 6, 22); c.beginPath(); c.moveTo(rx - 22 * Math.cos(ang(144)), ry - 22 * Math.sin(ang(144))); c.lineTo(rx + 22 * Math.cos(ang(144)), ry + 22 * Math.sin(ang(144))); c.stroke(); txt(c, 'LFBO', rx - 34, ry + 6, C.w, 13, 'right');
+  c.restore();
+  // lubber line, aircraft symbol, track diamond
+  c.fillStyle = C.y; c.fillRect(ox - 2, oy - R - 18, 4, 22);
+  c.strokeStyle = C.y; c.lineWidth = 4; c.beginPath(); c.moveTo(ox, oy - 26); c.lineTo(ox, oy + 18); c.moveTo(ox - 24, oy - 6); c.lineTo(ox + 24, oy - 6); c.moveTo(ox - 10, oy + 14); c.lineTo(ox + 10, oy + 14); c.stroke();
+  c.strokeStyle = C.g; c.lineWidth = 2; c.beginPath(); const [dx, dy] = P(hdg, R + 6); c.moveTo(dx, dy - 7); c.lineTo(dx + 6, dy); c.lineTo(dx, dy + 7); c.lineTo(dx - 6, dy); c.closePath(); c.stroke();
+  // bottom: navaids and mode box
+  txt(c, 'VOR1', 14, 470, C.w, 15, 'left'); txt(c, 'TOU', 14, 490, C.w, 15, 'left'); txt(c, 'ADF2', 498, 470, C.w, 15, 'right'); txt(c, 'BRUNO', 498, 490, C.w, 15, 'right');
+  c.strokeStyle = C.w; c.lineWidth = 1.6; c.strokeRect(176, 482, 160, 24); txt(c, 'GPS PRIMARY', 256, 494, C.g, 15);
   return cv;
 }
-
 function ewd() {
   // engines shut down: amber XX in every gauge, memo in green
   const [cv, c] = canvas();
   const xx = (x, y, px = 22) => txt(c, 'XX', x, y, C.a, px);
-  const gauge = (x, y, r) => { c.strokeStyle = C.a; c.lineWidth = 3.5; c.beginPath(); c.arc(x, y, r, Math.PI * 0.92, Math.PI * 2.02); c.stroke(); };
+  const gauge = (x, y, r) => { c.strokeStyle = C.a; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r, Math.PI * 0.92, Math.PI * 2.02); c.stroke();
+    c.lineWidth = 2; for (let k = 0; k <= 5; k++) { const a = Math.PI * 0.92 + (k / 5) * Math.PI * 1.1; c.beginPath(); c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.lineTo(x + Math.cos(a) * (r - 7), y + Math.sin(a) * (r - 7)); c.stroke(); }
+    c.strokeStyle = '#d03020'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, Math.PI * 1.88, Math.PI * 2.02); c.stroke(); };
   for (const x of [190, 340]) { gauge(x, 70, 40); xx(x, 64); xx(x + 16, 92, 18); gauge(x, 172, 34); xx(x, 186, 19); gauge(x, 254, 40); xx(x + 16, 272, 19); }
   txt(c, 'EPR', 266, 66, C.w, 20); txt(c, 'EGT', 266, 158, C.w, 20); txt(c, '°C', 266, 176, C.c, 15); txt(c, 'N1', 266, 254, C.w, 20); txt(c, '%', 266, 272, C.c, 15);
   xx(466, 40, 19);
@@ -154,7 +171,7 @@ function dcdu() {
 export function paintDisplays(scene, refs) {
   const apply = (mesh, cv, bright = 1.0) => {
     if (!mesh) return; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
-    const m = new THREE.MeshPhysicalMaterial({ color: 0x050607, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright * 1.35, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.08, envMapIntensity: 0.35 });
+    const m = new THREE.MeshPhysicalMaterial({ color: 0x050607, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright * 1.35, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.22, envMapIntensity: 0.22 });   // anti-glare coated glass: soft reflections, no hot spot
     // LCD: faint RGB sub-pixel stripes and pixel grid visible up close, slightly lifted blacks, a touch of edge falloff
     const px = cv.width;
     m.onBeforeCompile = (sh) => {

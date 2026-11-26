@@ -18,7 +18,11 @@ const LITE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, inn
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-const DPR_FULL = Math.min(window.devicePixelRatio, LITE ? 1.25 : 1.5), DPR_MOVE = LITE ? 0.8 : 1.0;
+// quality presets (remembered on this device): High = everything, Medium = lower resolution, Low = no AO/bloom
+const QUALITY = { high: { dpr: 1.5, move: 1.0, fx: true }, medium: { dpr: 1.0, move: 0.75, fx: true }, low: { dpr: 0.85, move: 0.6, fx: false } };
+let qName = 'high'; try { qName = localStorage.getItem('a320q') || (LITE ? 'medium' : 'high'); } catch (e) { qName = LITE ? 'medium' : 'high'; }
+if (!QUALITY[qName]) qName = 'high';
+let DPR_FULL = Math.min(window.devicePixelRatio, QUALITY[qName].dpr), DPR_MOVE = QUALITY[qName].move;
 renderer.setPixelRatio(DPR_FULL);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;   // neutral, sim-like colour response
@@ -114,8 +118,13 @@ let lastKey = '';
 let moving = false, still = 0;
 const setQuality = (full) => {
   const pr = full ? DPR_FULL : DPR_MOVE; if (renderer.getPixelRatio() !== pr) { renderer.setPixelRatio(pr); resize(); }
-  if (gtao) gtao.enabled = full; if (bloom) bloom.enabled = full;
+  const fx = full && QUALITY[qName].fx; if (gtao) gtao.enabled = fx; if (bloom) bloom.enabled = fx;
 };
+{ const b = document.createElement('button'); const label = () => (b.textContent = 'Quality: ' + qName[0].toUpperCase() + qName.slice(1));
+  label(); b.onclick = () => { qName = { high: 'medium', medium: 'low', low: 'high' }[qName]; try { localStorage.setItem('a320q', qName); } catch (e) { /* storage unavailable */ }
+    DPR_FULL = Math.min(window.devicePixelRatio, QUALITY[qName].dpr); DPR_MOVE = QUALITY[qName].move; label(); setQuality(true); dirty = 3; };
+  bar.appendChild(b); }
+setQuality(true);
 renderer.setAnimationLoop(() => {
   controls.update();
   const key = camera.position.toArray().concat(camera.quaternion.toArray(), [camera.fov]).map((v) => v.toFixed(5)).join();

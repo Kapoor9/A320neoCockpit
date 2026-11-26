@@ -98,7 +98,7 @@ export function efisPanel(M, A, side) {
   const items = []; const L = (s, [x, y], size = 0.0034) => items.push({ t: 'text', s, x, y, size });
   const ln = (pts) => items.push({ t: 'line', pts, w: 0.0006 });
   // baro: in Hg / hPa
-  const [bx, by] = C(185, 325); L('in Hg', R(bx, by, -58, -50), 0.0032); L('hPa', R(bx, by, 58, -50), 0.0032);
+  const [bx, by] = C(185, 325); L('in Hg', R(bx, by, -68, -58), 0.0032); L('hPa', R(bx, by, 66, -58), 0.0032);
   // FD / LS keys (FD outboard)
   { const [x, y] = C(148, 430); items.push({ t: 'key', x, y, w: 0.0135, h: 0.0105, s: 'FD', id: 'FD', bar: true }); }
   { const [x, y] = C(228, 432); items.push({ t: 'key', x, y, w: 0.0135, h: 0.0105, s: 'LS', id: 'LS', bar: true }); }
@@ -121,7 +121,7 @@ export function efisPanel(M, A, side) {
   const tg = [C(393, 414), C(610, 416)].sort((a, b) => a[0] - b[0]);
   tg.forEach(([x, y], i) => {
     items.push({ t: 'toggle', x, y, id: 'nav' + (i + 1) });
-    L(String(i + 1), R(x, y, 2, -41)); L('VOR', R(x, y, 60, 0)); L('OFF', R(x, y, 2, 41));
+    L(String(i + 1), R(x, y, 2, -41)); L('VOR', R(x, y, 60, 0)); L('OFF', R(x, y, 2, 50));
     const [ix, iy] = R(x, y, -70, 2); items.push({ t: 'box', x: ix, y: iy, w: 0.0128, h: 0.0056 }); L('INOP', [ix, iy], 0.0032);
   });
   const p = buildPanel({ w: 0.139, h: 0.078, items, bg: PANEL_BG, plate: PLATE, screw: SCREW, name: 'EFIS' + side }, M, A);

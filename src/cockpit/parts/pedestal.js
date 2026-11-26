@@ -178,7 +178,7 @@ export function speedBrakePanel(M, A) {
   const handle = new THREE.Group(); const blk = new THREE.MeshStandardMaterial({ color: 0x0f1113, roughness: 0.25 });
   const s = new THREE.Shape(); s.moveTo(-0.009, 0); s.lineTo(0.009, 0); s.quadraticCurveTo(0.017, 0.03, 0.015, 0.042); s.quadraticCurveTo(0, 0.05, -0.015, 0.042); s.quadraticCurveTo(-0.017, 0.03, -0.009, 0); 
   const g = new THREE.ExtrudeGeometry(s, { depth: 0.016, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 4 }).translate(0, 0, -0.008).rotateX(Math.PI / 2);
-  const grip = new THREE.Mesh(g, blk); grip.castShadow = true; handle.add(grip);
+  const grip = new THREE.Mesh(g, blk); grip.castShadow = true; handle.add(grip); handle.scale.setScalar(0.78);   // sized to the photo
   const sx = 0.02, marks = [['RET', 0.04], ['1/2', 0.0], ['FULL', -0.045]];
   const extra = [...gateItems(sx, marks, 0.048, -0.05), { t: 'text', x: sx, y: 0.06, s: 'GND SPLR ARMED', size: 0.0034, boxed: true }];
   return leverPanel(M, A, { w: 0.15, h: 0.14, title: 'SPEED\nBRAKE', slotX: sx, titleX: -0.035, id: 'speedbrake', handle, marks: [['', 0.04]], extra });
@@ -189,6 +189,7 @@ export function flapsPanel(M, A) {
   const top = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 40).rotateX(Math.PI / 2), blk); top.scale.set(1, 0.55, 1); top.position.z = 0.012; top.castShadow = true; handle.add(top);
   const dome = new THREE.Mesh(new THREE.SphereGeometry(0.03, 32, 12, 0, Math.PI * 2, 0, 0.5).rotateX(Math.PI / 2), blk); dome.scale.set(1, 0.55, 0.35); dome.position.z = 0.018; handle.add(dome);
   const trig = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.006, 32).rotateX(Math.PI / 2), blk); trig.scale.set(1, 0.45, 1); trig.position.z = -0.004; handle.add(trig);
+  handle.scale.setScalar(0.78);   // sized to the photo
   const sx = -0.04, marks = [['0', 0.045], ['1', 0.022], ['2', 0.0], ['3', -0.022], ['FULL', -0.045]];
   const p = leverPanel(M, A, { w: 0.15, h: 0.14, title: 'FLAPS', slotX: sx, titleX: 0.035, id: 'flaps', handle, marks: [['', 0.045]], extra: gateItems(sx, marks, 0.05, -0.05) });
   for (const s2 of [-1, 1]) { const g = rbox(0.008, 0.1, 0.006, 0.002, M.panel); g.position.set(sx + s2 * 0.011, -0.002, 0.003); p.add(g); }
