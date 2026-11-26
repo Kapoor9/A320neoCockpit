@@ -21,6 +21,17 @@ const LEGEND_COLOURS = {
 };
 const legendColour = (s, lower) => LEGEND_COLOURS[s] || (lower ? '#c9ccc8' : '#b88a2c');
 const faceCache = new Map();
+// thin square lining frame around an integrated pushbutton/annunciator opening (cached per size)
+const LIN = new Map();
+function liningGeo(pw, ph) {
+  const k = pw.toFixed(4) + 'x' + ph.toFixed(4); if (LIN.has(k)) return LIN.get(k);
+  const ow = pw / 2 + 0.0013, oh = ph / 2 + 0.0013, iw = pw / 2 - 0.0001, ih = ph / 2 - 0.0001, r = 0.0007;
+  const sh = new THREE.Shape(); sh.moveTo(-ow + r, -oh); sh.lineTo(ow - r, -oh); sh.quadraticCurveTo(ow, -oh, ow, -oh + r); sh.lineTo(ow, oh - r); sh.quadraticCurveTo(ow, oh, ow - r, oh); sh.lineTo(-ow + r, oh); sh.quadraticCurveTo(-ow, oh, -ow, oh - r); sh.lineTo(-ow, -oh + r); sh.quadraticCurveTo(-ow, -oh, -ow + r, -oh);
+  const h = new THREE.Path(); h.moveTo(-iw, -ih); h.lineTo(-iw, ih); h.lineTo(iw, ih); h.lineTo(iw, -ih); h.closePath(); sh.holes.push(h);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.0011, bevelEnabled: true, bevelThickness: 0.00025, bevelSize: 0.0002, bevelSegments: 2, curveSegments: 3 });
+  LIN.set(k, geo); return geo;
+}
+
 export function korryFace(top, bottom, aspect = 1, cols = null) {
   const key = `${top}|${bottom}|${aspect.toFixed(2)}|${cols}`; if (faceCache.has(key)) return faceCache.get(key);
   const H = 128, W = Math.round(H * aspect); const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
@@ -45,6 +56,8 @@ export function korryFace(top, bottom, aspect = 1, cols = null) {
 const HW = {};
 function hw() {
   if (HW.bezel) return HW;
+  HW.lining = new THREE.MeshStandardMaterial({ color: 0x33383c, roughness: 0.5, metalness: 0.25 });   // dark-grey pushbutton lining
+  HW.wellMat = new THREE.MeshBasicMaterial({ color: 0x050607 });
   HW.bezel = new THREE.MeshStandardMaterial({ color: 0xaeb2b2, roughness: 0.38, metalness: 0.55 });      // satin silver Korry bezel
   HW.knob = new THREE.MeshStandardMaterial({ color: 0xd2d6d8, roughness: 0.42, metalness: 0.15 });   // white-grey Airbus selector knobs
   HW.fcuKnob = new THREE.MeshStandardMaterial({ color: 0xbcc0c3, roughness: 0.4, metalness: 0.3 });   // silver-white FCU knobs
@@ -119,13 +132,6 @@ export function buildPanel(spec, M, atlas) {
     }
   }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  c.save(); c.strokeStyle = 'rgba(232,164,86,0.85)'; c.lineWidth = 0.0007 * PX_PER_M;
-  for (const it of spec.items || []) {
-    if (it.t !== 'pb' && it.t !== 'annun') continue;
-    const pw = (it.w || 0.017) + 0.0062, ph = (it.h || (it.t === 'pb' ? 0.017 : 0.009)) + 0.0062; const [x0, y0] = P(it.x - pw / 2, it.y + ph / 2);
-    c.strokeRect(x0, y0, pw * PX_PER_M, ph * PX_PER_M);
-  }
-  c.restore();
   // integral (back) lighting: the engraved legends, lines and pushbutton surrounds are the translucent parts that
   // glow at night; build that mask from the painted face (anything much brighter than the paint)
   const em = document.createElement('canvas'); em.width = cw; em.height = ch; { const ex = em.getContext('2d'); const src = c.getImageData(0, 0, cw, ch); const d = src.data;
@@ -202,13 +208,15 @@ export function buildPanel(spec, M, atlas) {
       if (it.lit) { const lr = new THREE.Mesh(new THREE.TorusGeometry(r * 1.42, r * 0.11, 10, 48), H.amber); lr.position.z = 0.0012; k.add(lr); const db = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.3, r * 1.3, 0.0016, 40).rotateX(Math.PI / 2), H.knobDark); db.position.z = 0.0006; k.add(db); }
       k.position.set(it.x, it.y, 0); k.rotation.z = THREE.MathUtils.degToRad(-(it.angle || 0)); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'pb') {
-      // Korry pushbutton, Airbus style: almost flush - a thin satin bezel and a black lens 4 mm proud
+      // Korry pushbutton, Airbus style: integrated in the panel - a dark square opening with a thin dark-grey lining
+      // barely proud of the paint, and the black lens sunk inside it (the whole cap travels inward when pressed)
       const pw = it.w || 0.017, ph = it.h || 0.017; const b = new THREE.Group();
-      const well = new THREE.Mesh(new THREE.PlaneGeometry(pw + 0.0036, ph + 0.0036), new THREE.MeshBasicMaterial({ color: 0x050606 })); well.position.z = 0.0002; b.add(well);
-      const bez = rbox(pw + 0.0024, ph + 0.0024, 0.0042, 0.0007, H.bezel); bez.position.z = 0.0021; b.add(bez);
-      const lens = rbox(pw - 0.0004, ph - 0.0004, 0.0044, 0.0004, capMat); lens.position.z = 0.0024; b.add(lens);
+      const well = new THREE.Mesh(new THREE.PlaneGeometry(pw + 0.0034, ph + 0.0034), H.wellMat); well.position.z = 0.00018; b.add(well);
+      const lin = new THREE.Mesh(liningGeo(pw, ph), H.lining); b.add(lin);
+      const cap = new THREE.Group(); cap.position.z = 0; b.add(cap); b.userData.cap = cap; b.userData.capZ = 0;
+      const lens = rbox(pw - 0.0005, ph - 0.0005, 0.0009, 0.00035, capMat); lens.position.z = 0.00045; cap.add(lens);
       const [top, bot] = it.legends || [];
-      const face = new THREE.Mesh(new THREE.PlaneGeometry(pw - 0.0012, ph - 0.0012), korryFace(top, bot, pw / ph, it.cols || null)); face.position.z = 0.00465; b.add(face);
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(pw - 0.0011, ph - 0.0011), korryFace(top, bot, pw / ph, it.cols || null)); face.position.z = 0.00092; cap.add(face);
       b.userData.face = face;
       if (it.guard === 'red' || it.guard === 'grey') {
         // hinged guard, closed: red solid cover, or a black open cage
@@ -289,8 +297,9 @@ export function buildPanel(spec, M, atlas) {
         const hole = new THREE.Mesh(new THREE.CircleGeometry(r * 0.28, 24), capMat); hole.position.set(it.x, it.y, r * 0.38); g.add(hole); }
     } else if (it.t === 'annun') {   // fixed annunciator: flush black lens with its legend, dark until lit
       const aw = it.w || 0.016, ah = it.h || 0.009;
-      const bez = rbox(aw + 0.0018, ah + 0.0018, 0.0022, 0.0005, H.bezel); bez.position.set(it.x, it.y, 0.0011); g.add(bez);
-      const a = new THREE.Mesh(new THREE.PlaneGeometry(aw, ah), korryFace(it.s, '', aw / ah)); a.position.set(it.x, it.y, 0.0023); g.add(a);
+      const wl = new THREE.Mesh(new THREE.PlaneGeometry(aw + 0.0034, ah + 0.0034), H.wellMat); wl.position.set(it.x, it.y, 0.00018); g.add(wl);
+      const ln = new THREE.Mesh(liningGeo(aw, ah), H.lining); ln.position.set(it.x, it.y, 0); g.add(ln);
+      const a = new THREE.Mesh(new THREE.PlaneGeometry(aw - 0.0004, ah - 0.0004), korryFace(it.s, '', aw / ah)); a.position.set(it.x, it.y, 0.0007); g.add(a);
       if (it.id) controls[it.id] = a;
     }
   }
