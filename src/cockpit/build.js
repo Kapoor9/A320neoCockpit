@@ -333,7 +333,7 @@ function buildWindowFrames(M) {
     const n = 14; const L = [], R = [], Li = [], Ri = [];
     const postSide = addGrain(new THREE.MeshStandardMaterial({ color: 0x74878f, roughness: 0.62, side: THREE.DoubleSide }), 'paint');
     const postDark = addGrain(new THREE.MeshStandardMaterial({ color: 0x4e5c64, roughness: 0.6, side: THREE.DoubleSide }), 'paint');
-    const T0 = -0.32, T1 = 1.0;   // the bar starts below the pane corner, buried in the lower frame
+    const T0 = -0.09, T1 = 1.0;   // the bar starts below the pane corner, buried in the lower frame
     const eye = new THREE.Vector3(s * 0.5, 1.15, 0.92);
     const mid = (t) => lift(Dp.clone().lerp(C, t), 0.004).lerp(D2.clone().lerp(C2, t), 0.5);
     const m0 = mid(0.0), m1 = mid(1.0); const ua = m1.clone().sub(m0).normalize();
@@ -609,7 +609,16 @@ function buildGlareshield(M, refs) {
   for (const s of [-1, 1]) {
     // end face of the glareshield: a smooth dark moulded connector. Its top is tucked under the end of the cap,
     // and its aft face sweeps down and back in one S-curve to the side console, edges rolled
-    const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.9, yLo = 0.735, xIn = 0.813, r = 0.014;
+    // dark fill under the outboard housing: from the housing's lower edge down to the main panel's top,
+    // its inboard edge sweeping down in one curve to the panel's outboard corner, meeting the connector below
+    { const jm = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide }); const rows = []; const NU = 24, NV = 10;
+      const x0 = 0.6, x1 = 0.825, pTop = 0.836;
+      for (let iu = 0; iu <= NU; iu++) { const u = iu / NU, x = x0 + (x1 - x0) * u; const yt = yBot(Math.min(x, xEnd)) + 0.004;
+        const ylo = yt - (yt - pTop) * Math.sin(u * Math.PI / 2); const row = [];
+        for (let iv = 0; iv <= NV; iv++) { const v = iv / NV, y = yt + (ylo - yt) * v; row.push(new THREE.Vector3(s * x, y, S.faceZ - 0.012 - 0.04 * v * u)); }
+        rows.push(row); }
+      grp.add(grid(rows, jm)); }
+    const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.92, yLo = 0.735, xIn = 0.813, r = 0.014;
     const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
     const rows = []; const nv = 24;
     for (let iv = 0; iv <= nv; iv++) { const y = yb + (yLo - yb) * iv / nv; const zfp = LP_ZF(y) - 0.0015; const xo = Math.max(xIn + r + 0.004, hullHW(zfp, y) - 0.004);
