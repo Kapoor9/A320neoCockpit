@@ -285,6 +285,7 @@ function A_LBL(s, h) {
   const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const c = cv.getContext('2d'); c.fillStyle = '#e9ece8'; c.font = '700 44px Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, 64, 34);
   const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return new THREE.Mesh(new THREE.PlaneGeometry(h * 2, h), new THREE.MeshBasicMaterial({ map: tx, transparent: true, depthWrite: false }));
 }
+export const LP_ZF = (y) => { const t = Math.min(1, Math.max(0, (y - 0.795) / 0.075)); return 0.24 + 0.095 * t * t * (3 - 2 * t); };   // front edge of the lower pillar, side view
 function buildWindowFrames(M) {
   const grp = new THREE.Group(); const f = M.frame.clone(); f.side = THREE.DoubleSide;
   // stepped mouldings: retainer (metal), then three tiers; risers a shade darker than the ledges
@@ -327,17 +328,46 @@ function buildWindowFrames(M) {
     const postSide = addGrain(new THREE.MeshStandardMaterial({ color: 0x74878f, roughness: 0.62, side: THREE.DoubleSide }), 'paint');   // side faces, a shade under the face
     for (let i = 0; i <= n; i++) {
       const tt = i / n; const l = lift(Dp.clone().lerp(C, tt), 0.004), r = D2.clone().lerp(C2, tt);
-      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.095 * (1 - 0.8 * THREE.MathUtils.smoothstep(tt, 0.8, 1.0)) * (1 - 0.6 * (1 - THREE.MathUtils.smoothstep(tt, 0.0, 0.12))));
+      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.095 * (1 - 0.8 * THREE.MathUtils.smoothstep(tt, 0.8, 1.0)) * (0.75 + 0.25 * THREE.MathUtils.smoothstep(tt, 0.0, 0.3)));
       L.push(l); R.push(r); DIN.push(din);
     }
     // each long side of the post climbs in three steps toward its inner face
-    const stairs = (base, other, k) => { const out = [[], [], [], [], [], []];
-      base.forEach((b, i) => { const w = b.distanceTo(other[i]); const tR = other[i].clone().sub(b).normalize(); const sw = Math.min(0.01, w * 0.12); const dn = DIN[i].clone().multiplyScalar(k);
-        out[0].push(b.clone()); out[1].push(b.clone().addScaledVector(dn, 0.3)); out[2].push(b.clone().addScaledVector(dn, 0.3).addScaledVector(tR, sw));
-        out[3].push(b.clone().addScaledVector(dn, 0.62).addScaledVector(tR, sw)); out[4].push(b.clone().addScaledVector(dn, 0.62).addScaledVector(tR, 2 * sw)); out[5].push(b.clone().addScaledVector(dn, 1).addScaledVector(tR, 2 * sw)); });
-      for (let j = 0; j < 5; j++) { const m = stripMesh(out[j], out[j + 1], j % 2 === 0 ? postSide : f); m.castShadow = m.receiveShadow = true; grp.add(m); } return out[5]; };
-    Li.push(...stairs(L, R, 1)); Ri.push(...stairs(R, L, 0.85));
+    const SH = []; { const tier = (d0, dd, l0, dl) => { for (let q = 1; q <= 4; q++) { const an = (q / 4) * Math.PI / 2; SH.push([d0 + dd * Math.sin(an), l0 + dl * (1 - Math.cos(an))]); } };
+      SH.push([0, 0]); tier(0, 0.34, 0, 1); tier(0.34, 0.34, 1, 1); SH.push([1, 2]); }
+    const stairs = (base, other, k) => { const out = SH.map(() => []);
+      base.forEach((b, i) => { const w = b.distanceTo(other[i]); const tR = other[i].clone().sub(b).normalize(); const sw = Math.min(0.012, w * 0.14); const dn = DIN[i].clone().multiplyScalar(k);
+        SH.forEach(([dd, ll], j) => out[j].push(b.clone().addScaledVector(dn, dd).addScaledVector(tR, sw * ll))); });
+      for (let j = 0; j < SH.length - 1; j++) { const m = stripMesh(out[j], out[j + 1], (j < 4 || (j >= 8 && j < 12)) ? postSide : f); m.castShadow = m.receiveShadow = true; grp.add(m); } return out[SH.length - 1]; };
+    const seamDk = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
+    { const keep = postSide; Li.push(...(() => { const r = stairs(L, R, 1); return r; })()); }
+    Ri.push(...stairs(R, L, 0.85));
     grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f));
+    // dark seam between the post and the windshield frame, out to the shell, as on the aircraft
+    grp.add(stripMesh(L, L.map((p) => onHull(s, p.z, p.y, 0.0)), seamDk));
+    // lower pillar: the post carries on below the sill as one moulding, widening aft as it runs down
+    // into the side wall; edges roll down onto the lining, the front edge meets the dark connector
+    { const nu = 28, nv = 40, rows = [];
+      const GL = D.GLARE, rEnd = GL.strip.faceZ + 0.03, yEnd = 0.86;   // the glareshield end occupies x < 0.87 here
+      for (let iv = 0; iv <= nv; iv++) { const v = iv / nv, y = 0.95 - 0.148 * v; const zf = LP_ZF(y), zb = 0.4 + 0.32 * (1 - Math.cos(v * Math.PI / 2));
+        const dep = 0.072 + 0.1 * (v * v * (3 - 2 * v)); const row = [];   // stands proud of the wall, sweeping out onto the shelf top
+        for (let iu = 0; iu <= nu; iu++) { const u = iu / nu; const z = zf + (zb - zf) * u;
+          const e = Math.min(Math.sin(Math.PI / 2 * Math.min(1, u / 0.1)), 1 - 0.65 * THREE.MathUtils.smoothstep(u, 0.55, 1));
+          const d = 0.004 + dep * e;
+          row.push(onHull(s, z, y, Math.max(0.002, d))); }
+        rows.push(row); }
+      { const pp = [], ix = []; const m = nu + 1; rows.forEach((r) => r.forEach((q) => pp.push(q.x, q.y, q.z)));
+        for (let i = 0; i < nv; i++) for (let k = 0; k < nu; k++) { const a = i * m + k, b = (i + 1) * m + k; ix.push(a, b, b + 1, a, b + 1, a + 1); }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3)); g.setIndex(ix); g.computeVertexNormals();
+        const mesh = new THREE.Mesh(g, f); mesh.castShadow = mesh.receiveShadow = true; grp.add(mesh); }   // one smooth surface
+      // grab handle in a shallow recess on the lower pillar, set on its surface
+      const P0 = rows[24][16], Pu = rows[24][19], Pv = rows[28][16]; const tu = Pu.clone().sub(P0).normalize(), tv = Pv.clone().sub(P0).normalize();
+      const nn = tu.clone().cross(tv).normalize(); if (nn.x * s > 0) nn.negate();
+      const ax2 = tu.clone().add(tv).normalize(); const by = nn.clone().cross(ax2).normalize();
+      const hg = new THREE.Group(); hg.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ax2, by, nn)); hg.position.copy(P0);
+      const hm = new THREE.MeshStandardMaterial({ color: 0x16191c, roughness: 0.5 });
+      const hdl = rbox(0.11, 0.022, 0.018, 0.008, hm); hdl.position.z = 0.02; hg.add(hdl);
+      for (const e of [-0.045, 0.045]) { const st = rbox(0.016, 0.018, 0.03, 0.004, hm); st.position.set(e, 0, 0.004); hg.add(st); }
+      grp.add(hg); }
     // ridge along the inner face, an eyeball outlet and the window latch fitting
     { const fn = Ri[6].clone().sub(Li[6]).cross(Li[7].clone().sub(Li[6])).normalize(); if (fn.x * s > 0) fn.negate();
       // reading-light control set into the post: recessed rounded panel, knurled knob, sensor, ON/OFF switch
@@ -379,11 +409,13 @@ function buildWindowFrames(M) {
     const cz = poly.reduce((a2, p) => a2 + p[0], 0) / poly.length, cy = poly.reduce((a2, p) => a2 + p[1], 0) / poly.length;
     const PROF = [[-0.01, 0.002], [-0.01, 0.0065], [0.003, 0.008], [0.005, 0.03], [0.02, 0.033], [0.023, 0.047], [W * 0.45, 0.049], [W * 0.45 + 0.004, 0.064], [W - 0.014, 0.066], [W - 0.005, 0.058], [W, 0.04], [W + 0.01, 0.004]];
     const rings = PROF.map(() => []);
+    let pi = 0;
     for (const [z, y] of pts) {
       const dz = z - cz, dy = y - cy, l = Math.hypot(dz, dy), uz = dz / l, uy = dy / l;
+      const gT = skip >= 0 ? 0.1 + 0.9 * THREE.MathUtils.smoothstep(pi++, 0, 16) : 1;   // the front end eases out of the pillar
       let lim = W + 0.006; while (lim > 0.012 && shellCell(s * hullHW(z + uz * lim, y + uy * lim), y + uy * lim, z + uz * lim) === 'open') lim *= 0.8;
       PROF.forEach(([o, d], k) => {
-        let oo = Math.min(o, lim), zz = z + uz * oo, yy = y + uy * oo, dd = d;
+        let oo = Math.min(o, lim), zz = z + uz * oo, yy = y + uy * oo, dd = d * gT;
         let clamped = false;
         if (zClamp && (zClamp[1] > 0 ? zz > zClamp[0] : zz < zClamp[0])) { zz = zClamp[0]; clamped = true; }
         if (yy < 0.802) { yy = 0.802; clamped = true; }   // the bottom runs down onto the sill
@@ -562,13 +594,16 @@ function buildGlareshield(M, refs) {
   }
   refs.autoland = [lensAt(-0.735, 'AUTO LAND'), lensAt(0.735, 'AUTO LAND')];
   for (const s of [-1, 1]) {
-    // end face of the glareshield: closes the side of the cap and runs down onto the sill shelf
-    const ax = xEnd, f0 = zf(ax), r0 = zr(ax), yb = yBot(ax);
-    const q = [[f0 - 0.02, yT(0, ax)], [f0 + (r0 - f0) * 0.5, yT(0.5, ax)], [r0 - 0.002, yT(1, ax)], [r0 + 0.004, yb], [r0 + 0.07, 0.86], [r0 + 0.13, 0.8], [f0 - 0.02, 0.8]];   // dark cheek: slopes from the glareshield end down and back onto the sill
-    const shp = new THREE.Shape(q.map(([z, y]) => new THREE.Vector2(z, y)));
-    const dep = Math.max(0.07, hullHW(0.3, 0.9) - ax + 0.06); const eg = new THREE.ExtrudeGeometry(shp, { depth: dep, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 5, curveSegments: 6 });
-    const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.55 });   // thick black joint between glareshield and side wall
-    eg.rotateY(-Math.PI / 2); const em = new THREE.Mesh(eg, joint); em.position.x = s * (ax - 0.035) + (s > 0 ? dep : 0); em.castShadow = em.receiveShadow = true; grp.add(em);
+    // end face of the glareshield: a smooth dark moulded connector. Its top is tucked under the end of the cap,
+    // and its aft face sweeps down and back in one S-curve to the side console, edges rolled
+    const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.95, yLo = 0.735, xIn = 0.813, r = 0.014;
+    const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
+    const rows = []; const nv = 24;
+    for (let iv = 0; iv <= nv; iv++) { const y = yb + (yLo - yb) * iv / nv; const zfp = LP_ZF(y) - 0.0015; const xo = Math.max(xIn + r + 0.004, hullHW(zfp, y) - 0.004);
+      const row = [new THREE.Vector3(s * xo, y, zfp)];
+      for (let k = 0; k <= 6; k++) { const t = (k / 6) * Math.PI / 2; row.push(new THREE.Vector3(s * (xIn + r - r * Math.sin(t)), y, zfp - r + r * Math.cos(t))); }
+      row.push(new THREE.Vector3(s * xIn, y, zA)); rows.push(row); }
+    for (let iv = 0; iv < nv; iv++) { const m = stripMesh(rows[iv], rows[iv + 1], joint); m.castShadow = m.receiveShadow = true; grp.add(m); }
   }
 
   return grp;
