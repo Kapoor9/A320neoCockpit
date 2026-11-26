@@ -93,7 +93,8 @@ function setNight(on) {
   night = on; sun.intensity = on ? 0 : 3.0; hemi.intensity = on ? 0.04 : 1.0; scene.environmentIntensity = on ? 0.03 : 0.8;
   dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.14 : 0));
   for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.05 : 0, on ? 0.96 : 0, on ? 0.8 : 0); }   // panel legends: bright warm white
-  for (const m of KORRY) { m.emissive.setScalar(on ? 0.9 : 0); }   // pushbutton legends readable
+  for (const m of KORRY) { m.emissive.setScalar(on ? 0.9 : 0); }
+  scene.traverse((o) => { const m = o.material; if (m && m.emissiveMap && m.emissiveMap === m.map && m.transparent && m.alphaTest > 0) m.emissive.setRGB(on ? 0.85 : 0, on ? 0.78 : 0, on ? 0.64 : 0); });   // label atlas lettering   // pushbutton legends readable
   scene.traverse((o) => { if (o.userData.isSky) o.visible = !on; if (o.userData.nightOnly) o.visible = on; });
   if (scene.fog) scene.fog.color.set(on ? 0x06080c : 0xdbe3e8);
   scene.background = on ? new THREE.Color(0x05070b) : null; renderer.toneMappingExposure = on ? 1.25 : 1.0; renderer.shadowMap.needsUpdate = true; dirty = 3;

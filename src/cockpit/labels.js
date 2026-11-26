@@ -20,7 +20,8 @@ export class LabelAtlas {
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace; this.texture.anisotropy = 8;
     this.texture.generateMipmaps = true; this.texture.minFilter = THREE.LinearMipmapLinearFilter;
-    this.material = new THREE.MeshStandardMaterial({ map: this.texture, transparent: true, alphaTest: 0.25, roughness: 0.55, depthWrite: false,
+    // emissiveMap = the lettering itself: at night (integral lighting) the light legends glow, dark ones barely
+    this.material = new THREE.MeshStandardMaterial({ map: this.texture, emissiveMap: this.texture, emissive: 0x000000, transparent: true, alphaTest: 0.25, roughness: 0.55, depthWrite: false,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   }
 

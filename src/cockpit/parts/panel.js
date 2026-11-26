@@ -33,8 +33,12 @@ export function korryFace(top, bottom, aspect = 1, cols = null) {
     fit(bottom, W * 0.66, H * 0.23); const col = cols ? cols[1] : legendColour(bottom, true); c.fillStyle = col; c.fillText(bottom, W / 2, H * 0.73);
     if (col === '#c9ccc8' && !cols) { const tw = Math.min(W * 0.8, c.measureText(bottom).width + H * 0.16); c.strokeStyle = 'rgba(201,204,200,0.75)'; c.lineWidth = H * 0.022; c.strokeRect(W / 2 - tw / 2, H * 0.6, tw, H * 0.26); }
   }
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.0, emissiveMap: tex, emissive: 0x000000 });
+  // unlit (the normal 'lights out' state): the legend shows only faintly through the dark glass. The full-colour
+  // legend is kept as the emissive map and lights up when the button is lit (or at night for readability)
+  const litTex = new THREE.CanvasTexture(cv); litTex.colorSpace = THREE.SRGBColorSpace; litTex.anisotropy = 8;
+  const dim = document.createElement('canvas'); dim.width = W; dim.height = H; { const dc = dim.getContext('2d'); dc.drawImage(cv, 0, 0); dc.globalCompositeOperation = 'multiply'; dc.fillStyle = '#4a4a4a'; dc.fillRect(0, 0, W, H); }
+  const tex = new THREE.CanvasTexture(dim); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.0, emissiveMap: litTex, emissive: 0x000000 });
   KORRY.add(mat); faceCache.set(key, mat); return mat;
 }
 // shared hardware materials

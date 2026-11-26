@@ -113,8 +113,8 @@ function ewd() {
 
 function sd() {
   const [cv, c] = canvas();
-  txt(c, 'DOOR/OXY', 256, 26, C.w, 26); c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(188, 44); c.lineTo(324, 44); c.stroke();
-  txt(c, 'CKPT OXY', 430, 22, C.w, 18); txt(c, '1740', 410, 46, C.g, 20); txt(c, 'PSI', 462, 48, C.c, 15);
+  txt(c, 'DOOR/OXY', 256, 34, C.w, 26); c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(188, 52); c.lineTo(324, 52); c.stroke();
+  txt(c, 'CKPT OXY', 430, 32, C.w, 18); txt(c, '1740', 410, 56, C.g, 20); txt(c, 'PSI', 462, 58, C.c, 15);
   c.strokeStyle = C.w; c.lineWidth = 2.5;   // slim fuselage outline
   c.beginPath(); c.moveTo(256, 64); c.quadraticCurveTo(290, 74, 292, 120); c.lineTo(292, 448); c.quadraticCurveTo(292, 462, 280, 462); c.lineTo(232, 462); c.quadraticCurveTo(220, 462, 220, 448); c.lineTo(220, 120); c.quadraticCurveTo(222, 74, 256, 64); c.stroke();
   c.beginPath(); c.moveTo(220, 280); c.lineTo(110, 322); c.moveTo(292, 280); c.lineTo(402, 322); c.stroke();
@@ -133,27 +133,52 @@ function sd() {
 }
 
 function mcdu() {
-  const [cv, c] = canvas(); c.fillStyle = '#060807'; c.fillRect(0, 0, 512, 512);
-  const L = [['A320-200', 'w', 'center'], ['ENG', 'w', 'left'], ['LEAP-1A26', 'g', 'left'], [' ACTIVE NAV DATA BASE', 'w', 'left'], ['27NOV-24DEC   AB12345678', 'c', 'left'], [' SECOND NAV DATA BASE', 'w', 'left'], ['30OCT-26NOV', 'c', 'left'], ['', 'w', 'left'], [' CHG CODE', 'w', 'left'], ['[  ]', 'c', 'left'], [' IDLE/PERF', 'w', 'left'], ['+0.0/+0.0          STATUS/XLOAD>', 'g', 'left'], ['', 'w', 'left']];
-  L.forEach(([s, col, al], i) => txt(c, s, al === 'center' ? 256 : 14, 30 + i * 36, C[col], i % 2 ? 22 : 26, al));
+  // MCDU: 24 columns x 14 rows, large and small font, the A/C STATUS page shown after power-up
+  const [cv, c] = canvas(); c.fillStyle = '#030504'; c.fillRect(0, 0, 512, 512);
+  const COLS = 24, cw = 492 / COLS, row = (r) => 30 + r * 34.5;
+  const put = (r, col, str, color, big = true, align = 'left') => {
+    c.fillStyle = color; c.font = `${big ? 700 : 400} ${big ? 27 : 20}px "B612 Mono", monospace`; c.textBaseline = 'middle'; c.textAlign = 'center';
+    const start = align === 'right' ? COLS - col - str.length : align === 'center' ? Math.round((COLS - str.length) / 2) : col;
+    [...str].forEach((ch, i) => c.fillText(ch, 10 + (start + i + 0.5) * cw, row(r)));
+  };
+  put(0, 0, 'A320-251N', C.w, true, 'center');
+  put(1, 1, 'ENG', C.w, false); put(2, 0, 'LEAP-1A26', C.g);
+  put(3, 1, 'ACTIVE NAV DATA BASE', C.w, false); put(4, 1, '27NOV-24DEC', C.c); put(4, 0, 'AB12345678', C.g, true, 'right');
+  put(5, 1, 'SECOND NAV DATA BASE', C.w, false); put(6, 0, '{30OCT-26NOV', C.c);
+  put(9, 1, 'CHG CODE', C.w, false); put(10, 0, '[  ]', C.c);
+  put(11, 1, 'IDLE/PERF', C.w, false); put(11, 1, 'SOFTWARE', C.w, false, 'right');
+  put(12, 0, '+0.0/+0.0', C.g); put(12, 0, 'STATUS/XLOAD>', C.w, true, 'right');
+  // scratchpad line
+  c.fillStyle = C.w; c.font = '400 22px "B612 Mono", monospace'; c.textAlign = 'left'; c.fillText('', 14, row(13));
   return cv;
 }
 
 function isis() {
+  // ISIS: attitude in the middle with pitch scale and bank arc, speed tape left, altitude tape right, baro at the bottom
   const [cv, c] = canvas(256);
-  c.save(); c.beginPath(); c.rect(40, 18, 176, 200); c.clip(); c.fillStyle = C.sky; c.fillRect(40, 18, 176, 104); c.fillStyle = C.gnd; c.fillRect(40, 122, 176, 100);
-  c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(40, 122); c.lineTo(216, 122); c.stroke();
-  for (const [d, w] of [[-44, 60], [-22, 28], [22, 28], [44, 60]]) { c.beginPath(); c.moveTo(128 - w / 2, 122 + d); c.lineTo(128 + w / 2, 122 + d); c.stroke(); if (w > 40) { txt(c, '10', 128 - w / 2 - 12, 122 + d, C.w, 12); txt(c, '10', 128 + w / 2 + 12, 122 + d, C.w, 12); } }
-  c.beginPath(); c.arc(128, 122, 92, Math.PI * 1.3, Math.PI * 1.7); c.stroke(); c.fillStyle = C.y; c.beginPath(); c.moveTo(128, 34); c.lineTo(122, 44); c.lineTo(134, 44); c.closePath(); c.fill();
+  const cx = 128, cy = 118, pp = 3.2;
+  c.save(); c.beginPath(); c.rect(44, 14, 168, 210); c.clip();
+  c.fillStyle = C.sky; c.fillRect(44, 0, 168, cy); c.fillStyle = C.gnd; c.fillRect(44, cy, 168, 140);
+  c.strokeStyle = C.w; c.lineWidth = 1.6; c.beginPath(); c.moveTo(44, cy); c.lineTo(212, cy); c.stroke();
+  c.lineWidth = 1.2; for (let d = -20; d <= 20; d += 2.5) { if (!d) continue; const y = cy - d * 3.2; const w = d % 10 === 0 ? 50 : d % 5 === 0 ? 26 : 12; c.beginPath(); c.moveTo(cx - w / 2, y); c.lineTo(cx + w / 2, y); c.stroke();
+    if (d % 10 === 0) { txt(c, String(Math.abs(d)), cx - w / 2 - 10, y, C.w, 11); txt(c, String(Math.abs(d)), cx + w / 2 + 10, y, C.w, 11); } }
   c.restore();
-  c.fillStyle = '#3d4248'; c.fillRect(6, 18, 34, 200); c.fillRect(216, 18, 40, 200);
-  c.strokeStyle = C.w; c.lineWidth = 2; for (let i = 0; i < 9; i++) { const y = 26 + i * 24; c.beginPath(); c.moveTo(32, y); c.lineTo(40, y); c.stroke(); c.beginPath(); c.moveTo(216, y); c.lineTo(224, y); c.stroke(); }
-  txt(c, '60', 20, 50, C.w, 15); txt(c, '40', 20, 98, C.w, 15);
-  txt(c, '010', 238, 30, C.w, 13); txt(c, '000', 238, 214, C.w, 13);
-  c.fillStyle = '#000'; c.fillRect(212, 110, 44, 24); c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(212, 110, 44, 24); txt(c, '500', 234, 122, C.g, 16);
-  c.fillStyle = C.y; c.fillRect(76, 118, 34, 7); c.fillRect(146, 118, 34, 7); c.fillRect(124, 118, 8, 8);
-  c.fillRect(4, 120, 38, 4);
-  txt(c, '1003', 82, 238, C.c, 16);
+  c.strokeStyle = C.w; c.lineWidth = 1.6; for (const a of [-45, -30, -20, -10, 0, 10, 20, 30, 45]) { const r = THREE.MathUtils.degToRad(a - 90); const R0 = 82, R1 = a % 30 === 0 || Math.abs(a) === 45 ? 92 : 88;
+    c.beginPath(); c.moveTo(cx + Math.cos(r) * R0, cy + Math.sin(r) * R0); c.lineTo(cx + Math.cos(r) * R1, cy + Math.sin(r) * R1); c.stroke(); }
+  c.fillStyle = C.y; c.beginPath(); c.moveTo(cx, cy - 80); c.lineTo(cx - 6, cy - 70); c.lineTo(cx + 6, cy - 70); c.closePath(); c.fill();
+  // aircraft symbol
+  c.fillRect(cx - 52, cy - 2.5, 30, 5); c.fillRect(cx + 22, cy - 2.5, 30, 5); c.fillRect(cx - 3, cy - 3, 6, 6);
+  // speed tape
+  c.fillStyle = '#3d4248'; c.fillRect(4, 14, 40, 210); c.strokeStyle = C.w; c.lineWidth = 1.2;
+  for (let v = 0; v <= 8; v++) { const y = 26 + v * 24; c.beginPath(); c.moveTo(36, y); c.lineTo(44, y); c.stroke(); }
+  txt(c, '80', 22, 50, C.w, 13); txt(c, '60', 22, 98, C.w, 13); txt(c, '40', 22, 146, C.w, 13);
+  c.fillStyle = C.y; c.fillRect(0, cy - 1.5, 50, 3);
+  // altitude tape with readout
+  c.fillStyle = '#3d4248'; c.fillRect(212, 14, 44, 210); for (let k = 0; k <= 8; k++) { const y = 26 + k * 24; c.beginPath(); c.moveTo(212, y); c.lineTo(220, y); c.stroke(); }
+  txt(c, '600', 236, 46, C.w, 12); txt(c, '500', 236, 70, C.w, 12); txt(c, '400', 236, 166, C.w, 12); txt(c, '300', 236, 190, C.w, 12);
+  c.fillStyle = '#000'; c.fillRect(208, cy - 11, 48, 22); c.strokeStyle = C.y; c.lineWidth = 1.5; c.strokeRect(208, cy - 11, 48, 22); txt(c, '500', 232, cy, C.g, 14);
+  // bottom: baro setting and the two lighted labels
+  c.fillStyle = '#000'; c.fillRect(0, 226, 256, 30); txt(c, '1013', 128, 240, C.c, 16); txt(c, 'HPA', 168, 241, C.c, 11);
   return cv;
 }
 
