@@ -84,9 +84,9 @@ export const AFT = {
     { t: 'round', x: -0.035, y: 0.13, r: 0.019, eyeball: true }, { t: 'round', x: -0.035, y: 0.075, r: 0.019, eyeball: true }, { t: 'round', x: -0.035, y: 0.02, r: 0.019, eyeball: true },
     ...selector(0.035, 0.09, '', ['CAPT 3', 'NORM', 'F/O 3'], 'audioSw'),
     { t: 'text', x: 0, y: -0.06, s: 'ENG FADEC GND PWR', size: 0.0034 },
-    ...pbRow(w, -0.085, [['1', '', 'ON'], ['2', '', 'ON']]),
+    ...pbRow(w, -0.085, [['1', '', 'ON', { id: 'fadecGnd1' }], ['2', '', 'ON', { id: 'fadecGnd2' }]]),
     { t: 'text', x: 0, y: -0.12, s: 'APU AUTO EXTING', size: 0.0034 },
-    { t: 'key', x: -0.025, y: -0.14, w: 0.022, h: 0.011, s: 'TEST' }, { t: 'key', x: 0.025, y: -0.14, w: 0.022, h: 0.011, s: 'RESET' },
+    { t: 'key', x: -0.025, y: -0.14, w: 0.022, h: 0.011, s: 'TEST', id: 'apuExtTest' }, { t: 'key', x: 0.025, y: -0.14, w: 0.022, h: 0.011, s: 'RESET', id: 'apuExtReset' },
   ] }),
   cb: (w, h) => ({ title: '', items: [
     { t: 'text', x: 0, y: h / 2 - 0.009, s: 'C/B PANEL 121VU', size: 0.0042 },
@@ -97,10 +97,10 @@ export const AFT = {
     ]),
   ] }),
   maint: (w, h) => ({ title: 'MAINTENANCE', items: [
-    ...pbRow(w, 0.13, [['BLUE PUMP\nOVRD', '', 'ON', { guard: 'grey' }], ['OXYGEN\nTMR RESET', 'FAULT', '']], { cap: 0.003 }),
+    ...pbRow(w, 0.13, [['BLUE PUMP\nOVRD', '', 'ON', { guard: 'grey', id: 'bluePumpOvrd' }], ['OXYGEN\nTMR RESET', 'FAULT', '', { id: 'oxyTmrReset' }]], { cap: 0.003 }),
     { t: 'text', x: 0, y: 0.088, s: 'HYD LEAK MEASUREMENT VALVES', size: 0.0028 },
-    ...pbRow(w, 0.065, [['G', '', 'OFF'], ['B', '', 'OFF'], ['Y', '', 'OFF']], { cap: 0.0032 }),
-    ...pbRow(w, 0.015, [['SVCE INT\nOVRD', '', 'ON'], ['AVIONICS\nCOMPT LT', '', 'ON']], { cap: 0.003 }),
+    ...pbRow(w, 0.065, [['G', '', 'OFF', { id: 'leakG' }], ['B', '', 'OFF', { id: 'leakB' }], ['Y', '', 'OFF', { id: 'leakY' }]], { cap: 0.0032 }),
+    ...pbRow(w, 0.015, [['SVCE INT\nOVRD', '', 'ON', { id: 'svceInt' }], ['AVIONICS\nCOMPT LT', '', 'ON', { id: 'avncLt' }]], { cap: 0.003 }),
     { t: 'round', x: -0.03, y: -0.05, r: 0.02 },
     { t: 'annun', x: 0.035, y: -0.04, w: 0.04, h: 0.012, s: 'VHF 3 DATA' },
     ...selector(0.035, -0.09, 'CVR MIC', ['OFF', 'ON'], 'cvrMic', 0.0075),
@@ -184,8 +184,8 @@ Object.assign(PANELS, {
       ocap(X(325), Y(38), 'PACK FLOW', 0.0031), ocap(X(325), Y(60), 'NORM', 0.0028), ocap(X(195), Y(112), 'LO', 0.0028), ocap(X(475), Y(112), 'HI', 0.0028),
       opb(X(320), Y(358), '', 'OFF', { id: 'pack1' }), ocap(X(255), Y(285), 'PACK 1', 0.0026),
       knob(330, 205, 'packFlow', 0.0105, [-50, 0, 50], 55),
-      ...[['COCKPIT', 910], ['FWD CABIN', 1310], ['AFT CABIN', 1715]].flatMap(([n, px]) => [obox(X(px), Y(47), n, 0.0031), ar(px, 76, 'up'), ocap(X(px - 140), Y(262), 'COLD', 0.0028), ocap(X(px + 140), Y(262), 'HOT', 0.0028), knob(px, 205, 't' + n.replace(' ', ''))]),
-      ocap(X(2258), Y(90), 'HOT AIR', 0.0031), opb(X(2248), Y(168), 'FAULT', 'OFF'),
+      ...[['COCKPIT', 910], ['FWD CABIN', 1310], ['AFT CABIN', 1715]].flatMap(([n, px]) => [obox(X(px), Y(47), n, 0.0031), ar(px, 76, 'up'), ocap(X(px - 140), Y(262), 'COLD', 0.0028), ocap(X(px + 140), Y(262), 'HOT', 0.0028), knob(px, 205, { COCKPIT: 'tCkpt', 'FWD CABIN': 'tFwd', 'AFT CABIN': 'tAft' }[n])]),
+      ocap(X(2258), Y(90), 'HOT AIR', 0.0031), opb(X(2248), Y(168), 'FAULT', 'OFF', { id: 'hotAir' }),
       ocap(X(2328), Y(282), 'PACK 2', 0.0031), opb(X(2316), Y(352), 'FAULT', 'OFF', { id: 'pack2' }),
       obox(X(597), Y(328), 'PACK 1', 0.0029), obox(X(2037), Y(325), 'PACK 2', 0.0029),
       // flow lines: packs to the mixer and the three zones; bleed manifold with the crossbleed valve
@@ -195,26 +195,26 @@ Object.assign(PANELS, {
       ln([[790, 362], [790, 392]]), ar(790, 398, 'down'), ln([[1140, 362], [1140, 400]]), ar(1140, 372, 'up'), ln([[1315, 362], [1315, 405]]), ar(1315, 372, 'up'), ln([[1835, 362], [1835, 392]]), ar(1835, 398, 'down'),
       ocap(X(1605), Y(315), 'x', 0.003), ocap(X(795), Y(415), 'START', 0.0028), ocap(X(1835), Y(415), 'START', 0.0028),
       // bottom row
-      bracket(X(500), X(725), Y(415)), ocap(X(612), Y(434), 'ENG 1 BLEED', 0.0029), opb(X(622), Y(503), 'FAULT', 'OFF'),
-      bracket(X(905), X(1070), Y(402)), ocap(X(985), Y(418), 'RAM AIR', 0.0029), opb(X(990), Y(503), '', 'ON', { guard: 'grey' }),
+      bracket(X(500), X(725), Y(415)), ocap(X(612), Y(434), 'ENG 1 BLEED', 0.0029), opb(X(622), Y(503), 'FAULT', 'OFF', { id: 'eng1Bleed' }),
+      bracket(X(905), X(1070), Y(402)), ocap(X(985), Y(418), 'RAM AIR', 0.0029), opb(X(990), Y(503), '', 'ON', { guard: 'grey', id: 'ramAir' }),
       bracket(X(1080), X(1205), Y(415)), ocap(X(1142), Y(434), 'GND HP', 0.0029),
-      bracket(X(1218), X(1415), Y(415)), ocap(X(1315), Y(434), 'APU BLEED', 0.0029), opb(X(1318), Y(503), 'FAULT', 'ON'),
+      bracket(X(1218), X(1415), Y(415)), ocap(X(1315), Y(434), 'APU BLEED', 0.0029), opb(X(1318), Y(503), 'FAULT', 'ON', { id: 'apuBleed' }),
       ocap(X(1678), Y(404), 'AUTO', 0.0028), ocap(X(1520), Y(450), 'SHUT', 0.0028), ocap(X(1830), Y(450), 'OPEN', 0.0028), knob(1670, 498, 'xbleed', 0.0095, [-60, 0, 60], 65),
-      bracket(X(1910), X(2140), Y(415)), ocap(X(2025), Y(434), 'ENG 2 BLEED', 0.0029), opb(X(2015), Y(503), 'FAULT', 'OFF'),
+      bracket(X(1910), X(2140), Y(415)), ocap(X(2025), Y(434), 'ENG 2 BLEED', 0.0029), opb(X(2015), Y(503), 'FAULT', 'OFF', { id: 'eng2Bleed' }),
     ] }; },
   antiIce: () => { const X = (px) => (px - 642) * OK, Y = (py) => (702 - py) * (0.04 / 205);
-    return { title: '', items: [lcap(X(710), Y(628), 'ANTI ICE', 0.0036),lcap(X(340), Y(668), 'WING', 0.0028), opb(X(355), Y(733), 'FAULT', 'ON'), { t: 'line', pts: [[X(445), Y(650)], [X(445), Y(800)]], w: 0.0006 }, { t: 'line', pts: [[X(680), Y(650)], [X(680), Y(800)]], w: 0.0006 },
-      lcap(X(805), Y(668), 'ENG 1', 0.0028), opb(X(810), Y(733), 'FAULT', 'ON'), lcap(X(1022), Y(668), 'ENG 2', 0.0028), opb(X(1020), Y(733), 'FAULT', 'ON')] }; },
+    return { title: '', items: [lcap(X(710), Y(628), 'ANTI ICE', 0.0036),lcap(X(340), Y(668), 'WING', 0.0028), opb(X(355), Y(733), 'FAULT', 'ON', { id: 'wing' }), { t: 'line', pts: [[X(445), Y(650)], [X(445), Y(800)]], w: 0.0006 }, { t: 'line', pts: [[X(680), Y(650)], [X(680), Y(800)]], w: 0.0006 },
+      lcap(X(805), Y(668), 'ENG 1', 0.0028), opb(X(810), Y(733), 'FAULT', 'ON', { id: 'eng1' }), lcap(X(1022), Y(668), 'ENG 2', 0.0028), opb(X(1020), Y(733), 'FAULT', 'ON', { id: 'eng2' })] }; },
   probeHeat: () => { const X = (px) => (px - 1300) * OK, Y = (py) => (702 - py) * (0.04 / 205);
-    return { title: '', items: [lcap(X(1302), Y(628), 'PROBE/WINDOW', 0.0031), lcap(X(1318), Y(660), 'HEAT', 0.0031),opb(X(1316), Y(733), '', 'ON'), ...vtext(X(1422), Y(733), 'AUTO')] }; },
+    return { title: '', items: [lcap(X(1302), Y(628), 'PROBE/WINDOW', 0.0031), lcap(X(1318), Y(660), 'HEAT', 0.0031),opb(X(1316), Y(733), '', 'ON', { id: 'probeHeat' }), ...vtext(X(1422), Y(733), 'AUTO')] }; },
   cabPress: () => { const X = (px) => (px - 1970) * OK, Y = (py) => (702 - py) * (0.04 / 205);
     return { title: '', items: [lcap(X(1770), Y(626), 'CABIN PRESS', 0.0034),
       lcap(X(1585), Y(666), 'MAN V/S CTL', 0.0026), otg(X(1590), Y(733), undefined, 'manVs'), lcap(X(1690), Y(690), 'UP', 0.0026), lcap(X(1700), Y(768), 'DN', 0.0026),
-      lcap(X(1800), Y(666), 'MODE SEL', 0.0026), opb(X(1792), Y(733), 'FAULT', 'MAN'), ...vtext(X(1890), Y(733), 'AUTO'),
+      lcap(X(1800), Y(666), 'MODE SEL', 0.0026), opb(X(1792), Y(733), 'FAULT', 'MAN', { id: 'modeSel' }), ...vtext(X(1890), Y(733), 'AUTO'),
       lcap(X(2080), Y(628), 'LDG ELEV', 0.0026), lcap(X(2080), Y(646), 'AUTO', 0.0024),
       ...[['14', 1935, 705], ['12', 1920, 740], ['10', 1940, 775], ['-2', 2085, 668], ['0', 2120, 688], ['2', 2140, 722], ['4', 2122, 760]].map(([t, a, b]) => lcap(X(a), Y(b), t, 0.0023)),
       { t: 'knob', style: 'bar', x: X(2035), y: Y(745), r: 0.0085, id: 'ldgElev', ticks: [-140, -110, -80, -50, -20, 10, 40, 70, 100, 130], arc: 140 },
-      lcap(X(2295), Y(646), 'DITCHING', 0.0026), opb(X(2280), Y(733), '', 'ON', { guard: 'grey' }),
+      lcap(X(2295), Y(646), 'DITCHING', 0.0026), opb(X(2280), Y(733), '', 'ON', { guard: 'grey', id: 'ditching' }),
     ] }; },
   extLt: () => { const X = (px) => (px - 675) * OK, Y = (py) => (967 - py) * (0.058 / 325);
     return { title: '', items: [lcap(X(700), Y(827), 'EXT LT', 0.0036),
@@ -240,7 +240,7 @@ Object.assign(PANELS, {
       lcap(X(1545), Y(1000), 'SEAT BELTS', 0.0024), otg(X(1550), Y(1072), undefined, 'seatBelts'), lcap(X(1550), Y(1120), 'OFF', 0.0024), lcap(X(1550), Y(1022), 'ON', 0.0024),
       lcap(X(1735), Y(1000), 'NO SMOKING', 0.0024), lcap(X(1735), Y(1022), 'ON', 0.0024), otg(X(1730), Y(1072), undefined, 'noSmoking'), ...vtext(X(1820), Y(1072), 'AUTO', 0.0021), lcap(X(1730), Y(1120), 'OFF', 0.0024),
       { t: 'line', pts: [[X(1865), Y(1010)], [X(1865), Y(1130)]], w: 0.0006 },
-      { t: 'annun', x: X(1950), y: Y(1075), w: 0.012, h: 0.009, s: 'OFF' },
+      { t: 'annun', x: X(1950), y: Y(1075), w: 0.012, h: 0.009, s: 'OFF', id: 'emerExitOff' },
       lcap(X(2080), Y(1015), 'EMER EXIT LT', 0.0024), otg(X(2130), Y(1072), undefined, 'emerExit'), lcap(X(2232), Y(1042), 'ON', 0.0024), lcap(X(2245), Y(1072), 'ARM', 0.0024), lcap(X(2240), Y(1102), 'OFF', 0.0024),
     ] }; },
 });
@@ -256,13 +256,13 @@ const rpb = (X, Y, px, py, top, bot, o = {}) => opb(X(px), Y(py), top, bot, o);
 const rbr = (X, Y, x0, x1, py) => bracket(X(x0), X(x1), Y(py));
 Object.assign(PANELS, {
   elec: (w, hd) => { const [X, Y] = refMap(1126, 264, hd); return { title: '', items: [
-    rc(X, Y, 128, 12, 'COMMERCIAL'), rpb(X, Y, 128, 44, '', 'OFF'),
-    rc(X, Y, 127, 82, 'GALY & CAB'), rpb(X, Y, 128, 114, 'FAULT', 'OFF'), ...vtext(X(161), Y(112), 'AUTO', 0.0021),
+    rc(X, Y, 128, 12, 'COMMERCIAL'), rpb(X, Y, 128, 44, '', 'OFF', { id: 'commercial' }),
+    rc(X, Y, 127, 82, 'GALY & CAB'), rpb(X, Y, 128, 114, 'FAULT', 'OFF', { id: 'galyCab' }), ...vtext(X(161), Y(112), 'AUTO', 0.0021),
     rbx(X, Y, 232, 28, 'DC BUS 1'), rbx(X, Y, 232, 103, 'AC BUS 1'), gl(X, Y, [[232, 92], [232, 40]]), ga(X, Y, 232, 62, 'up'),
-    rc(X, Y, 387, 12, 'BAT 1'), { t: 'annun', x: X(383), y: Y(52), w: 0.026, h: 0.009, s: '27.7V' },
+    rc(X, Y, 387, 12, 'BAT 1'), { t: 'annun', x: X(383), y: Y(52), w: 0.026, h: 0.009, s: '', id: 'bat1V', lcd: true },
     rc(X, Y, 507, 12, '1'), rc(X, Y, 534, 12, 'BAT'), rc(X, Y, 562, 12, '2'), rpb(X, Y, 507, 54, 'FAULT', 'OFF', { id: 'bat1' }), rpb(X, Y, 563, 54, 'FAULT', 'OFF', { id: 'bat2' }),
-    rc(X, Y, 667, 12, 'BAT 2'), { t: 'annun', x: X(670), y: Y(52), w: 0.026, h: 0.009, s: '27.9V' },
-    rc(X, Y, 790, 40, 'AC ESS FEED'), rpb(X, Y, 790, 80, 'FAULT', 'ALTN'),
+    rc(X, Y, 667, 12, 'BAT 2'), { t: 'annun', x: X(670), y: Y(52), w: 0.026, h: 0.009, s: '', id: 'bat2V', lcd: true },
+    rc(X, Y, 790, 40, 'AC ESS FEED'), rpb(X, Y, 790, 80, 'FAULT', 'ALTN', { id: 'acEssFeed' }),
     rbx(X, Y, 898, 28, 'DC BUS 2'), rbx(X, Y, 898, 103, 'AC BUS 2'), gl(X, Y, [[898, 92], [898, 40]]), ga(X, Y, 898, 62, 'up'),
     rbx(X, Y, 567, 103, 'AC ESS BUS'), gl(X, Y, [[276, 103], [512, 103]]), ga(X, Y, 508, 103, 'right'), gl(X, Y, [[855, 103], [622, 103]]), ga(X, Y, 626, 103, 'left'),
     gl(X, Y, [[232, 114], [232, 150], [898, 150], [898, 114]]),
@@ -277,11 +277,11 @@ Object.assign(PANELS, {
   fire: (w, hd) => { const [X, Y] = refMap(1126, 186, hd); const items = [];
     for (const [n, x, hy, a1, a2, tx] of [['ENG 1', 237, 105, 87, 393, 87], ['ENG 2', 885, 105, 731, 1036, 1043]]) {
       items.push(rc(X, Y, x, 36, n, 0.0052), { t: 'pb', x: X(x), y: Y(hy), w: 0.042, h: 0.026, legends: ['FIRE', 'PUSH'], cols: ['#b8402e', '#c9ccc8'], guard: 'fire', id: 'fire' + n.replace(' ', '') });
-      items.push(rc(X, Y, a1, 32, 'AGENT 1', 0.0025), rpb(X, Y, a1, 68, 'SQUIB', 'DISCH'), rc(X, Y, a2, 32, 'AGENT 2', 0.0025), rpb(X, Y, a2, 68, 'SQUIB', 'DISCH'));
-      items.push(rc(X, Y, tx, 108, 'TEST', 0.0025), { t: 'rbtn', x: X(tx), y: Y(131), r: 0.004 });
+      items.push(rc(X, Y, a1, 32, 'AGENT 1', 0.0025), rpb(X, Y, a1, 68, 'SQUIB', 'DISCH', { id: 'agent1' + n.replace(' ', '') }), rc(X, Y, a2, 32, 'AGENT 2', 0.0025), rpb(X, Y, a2, 68, 'SQUIB', 'DISCH', { id: 'agent2' + n.replace(' ', '') }));
+      items.push(rc(X, Y, tx, 108, 'TEST', 0.0025), { t: 'rbtn', x: X(tx), y: Y(131), r: 0.004, id: 'test' + n.replace(' ', '') });
     }
     items.push(rc(X, Y, 562, 22, 'APU', 0.0052), { t: 'pb', x: X(562), y: Y(80), w: 0.042, h: 0.026, legends: ['FIRE', 'PUSH'], cols: ['#b8402e', '#c9ccc8'], guard: 'fire', id: 'fireAPU' },
-      rpb(X, Y, 480, 160, 'SQUIB', 'DISCH'), rc(X, Y, 535, 157, 'AGENT', 0.0025), rc(X, Y, 641, 136, 'TEST', 0.0025), { t: 'rbtn', x: X(640), y: Y(152), r: 0.004 },
+      rpb(X, Y, 480, 160, 'SQUIB', 'DISCH', { id: 'agentAPU' }), rc(X, Y, 535, 157, 'AGENT', 0.0025), rc(X, Y, 641, 136, 'TEST', 0.0025), { t: 'rbtn', x: X(640), y: Y(152), r: 0.004, id: 'testAPU' },
       { t: 'line', pts: [[X(438), Y(18)], [X(438), Y(150)]], w: 0.0006 }, { t: 'line', pts: [[X(678), Y(18)], [X(678), Y(150)]], w: 0.0006 });
     return { title: '', items }; },
   hyd: (w, hd) => { const [X, Y] = refMap(1126, 172, hd); return { title: '', items: [
@@ -314,9 +314,9 @@ Object.assign(PANELS, {
 // ---- left column, laid out from reference photographs (one image per panel, 0.17 m wide)
 const refL = (H, hd) => [(px) => (px - 338) * (0.17 / 676), (py) => (H / 2 - py) * (hd / H)];
 const rk = (X, Y, px, py, id, r = 0.0095, ticks = [-45, 0, 45], arc = 55) => ({ t: 'knob', style: 'bar', x: X(px), y: Y(py), r, id, ticks, arc });
-const rrb = (X, Y, px, py, r = 0.0058) => ({ t: 'rbtn', x: X(px), y: Y(py), r });
+const rrb = (X, Y, px, py, r = 0.0058, id) => ({ t: 'rbtn', x: X(px), y: Y(py), r, id });
 Object.assign(PANELS, {
-  adirs: (w, hd) => { const [X, Y] = refL(468, hd); const items = [lcap(X(352), Y(20), 'ADIRS', 0.0036), { t: 'annun', x: X(344), y: Y(52), w: 0.028, h: 0.009, s: 'ON BAT' }];
+  adirs: (w, hd) => { const [X, Y] = refL(468, hd); const items = [lcap(X(352), Y(20), 'ADIRS', 0.0036), { t: 'annun', x: X(344), y: Y(52), w: 0.028, h: 0.009, s: 'ON BAT', id: 'onBat' }];
     for (const [n, x] of [['1', 142], ['3', 340], ['2', 538]]) {
       items.push(rc(X, Y, x, 112, 'IR ' + n), rpb(X, Y, x, 165, 'FAULT', 'OFF', { id: 'ir' + n }),
         rc(X, Y, x - 85, 255, 'OFF', 0.0025), rc(X, Y, x - 5, 226, 'NAV', 0.0025), rc(X, Y, x + 68, 247, 'ATT', 0.0025), rk(X, Y, x, 300, 'irSel' + n, 0.0105, [-50, 0, 50], 55),
@@ -327,7 +327,7 @@ Object.assign(PANELS, {
     ...[['ELAC 1', 287], ['SEC 1', 415], ['FAC 1', 535]].flatMap(([n, x]) => [rc(X, Y, x, 48, n), rpb(X, Y, x, 112, 'FAULT', 'OFF', { id: n.replace(' ', '') })])] }; },
   evac: (w, hd) => { const [X, Y] = refL(165, hd); return { title: '', items: [lcap(X(355), Y(15), 'EVAC', 0.0036),
     rc(X, Y, 263, 20, 'COMMAND'), rpb(X, Y, 262, 72, 'EVAC', 'ON', { guard: 'grey', id: 'evacCmd' }),
-    rc(X, Y, 403, 37, 'HORN SHUT OFF'), rrb(X, Y, 403, 86), rc(X, Y, 555, 37, 'CAPT & PURS'), otg(X(555), Y(86), undefined, 'evacSel'), rc(X, Y, 555, 148, 'CAPT', 0.0024)] }; },
+    rc(X, Y, 403, 37, 'HORN SHUT OFF'), rrb(X, Y, 403, 86, undefined, 'hornShutOff'), rc(X, Y, 555, 37, 'CAPT & PURS'), otg(X(555), Y(86), undefined, 'evacSel'), rc(X, Y, 555, 148, 'CAPT', 0.0024)] }; },
   emerElec: (w, hd) => { const [X, Y] = refL(179, hd); return { title: '', items: [lcap(X(350), Y(18), 'EMER ELEC PWR', 0.0034),
     rc(X, Y, 120, 16, 'EMER GEN TEST'), rpb(X, Y, 118, 105, '', '', { guard: 'grey', id: 'emerGenTest' }), { t: 'line', pts: [[X(190), Y(32)], [X(190), Y(140)]], w: 0.0006 },
     rc(X, Y, 264, 48, 'GEN 1 LINE'), rpb(X, Y, 262, 113, 'SMOKE', 'OFF', { id: 'gen1Line' }),
@@ -337,16 +337,16 @@ Object.assign(PANELS, {
     ...[['TERR', 101, 'FAULT', 'OFF'], ['SYS', 228, 'FAULT', 'OFF'], ['G/S\nMODE', 352, '', 'OFF'], ['FLAP\nMODE', 458, '', 'OFF'], ['LDG\nFLAP 3', 568, '', 'ON']].flatMap(([n, x, a, b]) => [rc(X, Y, x, n.includes('\n') ? 38 : 46, n), rpb(X, Y, x, 102, a, b, { id: 'gpws' + x })])] }; },
   rcdr: (w, hd) => { const [X, Y] = refL(138, hd); return { title: '', items: [lcap(X(405), Y(16), 'RCDR', 0.0036),
     rc(X, Y, 254, 28, 'GND CTL'), rpb(X, Y, 255, 80, '', 'ON', { id: 'gndCtl' }), ...vtext(X(318), Y(80), 'AUTO', 0.0021),
-    rc(X, Y, 403, 36, 'CVR ERASE'), rrb(X, Y, 403, 82), rc(X, Y, 552, 28, 'CVR TEST'), rrb(X, Y, 552, 82)] }; },
+    rc(X, Y, 403, 36, 'CVR ERASE'), rrb(X, Y, 403, 82, undefined, 'cvrErase'), rc(X, Y, 552, 28, 'CVR TEST'), rrb(X, Y, 552, 82, undefined, 'cvrTest')] }; },
   oxygen: (w, hd) => { const [X, Y] = refL(186, hd); return { title: '', items: [lcap(X(379), Y(22), 'OXYGEN', 0.0036),
     rc(X, Y, 257, 48, 'MASK MAN ON'), rpb(X, Y, 258, 112, '', '', { guard: 'red', id: 'maskManOn' }),
     rc(X, Y, 408, 62, 'PASSENGER'), rpb(X, Y, 408, 120, 'SYS ON', '', { id: 'paxOxy' }), { t: 'line', pts: [[X(470), Y(40)], [X(470), Y(150)]], w: 0.0006 },
     rc(X, Y, 558, 40, 'CREW'), rc(X, Y, 558, 58, 'SUPPLY'), rpb(X, Y, 558, 120, '', 'OFF', { id: 'crewOxy' })] }; },
   callsWiper: (w, hd) => { const [X, Y] = refL(342, hd); return { title: '', items: [lcap(X(334), Y(16), 'CALLS', 0.0036),
-    ...[['MECH', 101], ['ALL', 215], ['FWD', 330], ['AFT', 448]].flatMap(([n, x]) => [rc(X, Y, x, 34, n), rrb(X, Y, x, 92, 0.0062)]),
+    ...[['MECH', 101], ['ALL', 215], ['FWD', 330], ['AFT', 448]].flatMap(([n, x]) => [rc(X, Y, x, 34, n), rrb(X, Y, x, 92, 0.0062, 'call' + n)]),
     rc(X, Y, 565, 30, 'EMER'), rpb(X, Y, 557, 92, 'CALL', 'ON', { guard: 'grey', id: 'emerCall' }),
     { t: 'line', pts: [[X(55), Y(150)], [X(640), Y(150)]], w: 0.0006 },
-    lcap(X(280), Y(175), 'RAIN RPLNT', 0.0033), rrb(X, Y, 280, 232, 0.0062),
+    lcap(X(280), Y(175), 'RAIN RPLNT', 0.0033), rrb(X, Y, 280, 232, 0.0062, 'rainRplnt'),
     rc(X, Y, 545, 175, 'WIPER'), rc(X, Y, 483, 178, 'OFF', 0.0025), rc(X, Y, 584, 199, 'SLOW', 0.0025), rc(X, Y, 604, 275, 'FAST', 0.0025),
     rk(X, Y, 515, 275, 'wiperL', 0.011, [-30, 30, 75], 0)] }; },
 });
@@ -369,8 +369,8 @@ Object.assign(PANELS, {
     rc(X, Y, 558, 34, 'AFT ISOL VALVE'), rpb(X, Y, 556, 92, 'FAULT', 'OFF', { id: 'aftIsol' })] }; },
   cargoSmoke: (w, hd) => { const [X, Y] = refL(187, hd); return { title: '', items: [lcap(X(338), Y(26), 'CARGO   SMOKE', 0.0033), { t: 'line', pts: [[X(10), Y(6)], [X(666), Y(6)]], w: 0.0006 },
     rc(X, Y, 110, 22, 'DISCH'), rpb(X, Y, 110, 100, 'DISCH', '', { guard: 'red', id: 'cargoDisch1' }), rc(X, Y, 202, 66, 'FWD'), rpb(X, Y, 200, 112, 'SMOKE', '', { id: 'fwdSmoke' }),
-    rc(X, Y, 326, 58, 'TEST'), rrb(X, Y, 326, 112, 0.0072),
-    rc(X, Y, 465, 66, 'FWD'), rpb(X, Y, 465, 112, 'SMOKE', '', { id: 'aftSmoke' }), rc(X, Y, 560, 22, 'DISCH'), rpb(X, Y, 560, 100, 'DISCH', '', { guard: 'red', id: 'cargoDisch2' })] }; },
+    rc(X, Y, 326, 58, 'TEST'), rrb(X, Y, 326, 112, 0.0072, 'smokeTest'),
+    rc(X, Y, 465, 66, 'AFT'), rpb(X, Y, 465, 112, 'SMOKE', '', { id: 'aftSmoke' }), rc(X, Y, 560, 22, 'DISCH'), rpb(X, Y, 560, 100, 'DISCH', '', { guard: 'red', id: 'cargoDisch2' })] }; },
   vent: (w, hd) => { const [X, Y] = refL(176, hd); return { title: '', items: [lcap(X(328), Y(22), 'VENTILATION', 0.0033), { t: 'line', pts: [[X(10), Y(2)], [X(666), Y(2)]], w: 0.0006 },
     rc(X, Y, 115, 64, 'BLOWER'), rpb(X, Y, 113, 116, 'FAULT', 'OVRD', { id: 'blower' }), ...vtext(X(178), Y(116), 'AUTO', 0.0021),
     rc(X, Y, 252, 62, 'EXTRACT'), rpb(X, Y, 250, 116, 'FAULT', 'OVRD', { id: 'extract' }), ...vtext(X(313), Y(116), 'AUTO', 0.0021),
@@ -382,7 +382,7 @@ Object.assign(PANELS, {
 Object.assign(PANELS, {
   // F/O wiper panel: mirror of the captain's
   wiperR: (w, hd) => { const [X, Y] = refL(187, hd); const M = (px) => X(676 - px); return { title: '', items: [{ t: 'line', pts: [[X(55), Y(4)], [X(640), Y(4)]], w: 0.0006 },
-    lcap(M(280), Y(20), 'RAIN RPLNT', 0.0033), rrb((px) => M(px), Y, 280, 77, 0.0062),
+    lcap(M(280), Y(20), 'RAIN RPLNT', 0.0033), rrb((px) => M(px), Y, 280, 77, 0.0062, 'rainRplnt'),
     ocap(M(545), Y(20), 'WIPER'), ocap(M(483), Y(23), 'OFF', 0.0025), ocap(M(584), Y(44), 'SLOW', 0.0025), ocap(M(604), Y(120), 'FAST', 0.0025),
     rk((px) => M(px), Y, 515, 120, 'wiperR', 0.011, [-30, 30, 75], 0)] }; },
 });

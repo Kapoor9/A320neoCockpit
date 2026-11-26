@@ -1,6 +1,7 @@
 // Static display content (aircraft parked, systems powered): PFD, ND, E/WD, SD (DOOR/OXY), ISIS, MCDU.
 // Drawn on canvases and applied as emissive screen textures. Phase 2 will animate these.
 import * as THREE from 'three';
+import { ewd as ewdDraw, sd as sdDraw, selfTest, isisInit } from './ecam.js';
 
 const C = { bg: '#04060a', w: '#f2f2f2', g: '#2ee86a', a: '#ff9a1e', c: '#22d3f2', m: '#ff4fd8', y: '#ffe23a', sky: '#2c8ad8', gnd: '#8a4a1c', r: '#ff2a2a' };
 const FONT = '"B612", "B612 Mono", sans-serif';
@@ -88,51 +89,7 @@ function nd() {
   c.strokeStyle = C.w; c.lineWidth = 1.6; c.strokeRect(176, 482, 160, 24); txt(c, 'GPS PRIMARY', 256, 494, C.g, 15);
   return cv;
 }
-function ewd() {
-  // engines shut down: amber XX in every gauge, memo in green
-  const [cv, c] = canvas();
-  const xx = (x, y, px = 22) => txt(c, 'XX', x, y, C.a, px);
-  const gauge = (x, y, r) => { c.strokeStyle = C.a; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r, Math.PI * 0.92, Math.PI * 2.02); c.stroke();
-    c.lineWidth = 2; for (let k = 0; k <= 5; k++) { const a = Math.PI * 0.92 + (k / 5) * Math.PI * 1.1; c.beginPath(); c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.lineTo(x + Math.cos(a) * (r - 7), y + Math.sin(a) * (r - 7)); c.stroke(); }
-    c.strokeStyle = '#d03020'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, Math.PI * 1.88, Math.PI * 2.02); c.stroke(); };
-  for (const x of [190, 340]) { gauge(x, 70, 40); xx(x, 64); xx(x + 16, 92, 18); gauge(x, 172, 34); xx(x, 186, 19); gauge(x, 254, 40); xx(x + 16, 272, 19); }
-  txt(c, 'EPR', 266, 66, C.w, 20); txt(c, 'EGT', 266, 158, C.w, 20); txt(c, '°C', 266, 176, C.c, 15); txt(c, 'N1', 266, 254, C.w, 20); txt(c, '%', 266, 272, C.c, 15);
-  xx(466, 40, 19);
-  txt(c, 'FF', 36, 158, C.w, 18, 'left'); txt(c, 'KG/H', 66, 158, C.c, 14, 'left'); xx(56, 180, 18);
-  txt(c, 'FF', 420, 158, C.w, 18, 'left'); txt(c, 'KG/H', 450, 158, C.c, 14, 'left'); xx(440, 180, 18);
-  txt(c, 'N2', 40, 236, C.w, 18, 'left'); txt(c, '%', 74, 236, C.c, 15, 'left'); xx(56, 256, 18);
-  txt(c, 'N2', 428, 236, C.w, 18, 'left'); txt(c, '%', 462, 236, C.c, 15, 'left'); xx(444, 256, 18);
-  c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.moveTo(332, 312); c.lineTo(350, 302); c.lineTo(374, 306); c.lineTo(370, 316); c.closePath(); c.stroke(); c.beginPath(); c.moveTo(352, 304); c.lineTo(352, 314); c.stroke();
-  txt(c, 'FOB :', 16, 346, C.w, 22, 'left'); txt(c, '19080', 104, 346, C.g, 24, 'left'); txt(c, 'KG', 192, 348, C.c, 17, 'left');
-  c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.moveTo(8, 372); c.lineTo(296, 372); c.moveTo(330, 372); c.lineTo(504, 372); c.moveTo(316, 384); c.lineTo(316, 496); c.stroke();
-  txt(c, 'COMPANY DATALINK STBY', 14, 394, C.g, 19, 'left');
-  ['PARK BRK', 'TCAS STBY', 'VHF3 VOICE'].forEach((s, i) => txt(c, s, 336, 394 + i * 22, C.g, 19, 'left'));
-  c.lineWidth = 2; c.strokeRect(296, 484, 40, 22); txt(c, 'STS', 316, 495, C.w, 15);
-  return cv;
-}
-
-function sd() {
-  const [cv, c] = canvas();
-  txt(c, 'DOOR/OXY', 256, 34, C.w, 26); c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(188, 52); c.lineTo(324, 52); c.stroke();
-  txt(c, 'CKPT OXY', 430, 32, C.w, 18); txt(c, '1740', 410, 56, C.g, 20); txt(c, 'PSI', 462, 58, C.c, 15);
-  c.strokeStyle = C.w; c.lineWidth = 2.5;   // slim fuselage outline
-  c.beginPath(); c.moveTo(256, 64); c.quadraticCurveTo(290, 74, 292, 120); c.lineTo(292, 448); c.quadraticCurveTo(292, 462, 280, 462); c.lineTo(232, 462); c.quadraticCurveTo(220, 462, 220, 448); c.lineTo(220, 120); c.quadraticCurveTo(222, 74, 256, 64); c.stroke();
-  c.beginPath(); c.moveTo(220, 280); c.lineTo(110, 322); c.moveTo(292, 280); c.lineTo(402, 322); c.stroke();
-  c.strokeStyle = C.g; c.lineWidth = 3;
-  c.strokeRect(246, 86, 20, 12);
-  for (const [x, y] of [[236, 112], [266, 112], [272, 160], [246, 196], [270, 220], [230, 302], [270, 302], [230, 330], [270, 330], [270, 374], [270, 398], [230, 436], [270, 436]]) c.strokeRect(x, y, 12, 20);
-  c.fillStyle = C.a; c.fillRect(224, 160, 12, 22); txt(c, 'CABIN', 96, 170, C.a, 18, 'left');
-  c.strokeStyle = C.a; c.lineWidth = 2; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(160, 170); c.lineTo(222, 170); c.stroke(); c.setLineDash([]);
-  txt(c, 'SLIDE', 168, 316, C.w, 16); txt(c, 'SLIDE', 344, 316, C.w, 16);
-  c.strokeStyle = C.w; c.lineWidth = 2.5; c.beginPath(); c.moveTo(10, 470); c.lineTo(502, 470); c.moveTo(172, 470); c.lineTo(172, 510); c.moveTo(340, 470); c.lineTo(340, 510); c.stroke();
-  txt(c, 'TAT', 18, 482, C.w, 15, 'left'); txt(c, '+11', 72, 482, C.g, 16, 'left'); txt(c, '°C', 136, 482, C.c, 14, 'left');
-  txt(c, 'SAT', 18, 500, C.w, 15, 'left'); txt(c, '+11', 72, 500, C.g, 16, 'left'); txt(c, '°C', 136, 500, C.c, 14, 'left');
-  txt(c, '09', 228, 492, C.g, 20); txt(c, 'H', 256, 494, C.c, 14); txt(c, '27', 284, 492, C.g, 20);
-  txt(c, 'GW', 352, 482, C.w, 15, 'left'); txt(c, '--', 412, 482, C.g, 16, 'left'); txt(c, 'KG', 492, 482, C.c, 14, 'right');
-  return cv;
-}
-
-function mcdu() {
+function mcdu(scratch = '') {
   // MCDU: 24 columns x 14 rows, large and small font, the A/C STATUS page shown after power-up
   const [cv, c] = canvas(); c.fillStyle = '#030504'; c.fillRect(0, 0, 512, 512);
   const COLS = 24, cw = 492 / COLS, row = (r) => 30 + r * 34.5;
@@ -149,7 +106,7 @@ function mcdu() {
   put(11, 1, 'IDLE/PERF', C.w, false); put(11, 1, 'SOFTWARE', C.w, false, 'right');
   put(12, 0, '+0.0/+0.0', C.g); put(12, 0, 'STATUS/XLOAD>', C.w, true, 'right');
   // scratchpad line
-  c.fillStyle = C.w; c.font = '400 22px "B612 Mono", monospace'; c.textAlign = 'left'; c.fillText('', 14, row(13));
+  c.fillStyle = C.w; c.font = '400 22px "B612 Mono", monospace'; c.textAlign = 'left'; [...scratch].forEach((ch, i) => c.fillText(ch, 10 + (i + 0.2) * cw, row(13)));
   return cv;
 }
 
@@ -193,9 +150,12 @@ function dcdu() {
   c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.moveTo(12, 168); c.lineTo(244, 168); c.moveTo(80, 176); c.lineTo(80, 246); c.moveTo(176, 176); c.lineTo(176, 246); c.stroke();
   txt(c, 'COM NOT AVAIL', 128, 196, C.a, 15); return cv;
 }
+// Every display unit: power, self test, brightness and content are driven by the systems (sim/systems.js)
+// through set(name, state); content is redrawn only when what it shows changes.
 export function paintDisplays(scene, refs) {
-  const apply = (mesh, cv, bright = 1.0) => {
-    if (!mesh) return; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+  const offMat = new THREE.MeshPhysicalMaterial({ color: 0x050607, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.22, envMapIntensity: 0.22 });
+  const make = (mesh, cv, bright = 1.0) => {
+    if (!mesh) return null; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
     const m = new THREE.MeshPhysicalMaterial({ color: 0x050607, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright * 1.35, roughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.22, envMapIntensity: 0.22 });   // anti-glare coated glass: soft reflections, no hot spot
     // LCD: faint RGB sub-pixel stripes and pixel grid visible up close, slightly lifted blacks, a touch of edge falloff
     const px = cv.width;
@@ -209,17 +169,59 @@ export function paintDisplays(scene, refs) {
           totalEmissiveRadiance += vec3(0.004, 0.005, 0.007); }`);
     };
     m.customProgramCacheKey = () => 'lcd' + px;
-    mesh.material = m;
+    mesh.material = m; return { mesh, mat: m, tex: tx, bright, last: null };
   };
   const S = refs.screens || {};
-  apply(S.PFD1, pfd(-1)); apply(S.PFD2, pfd(1)); apply(S.ND1, nd()); apply(S.ND2, nd()); apply(S.EWD, ewd()); apply(S.SD, sd()); apply(S.ISIS, isis(), 0.9);
-  scene.traverse((o) => { if (o.name === 'mcduScreen') apply(o, mcdu(), 0.85); });
-  // small windows: RMP frequencies, rudder trim, clock, DCDUs
+  const ir = (sys, i) => sys.adirs[i].aligned || (sys.adirs[i].mode === 2 && sys.adirs[i].aligned);
+  const units = {
+    PFD1: [make(S.PFD1, pfd(-1)), (sys) => [ir(sys, 0)], (sys) => flags(pfd(-1), 'pfd', ir(sys, 0))],
+    PFD2: [make(S.PFD2, pfd(1)), (sys) => [ir(sys, 1)], (sys) => flags(pfd(1), 'pfd', ir(sys, 1))],
+    ND1: [make(S.ND1, nd()), (sys) => [ir(sys, 0)], (sys) => flags(nd(), 'nd', ir(sys, 0))],
+    ND2: [make(S.ND2, nd()), (sys) => [ir(sys, 1)], (sys) => flags(nd(), 'nd', ir(sys, 1))],
+    EWD: [make(S.EWD, ewdDraw(EMPTY)), (sys) => [sys.warnings.map((w) => w.text), sys.memos.map((m) => m.t), Math.round(sys.fuel.fob / 20)], (sys) => ewdDraw(sys)],
+    SD: [make(S.SD, sdDraw(EMPTY, 'DOOR')), (sys) => sdKey(sys), (sys) => sdDraw(sys, sys.sdPage)],
+    ISIS: [make(S.ISIS, isis(), 0.9), () => [], () => isis()],
+  };
+  const mc = []; scene.traverse((o) => { if (o.name === 'mcduScreen') mc.push(o); });
+  mc.sort((a, b) => a.getWorldPosition(new THREE.Vector3()).x - b.getWorldPosition(new THREE.Vector3()).x).forEach((o, i) => (units['MCDU' + (i + 1)] = [make(o, mcdu(''), 0.85), (sys) => [sys.mcduScratch[i]], (sys) => mcdu(sys.mcduScratch[i])]));
+  (refs.dcdu || []).forEach((u, i) => u.traverse((m) => { if (m.name === 'dcduScreen') units['DCDU' + (i + 1)] = [make(m, dcdu(), 0.7), () => [], () => dcdu()]; }));
+  // small windows: RMP frequencies, rudder trim, transponder, clock
+  const small = {};
   scene.traverse((o) => {
-    if (o.name === 'rmpWin') apply(o, seg(o.position.x < 0 ? '123.125' : '121.825', 0.05, 0.013), 0.7);
-    if (o.name === 'rudTrimWin') apply(o, seg('R 0.0', 0.04, 0.013), 0.7);
-    if (o.name === 'atcWin') apply(o, seg('7000', 0.045, 0.022), 0.7);
+    if (o.name === 'rmpWin') (small.rmp = small.rmp || []).push(make(o, seg('', 0.05, 0.013), 0.7));
+    if (o.name === 'rudTrimWin') small.rud = make(o, seg('R 0.0', 0.04, 0.013), 0.7);
+    if (o.name === 'atcWin') small.atc = make(o, seg('7000', 0.045, 0.022), 0.7);
+    if (o.name === 'fcuDisplay' || o.name === 'baroWin') (small.fcu = small.fcu || []).push(o);
   });
-  if (refs.clock) refs.clock.traverse((m) => { if (m.name === 'clkWin1') apply(m, seg('09:27 28', 0.045, 0.013, '#e8f0f4', '#081224'), 0.75); else if (m.name === 'clkWin0' || m.name === 'clkWin2') apply(m, seg('', 0.034, 0.0104, '#e8f0f4', '#0a1a3a'), 0.5); });
-  (refs.dcdu || []).forEach((u) => u.traverse((m) => { if (m.name === 'dcduScreen') apply(m, dcdu(), 0.7); }));
+  if (refs.clock) refs.clock.traverse((m) => { if (m.name === 'clkWin1') make(m, seg('09:27 28', 0.045, 0.013, '#e8f0f4', '#081224'), 0.75); else if (m.name === 'clkWin0' || m.name === 'clkWin2') make(m, seg('', 0.034, 0.0104, '#e8f0f4', '#0a1a3a'), 0.5); });
+  const mgr = { onChange: () => {} };
+  const show = (u, key, draw) => { if (u.last !== key) { u.last = key; u.tex.image = draw(); u.tex.needsUpdate = true; mgr.onChange(); } };
+  const segTxt = (u, str, w, h) => { if (!u) return; show(u, 'seg:' + str, () => seg(str, w, h)); };
+  return Object.assign(mgr, {
+    set(name, st) {
+      const e = units[name]; if (!e || !e[0]) return; const [u, keyFn, draw] = e;
+      if (!st.on) { if (u.mesh.material !== offMat) { u.mesh.material = offMat; u.last = null; mgr.onChange(); } return; }
+      const ei = u.bright * 1.35 * (0.25 + 0.75 * st.brt); if (u.mesh.material !== u.mat || u.mat.emissiveIntensity !== ei) { u.mesh.material = u.mat; u.mat.emissiveIntensity = ei; mgr.onChange(); }
+      if (st.test > 0) show(u, name === 'ISIS' ? 'init' + Math.ceil(st.test) : 'test', () => (name === 'ISIS' ? isisInit(st.test) : selfTest(name.startsWith('DCDU') ? 256 : 512)));
+      else { const k = JSON.stringify(keyFn(st.sys)); if (u.last !== k) { u.last = k; u.tex.image = draw(st.sys); u.tex.needsUpdate = true; mgr.onChange(); } }
+    },
+    small(st) {
+      const S2 = st.sys; const pw = (u, on) => { if (!u) return; const m = on ? u.mat : offMat; if (u.mesh.material !== m) { u.mesh.material = m; mgr.onChange(); } };
+      (small.rmp || []).forEach((u, i) => { const n = i < 2 ? 1 : 2; const on = n === 1 ? st.rmp1 : st.rmp2; pw(u, on); if (on) segTxt(u, st.test ? '888.888' : (i % 2 === 0 ? S2.rmpAct?.[n - 1] : S2.rmpStby?.[n - 1]) || '', 0.05, 0.013); });
+      pw(small.rud, st.rudTrim); if (st.rudTrim) segTxt(small.rud, st.test ? '8 88.8' : (S2.rudTrim < -0.05 ? 'L ' : S2.rudTrim > 0.05 ? 'R ' : '  ') + Math.abs(S2.rudTrim).toFixed(1), 0.04, 0.013);
+      pw(small.atc, st.atc); if (st.atc) segTxt(small.atc, st.test ? '8888' : S2.sqEntry ? S2.sqEntry.padEnd(4, '-') : S2.squawk, 0.045, 0.022);
+      for (const o of small.fcu || []) { if (!o.userData.onMat) o.userData.onMat = o.material; const m = st.fcu ? o.userData.onMat : offMat; if (o.material !== m) { o.material = m; mgr.onChange(); } if (st.fcu && o.userData.draw && o.userData.draw(st.test ? 'test' : S2.fcu)) mgr.onChange(); }
+    },
+  });
+}
+const EMPTY = { warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [25.8, 25.8], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
+const sdKey = (S) => [S.sdPage, Math.round(S.apu.n), Math.round(S.apu.egt / 5), S.apu.avail, S.apu.bleed, S.apu.flap > 0.98, S.apu.shutting, S.elec, S.batV.map((v) => v.toFixed(0)), S.extAvail,
+  Math.round(S.hyd.G / 50), Math.round(S.hyd.B / 50), Math.round(S.hyd.Y / 50), S.hyd.ptu, S.fuel.xfeedOpen >= 1, S.fuel.pumps, S.packs, S.xbleedOpen, new Date().getUTCMinutes()];
+// no attitude / heading until the IR is aligned: red ATT and HDG flags (as on the aircraft during alignment)
+function flags(cv, kind, ok) {
+  if (ok) return cv; const c = cv.getContext('2d'); c.save(); c.setTransform(2, 0, 0, 2, 0, 0);
+  if (kind === 'pfd') { c.fillStyle = '#04060a'; c.beginPath(); c.moveTo(140, 96); c.lineTo(372, 96); c.lineTo(372, 410); c.lineTo(140, 410); c.fill(); c.fillRect(150, 430, 214, 44);
+    txt(c, 'ATT', 256, 250, C.r, 26); txt(c, 'HDG', 256, 452, C.r, 22); }
+  else { c.fillStyle = '#04060a'; c.fillRect(0, 0, 512, 512); txt(c, 'HDG', 256, 120, C.r, 24); txt(c, 'MAP NOT AVAIL', 256, 300, C.r, 20); }
+  c.restore(); return cv;
 }

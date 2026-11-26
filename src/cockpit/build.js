@@ -686,7 +686,7 @@ function buildPedestal(M, refs) {
   refs.rudTrim = at(PED.rudderTrimPanel(M, A), 0, 0.81);
   refs.flaps = at(PED.flapsPanel(M, A), 0.125, 0.82);
   refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.94);
-  at(PED.cockpitDoorPanel(M, A), -0.13, 0.935);
+  refs.doorSwitch = at(PED.cockpitDoorPanel(M, A), -0.13, 0.935).userData.doorSw;
   // printer on the right, blank panels on the left, gravity gear extension handle in the middle, stowage handle and SLEW key aft right
   { const pr = PED.genericPanel(M, A, 0.125, 0.075, '', []); at(pr, 0.13, 0.935); const slot = rbox(0.1, 0.022, 0.012, 0.003, new THREE.MeshStandardMaterial({ color: 0x121416, roughness: 0.5 })); slot.position.z = 0.006; pr.add(slot); }
   for (const z of [0.99, 1.06]) at(PED.genericPanel(M, A, 0.125, 0.065, '', []), -0.13, z);

@@ -4,12 +4,17 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { INTEGRAL, KORRY } from './parts/panel.js';
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
 import { paintDisplays } from './displays.js';
 import { loadFonts } from './labels.js';
 import { applySkyOcclusion } from './skyocc.js';
+import { Sim } from './sim/sim.js';
+import { Systems } from './sim/systems.js';
+import { Interaction } from './sim/interact.js';
+import { registerPhysical } from './sim/physical.js';
+import { makeLighting } from './sim/lighting.js';
+import { PRESETS, applyPreset } from './sim/presets.js';
 
 await loadFonts();
 
@@ -91,10 +96,9 @@ const flood = [-0.45, 0.45].map((x) => { const l = new THREE.SpotLight(0xffe2b8,
 let night = false;
 function setNight(on) {
   night = on; sun.intensity = on ? 0 : 3.0; hemi.intensity = on ? 0.04 : 1.0; scene.environmentIntensity = on ? 0.03 : 0.8;
-  dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.14 : 0));
-  for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.05 : 0, on ? 0.96 : 0, on ? 0.8 : 0); }   // panel legends: bright warm white
-  for (const m of KORRY) { m.emissive.setScalar(on ? 0.9 : 0); }
-  scene.traverse((o) => { const m = o.material; if (m && m.emissiveMap && m.emissiveMap === m.map && m.transparent && m.alphaTest > 0) m.emissive.setRGB(on ? 0.85 : 0, on ? 0.78 : 0, on ? 0.64 : 0); });   // label atlas lettering   // pushbutton legends readable
+  bounce.intensity = on ? 0.05 : 0.8;
+  // cockpit lighting itself (integral, dome, flood, annunciators) follows the switches: see sim/lighting.js
+  lighting?.setNight(on); if (sim) { sim.night = on ? 0.16 : 0; sim.dirty = true; }
   scene.traverse((o) => { if (o.userData.isSky) o.visible = !on; if (o.userData.nightOnly) o.visible = on; });
   if (scene.fog) scene.fog.color.set(on ? 0x06080c : 0xdbe3e8);
   scene.background = on ? new THREE.Color(0x05070b) : null; renderer.toneMappingExposure = on ? 1.25 : 1.0; renderer.shadowMap.needsUpdate = true; dirty = 3;
@@ -103,7 +107,7 @@ function setNight(on) {
 const mark = (key) => bar.querySelectorAll('button[data-view]').forEach((b) => b.classList.toggle('sel', b.dataset.view === key));
 mark('cpt');
 
-let dirty = 3;
+let dirty = 3; let sim = null, lighting = null, systems = null;
 function resize() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -126,7 +130,12 @@ const setQuality = (full) => {
     DPR_FULL = Math.min(window.devicePixelRatio, QUALITY[qName].dpr); DPR_MOVE = QUALITY[qName].move; label(); setQuality(true); dirty = 3; };
   bar.appendChild(b); }
 setQuality(true);
+let tPrev = performance.now(), sysAcc = 0;
 renderer.setAnimationLoop(() => {
+  const now = performance.now(), dt = Math.min(0.1, (now - tPrev) / 1000); tPrev = now;
+  if (systems) { sysAcc += dt; while (sysAcc >= 0.1) { systems.tick(0.1); sysAcc -= 0.1; } }
+  if (sim && sim.update(dt)) dirty = Math.max(dirty, 1);
+  if (lighting && lighting.frame(now / 1000)) dirty = Math.max(dirty, 1);
   controls.update();
   const key = camera.position.toArray().concat(camera.quaternion.toArray(), [camera.fov]).map((v) => v.toFixed(5)).join();
   if (key !== lastKey) { lastKey = key; if (!moving) { moving = true; setQuality(false); } still = 0; dirty = Math.max(dirty, 1); }
@@ -136,5 +145,16 @@ renderer.setAnimationLoop(() => {
 document.getElementById('loading')?.remove();
 
 window.cockpit = { THREE, scene, camera, controls, renderer, refs, lite: LITE, setNight, composer, invalidate: () => (dirty = 3) };
-try { paintDisplays(scene, refs); dirty = 3; } catch (e) { console.error('displays', e); }
+let screens = null; try { screens = paintDisplays(scene, refs); dirty = 3; } catch (e) { console.error('displays', e); }
 applySkyOcclusion(scene);
+// cockpit state, systems and interaction: every control is operable, the aircraft logic drives every light and screen
+sim = new Sim(); sim.attachPanels(); registerPhysical(sim, refs);
+lighting = makeLighting(scene, { dome, flood, invalidate: () => (dirty = Math.max(dirty, 2)) });
+if (screens) screens.onChange = () => (dirty = Math.max(dirty, 2));
+systems = new Systems(sim, { ...lighting, screens }); sim.systems = systems;
+const interaction = new Interaction(sim, camera, canvas, scene);
+applyPreset(sim, systems, 'cold');
+Object.assign(window.cockpit, { sim, systems, interaction, preset: (n) => applyPreset(sim, systems, n) });
+{ const st = document.getElementById('state') || bar;
+  const b = document.createElement('button'); b.textContent = 'Cold & dark'; b.title = 'Everything off, ground power available'; b.onclick = () => { applyPreset(sim, systems, 'cold'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(b);
+  const r = document.createElement('button'); r.textContent = 'Ready for start'; r.title = 'APU running, IRS aligned'; r.onclick = () => { applyPreset(sim, systems, 'ready'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(r); }

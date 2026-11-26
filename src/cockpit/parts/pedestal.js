@@ -14,7 +14,7 @@ export function switchingPanel(M, A) {
       { t: 'text', x: x - 0.014, y: -0.004, s: l, size: 0.0034 }, { t: 'text', x: x + 0.014, y: -0.004, s: r, size: 0.0034 },
       { t: 'knob', x, y: -0.011, r: 0.0095, id: 'sw' + i, style: 'bar', ticks: [-50, 0, 50], arc: 55 });
   });
-  return buildPanel({ w: 0.19, h: 0.052, title: 'SWITCHING', items }, M, A);
+  return buildPanel({ w: 0.19, h: 0.052, title: 'SWITCHING', items, name: 'switching' }, M, A);
 }
 
 export function ecamControlPanel(M, A) {
@@ -30,7 +30,7 @@ export function ecamControlPanel(M, A) {
   const pages = [['ENG', 'BLEED', 'PRESS', 'ELEC', 'HYD', 'FUEL'], ['APU', 'COND', 'DOOR', 'WHEEL', 'F/CTL', 'ALL']];
   pages.forEach((row, r) => row.forEach((s, i) => items.push({ t: 'key', x: -0.032 + i * 0.024, y: 0.018 - r * 0.02, w: 0.02, h: 0.013, s, id: 'ecp_' + s })));
   [['CLR', -0.032], ['STS', 0.022], ['RCL', 0.046], ['CLR', 0.088]].forEach(([s, x], i) => items.push({ t: 'key', x, y: -0.036, w: 0.02, h: 0.013, s, id: 'ecp_' + s + i }));
-  return buildPanel({ w: 0.19, h: 0.115, items }, M, A);
+  return buildPanel({ w: 0.19, h: 0.115, items, name: 'ecamCP' }, M, A);
 }
 
 export function rmpPanel(M, A, n) {
@@ -42,13 +42,13 @@ export function rmpPanel(M, A, n) {
   ];
   ['VHF1', 'VHF2', 'VHF3'].forEach((s, i) => items.push({ t: 'annun', x: -0.05 + i * 0.019, y: 0.016, w: 0.004, h: 0.002, s: '' }, { t: 'key', x: -0.05 + i * 0.019, y: 0.008, w: 0.016, h: 0.009, s, id: 'rmp' + s }));
   [['HF1', -0.05], ['HF2', -0.012], ['AM', 0.007]].forEach(([s, x]) => items.push({ t: 'key', x, y: -0.007, w: 0.016, h: 0.009, s, id: 'rmp' + s }));
-  items.push({ t: 'rbtn', x: -0.031, y: -0.007, r: 0.004 }, { t: 'text', x: -0.031, y: 0.0, s: 'SEL', size: 0.0024 });
+  items.push({ t: 'rbtn', x: -0.031, y: -0.007, r: 0.004, id: 'selLt' }, { t: 'text', x: -0.031, y: 0.0, s: 'SEL', size: 0.0024 });
   items.push({ t: 'text', x: -0.01, y: -0.018, s: 'STBY NAV', size: 0.0026 }, { t: 'line', pts: [[-0.06, -0.018], [-0.026, -0.018]], w: 0.0005 }, { t: 'line', pts: [[0.006, -0.018], [0.045, -0.018]], w: 0.0005 });
-  items.push({ t: 'pb', x: -0.055, y: -0.03, w: 0.014, h: 0.011, legends: ['', 'NAV'], guard: 'grey' });
-  ['VOR', 'ILS', 'MLS', 'ADF', 'BFO'].forEach((s, i) => items.push({ t: 'key', x: -0.034 + i * 0.0175, y: -0.03, w: 0.015, h: 0.009, s }));
-  items.push({ t: 'knob', x: 0.045, y: 0.002, r: 0.0105, style: 'fcu', id: 'freq' }, { t: 'knob', x: 0.045, y: 0.002, r: 0.0065, style: 'fcu' },
+  items.push({ t: 'pb', x: -0.055, y: -0.03, w: 0.014, h: 0.011, legends: ['', 'NAV'], guard: 'grey', id: 'nav' });
+  ['VOR', 'ILS', 'MLS', 'ADF', 'BFO'].forEach((s, i) => items.push({ t: 'key', x: -0.034 + i * 0.0175, y: -0.03, w: 0.015, h: 0.009, s, id: 'nav' + s }));
+  items.push({ t: 'knob', x: 0.045, y: 0.002, r: 0.0105, style: 'fcu', id: 'freq' }, { t: 'knob', x: 0.045, y: 0.002, r: 0.0065, style: 'fcu', id: 'freqInner' },
     { t: 'toggle', x: 0.058, y: -0.028, id: 'pwr' }, { t: 'text', x: 0.058, y: -0.016, s: 'ON', size: 0.0026 }, { t: 'text', x: 0.058, y: -0.041, s: 'OFF', size: 0.0026 });
-  const p = buildPanel({ w: 0.138, h: 0.098, title: '', items }, M, A);
+  const p = buildPanel({ w: 0.138, h: 0.098, title: '', items, name: 'rmp' + n }, M, A);
   for (const x of [-0.036, 0.036]) {
     const win = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.013), M.screen); win.position.set(x, 0.028, 0.0006); win.name = 'rmpWin'; p.add(win);
   }
@@ -63,11 +63,11 @@ export function acpPanel(M, A) {
   [['CALL', 'VHF 1', 105], ['CALL', 'VHF 2', 182], ['CALL', 'VHF 3', 259], ['CALL', 'HF 1', 337], ['CALL', 'HF 2', 415], ['MECH', 'INT', 492], ['ATT', 'CAB', 570]].forEach(([k, n, x]) =>
     items.push({ t: 'key', x: X(x), y: Y(460), w: 0.0135, h: 0.0085, s: k, id: 'tx' + n }, { t: 'text', x: X(x), y: Y(512), s: n, size: 0.0026 }, vk(x, 555, 'rx' + n)));
   items.push({ t: 'text', x: X(134), y: Y(610), s: 'INT', size: 0.0026 }, { t: 'toggle', x: X(134), y: Y(652), id: 'intRad', lit: true }, { t: 'text', x: X(134), y: Y(690), s: 'RAD', size: 0.0026 },
-    { t: 'key', x: X(259), y: Y(652), w: 0.015, h: 0.0085, s: 'VOICE' }, { t: 'key', x: X(337), y: Y(650), w: 0.015, h: 0.0085, s: 'RESET' },
+    { t: 'key', x: X(259), y: Y(652), w: 0.015, h: 0.0085, s: 'VOICE', id: 'voice' }, { t: 'key', x: X(337), y: Y(650), w: 0.015, h: 0.0085, s: 'RESET', id: 'reset' },
     vk(445, 650, 'rxPA'), { t: 'text', x: X(498), y: Y(648), s: 'PA', size: 0.0028 },
-    { t: 'line', pts: [[X(530), Y(618)], [X(612), Y(618)], [X(612), Y(678)], [X(530), Y(678)], [X(530), Y(618)]], w: 0.0006 }, { t: 'key', x: X(571), y: Y(648), w: 0.0135, h: 0.0085, s: '' });
+    { t: 'line', pts: [[X(530), Y(618)], [X(612), Y(618)], [X(612), Y(678)], [X(530), Y(678)], [X(530), Y(618)]], w: 0.0006 }, { t: 'key', x: X(571), y: Y(648), w: 0.0135, h: 0.0085, s: '', id: 'paKey' });
   [['VOR 1', 95], ['VOR 2', 175], ['MKR', 252], ['ILS', 331], ['MLS', 410], ['ADF 1', 489], ['ADF 2', 568]].forEach(([n, x]) => items.push({ t: 'text', x: X(x), y: Y(732), s: n, size: 0.0026 }, vk(x, 772, 'rx' + n)));
-  return buildPanel({ w: W, h: 0.098, items }, M, A);
+  return buildPanel({ w: W, h: 0.098, items, name: 'acpPed' }, M, A);
 }
 
 // lighting panels, weather radar and ATC/TCAS (as photographed)
@@ -81,8 +81,8 @@ export function floodLtPanel(M, A, side) {
     { t: 'text', x: -0.042, y: 0.018, s: 'FLOOD LT', size: 0.0036 }, { t: 'text', x: -0.042, y: 0.011, s: 'PED', size: 0.0024 }, { t: 'knob', style: 'knurl', x: -0.042, y: -0.006, r: 0.0085, id: 'floodPed', arc: 130 },
     { t: 'text', x: -0.058, y: -0.018, s: 'OFF', size: 0.0024 }, { t: 'text', x: -0.026, y: -0.018, s: 'BRT', size: 0.0024 },
     { t: 'line', pts: [[-0.016, 0.02], [-0.016, -0.02]], w: 0.0005 }, { t: 'line', pts: [[0.026, 0.02], [0.026, -0.02]], w: 0.0005 },
-    { t: 'text', x: 0.005, y: 0.018, s: 'AIDS', size: 0.0036 }, { t: 'text', x: 0.005, y: 0.011, s: 'PRINT', size: 0.0024 }, { t: 'rbtn', x: 0.005, y: -0.004, r: 0.0055 },
-    { t: 'text', x: 0.047, y: 0.018, s: 'DFDR', size: 0.0036 }, { t: 'text', x: 0.047, y: 0.011, s: 'EVENT', size: 0.0024 }, { t: 'rbtn', x: 0.047, y: -0.004, r: 0.0055 },
+    { t: 'text', x: 0.005, y: 0.018, s: 'AIDS', size: 0.0036 }, { t: 'text', x: 0.005, y: 0.011, s: 'PRINT', size: 0.0024 }, { t: 'rbtn', x: 0.005, y: -0.004, r: 0.0055, id: 'aidsPrint' },
+    { t: 'text', x: 0.047, y: 0.018, s: 'DFDR', size: 0.0036 }, { t: 'text', x: 0.047, y: 0.011, s: 'EVENT', size: 0.0024 }, { t: 'rbtn', x: 0.047, y: -0.004, r: 0.0055, id: 'dfdrEvent' },
   ];
   return buildPanel({ w: 0.138, h: 0.05, items, name: 'floodLt' + side }, M, A);
 }
@@ -111,7 +111,7 @@ export function atcPanel(M, A) {
     T(738 - 676, 194, 'OFF'), T(832 - 676, 194, 'ON'), sel(785 - 676, 218, 'altRptg'), T(785 - 676, 254, 'ALT RPTG', 0.0024),
     ...['A', 'T', 'C'].map((c, i) => T(724 - 676, 114 + 28 * i, c, 0.003)), ...['T', 'C', 'A', 'S'].map((c, i) => T(1308 - 676, 96 + 26 * i, c, 0.003)),
     T(916 - 676, 18, 'ATC'), T(970 - 676, 18, 'FAIL'), { t: 'annun', x: X(943 - 676), y: Y(18), w: 0.0035, h: 0.0035, s: '' },
-    { t: 'rbtn', x: X(1128 - 676), y: Y(140), r: 0.0042 }, T(1185 - 676, 140, 'IDENT', 0.0032),
+    { t: 'rbtn', x: X(1128 - 676), y: Y(140), r: 0.0042, id: 'ident' }, T(1185 - 676, 140, 'IDENT', 0.0032),
     T(1082 - 676, 186, 'ALL'), T(1120 - 676, 186, 'ABV'), T(1052 - 676, 208, 'THRT'), T(1146 - 676, 208, 'BLW'), sel(1097 - 676, 240, 'tcasTraffic', [-60, -20, 20, 60], 65),
     T(1248 - 676, 186, 'TA'), T(1218 - 676, 208, 'STBY'), T(1283 - 676, 208, 'TA/RA'), sel(1250 - 676, 240, 'tcasMode', [-45, 0, 45], 50),
   ];
@@ -135,7 +135,7 @@ export function engPanel(M, A) {
     { t: 'text', x: -0.03, y: 0.004, s: 'CRANK', size: 0.0034 }, { t: 'text', x: 0.031, y: 0.006, s: 'IGN/\nSTART', size: 0.0034 },
     { t: 'knob', style: 'bar', x: 0, y: -0.012, r: 0.012, id: 'mode', ticks: [-55, 0, 55], arc: 60 },
   ];
-  const p = buildPanel({ w: 0.21, h: 0.08, items }, M, A);
+  const p = buildPanel({ w: 0.21, h: 0.08, items, name: 'engPanel' }, M, A);
   // master switches: big round-headed toggles that must be lifted to move
   p.userData.masters = [];
   for (const s of [-1, 1]) {
@@ -200,7 +200,7 @@ export function flapsPanel(M, A) {
   return p;
 }
 export function rudderTrimPanel(M, A) {
-  const p = buildPanel({ w: 0.085, h: 0.12, items: [
+  const p = buildPanel({ w: 0.085, h: 0.12, name: 'rudderTrim', items: [
     { t: 'text', x: 0, y: 0.05, s: 'RUD TRIM', size: 0.005 },
     { t: 'text', x: -0.025, y: 0.008, s: 'NOSE\nL', size: 0.0036 }, { t: 'text', x: 0.025, y: 0.008, s: 'NOSE\nR', size: 0.0036 },
     { t: 'knob', style: 'bar', x: 0.012, y: -0.012, r: 0.0125, id: 'rudTrim', ticks: [-30, 0, 30], arc: 35 },
@@ -210,7 +210,7 @@ export function rudderTrimPanel(M, A) {
   return p;
 }
 export function parkBrakePanel(M, A) {
-  const p = buildPanel({ w: 0.11, h: 0.09, items: [
+  const p = buildPanel({ w: 0.11, h: 0.09, name: 'parkBrake', items: [
     { t: 'text', x: -0.022, y: 0.03, s: 'PARKING BRK', size: 0.0058 }, { t: 'text', x: -0.022, y: 0.02, s: 'PULL & TURN', size: 0.0036 },
     { t: 'text', x: 0.012, y: 0.03, s: 'OFF', size: 0.004 }, { t: 'text', x: 0.045, y: -0.012, s: 'ON', size: 0.004 },
     { t: 'circ', x: 0.026, y: -0.004, r: 0.024, a0: -90, a1: 0, w: 0.0006, col: '#e8b25a' },
@@ -229,19 +229,19 @@ export function cockpitDoorPanel(M, A) {
   // as in the references: OPEN light, three-position UNLOCK / NORM / LOCK switch in a black housing, round VIDEO button
   const items = [
     { t: 'text', x: -0.03, y: 0.026, s: 'COCKPIT DOOR', size: 0.0052 },
-    { t: 'annun', x: -0.049, y: -0.004, w: 0.014, h: 0.014, s: 'OPEN' },
+    { t: 'annun', x: -0.049, y: -0.004, w: 0.014, h: 0.014, s: 'OPEN', id: 'doorOpen' },
     { t: 'text', x: 0.0, y: 0.008, s: 'UNLOCK', size: 0.0034 }, { t: 'text', x: 0.0, y: -0.004, s: 'NORM', size: 0.0034 }, { t: 'text', x: 0.0, y: -0.016, s: 'LOCK', size: 0.0034 },
     { t: 'text', x: 0.037, y: 0.012, s: 'VIDEO', size: 0.0036 }, { t: 'rbtn', x: 0.037, y: -0.004, r: 0.0065, id: 'doorVideoPed' },
   ];
   const p = buildPanel({ w: 0.125, h: 0.075, items, name: 'cockpitDoor' }, M, A);
   const hs = rbox(0.017, 0.022, 0.006, 0.002, new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 })); hs.position.set(-0.027, -0.004, 0.003); p.add(hs);
-  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.008, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8cbcc, roughness: 0.25, metalness: 0.85 })); t.position.set(-0.027, -0.004, 0.009); p.add(t);
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.008, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8cbcc, roughness: 0.25, metalness: 0.85 })); t.position.set(-0.027, -0.004, 0.009); p.add(t); p.userData.doorSw = t;
   return p;
 }
 export function genericPanel(M, A, w, h, title, rows) {
   const items = [];
   rows.forEach((r, i) => r.forEach((s, j) => items.push({ t: 'pb', x: -w / 2 + (w / (r.length + 1)) * (j + 1), y: h / 2 - 0.022 - i * 0.022, w: 0.015, h: 0.013, legends: [s, ''] })));
-  return buildPanel({ w, h, title, items }, M, A);
+  return buildPanel({ w, h, title, items, name: 'generic' + (title || '') }, M, A);
 }
 
 // a fixed annunciator lens (legend dark until lit), for lights set straight into a housing

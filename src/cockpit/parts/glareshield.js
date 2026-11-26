@@ -28,20 +28,32 @@ function seg7(c, ch, x, y, w, h, col) {
   if (s.includes('f')) V(x + t / 2, y); if (s.includes('b')) V(x + w - t / 2, y); if (s.includes('e')) V(x + t / 2, y + hh); if (s.includes('c')) V(x + w - t / 2, y + hh);
 }
 // FCU window as photographed: SPD 100 | HDG 054 LAT | HDG || V/S | ALT 00100 LVL/CH V/S +00oo
+// FCU window: amber segment digits drawn from the FCU state (sim/systems.js); dashes and a dot when managed
 function fcuWindow(w, h) {
   const K = 4, X0 = 825, Y0 = 138; const cv = document.createElement('canvas'); cv.width = 930 * K; cv.height = 62 * K; const c = cv.getContext('2d');
   const P = (px) => (px - X0) * K, Q = (py) => (py - Y0) * K; const AMB = '#ffb43a';
-  c.fillStyle = '#151a12'; c.fillRect(0, 0, cv.width, cv.height);
-  c.fillStyle = '#0b0d0b'; c.fillRect(P(1283), 0, P(1298) - P(1283), cv.height);
   const lab = (s, px, py, sz) => { c.fillStyle = AMB; c.font = `700 ${sz * K}px "B612", Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, P(px), Q(py)); };
-  lab('SPD', 866, 150, 17); lab('HDG', 1046, 150, 17); lab('LAT', 1135, 150, 17); lab('HDG', 1245, 172, 19); lab('V/S', 1330, 172, 19);
-  lab('ALT', 1488, 152, 17); lab('LVL/CH', 1585, 152, 15); lab('V/S', 1680, 152, 17);
-  c.strokeStyle = AMB; c.lineWidth = 2.2 * K; c.beginPath(); c.moveTo(P(1515), Q(160)); c.lineTo(P(1515), Q(150)); c.lineTo(P(1548), Q(150)); c.moveTo(P(1622), Q(150)); c.lineTo(P(1655), Q(150)); c.lineTo(P(1655), Q(160)); c.stroke();
   const digits = (str, px0, pitch, py0, dh, dw) => [...str].forEach((ch, i) => seg7(c, ch, P(px0 + i * pitch), Q(py0), dw * K, dh * K, AMB));
-  digits('100', 863, 28, 161, 36, 22); digits('054', 1030, 30, 161, 36, 23); digits('00100', 1413, 29, 163, 36, 22);
-  seg7(c, '+', P(1594), Q(165), 24 * K, 32 * K, AMB); digits('00', 1622, 28, 163, 36, 22); digits('oo', 1680, 26, 163, 36, 20);
+  const dot = (px, py) => { c.fillStyle = AMB; c.beginPath(); c.arc(P(px), Q(py), 5 * K, 0, Math.PI * 2); c.fill(); };
   const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
-  return new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.25 });
+  let last = '';
+  const draw = (v) => {
+    const key = JSON.stringify(v); if (key === last) return false; last = key;
+    const T = v === 'test'; v = T ? { spd: '888', hdg: '888', alt: '88888', vs: '+8888', spdM: true, hdgM: true, altM: true, trk: false } : v;
+    c.fillStyle = '#151a12'; c.fillRect(0, 0, cv.width, cv.height); c.fillStyle = '#0b0d0b'; c.fillRect(P(1283), 0, P(1298) - P(1283), cv.height);
+    lab(v.mach ? 'MACH' : 'SPD', 866, 150, 17); lab(v.trk ? 'TRK' : 'HDG', 1046, 150, 17); lab('LAT', 1135, 150, 17); lab(v.trk ? 'TRK' : 'HDG', 1245, 172, 19); lab(v.trk ? 'FPA' : 'V/S', 1330, 172, 19);
+    lab('ALT', 1488, 152, 17); lab('LVL/CH', 1585, 152, 15); lab(v.trk ? 'FPA' : 'V/S', 1680, 152, 17);
+    c.strokeStyle = AMB; c.lineWidth = 2.2 * K; c.beginPath(); c.moveTo(P(1515), Q(160)); c.lineTo(P(1515), Q(150)); c.lineTo(P(1548), Q(150)); c.moveTo(P(1622), Q(150)); c.lineTo(P(1655), Q(150)); c.lineTo(P(1655), Q(160)); c.stroke();
+    digits(v.spd, 863, 28, 161, 36, 22); if (v.spdM) dot(960, 175);
+    digits(v.hdg, 1030, 30, 161, 36, 23); if (v.hdgM) dot(1130, 175);
+    digits(v.alt, 1413, 29, 163, 36, 22); if (v.altM) dot(1570, 175);
+    if (v.vs[0] === '-' || v.vs[0] === '+') { seg7(c, v.vs[0] === '-' ? '-' : '+', P(1594), Q(165), 24 * K, 32 * K, AMB); digits(v.vs.slice(1, 3), 1622, 28, 163, 36, 22); digits(v.vs.slice(3), 1680, 26, 163, 36, 20); }
+    else digits(v.vs, 1622, 28, 163, 36, 22);
+    tx.needsUpdate = true; return true;
+  };
+  draw({ spd: '---', hdg: '---', alt: '05000', vs: '-----', spdM: true, hdgM: true, altM: true });
+  const mat = new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.25 });
+  mat.userData.draw = draw; return mat;
 }
 const PANEL_BG = '#7d919b', PLATE = new THREE.MeshStandardMaterial({ color: 0x6f838d, roughness: 0.55 }), SCREW = new THREE.MeshStandardMaterial({ color: 0x8a9399, roughness: 0.4, metalness: 0.5 });   // same blue-grey as the surroundings
 const S = 0.000214;   // metres per photo pixel
@@ -75,18 +87,24 @@ export function fcuPanel(M, A) {
   const p = buildPanel({ w: 0.24, h: 0.078, items, bg: PANEL_BG, plate: PLATE, screw: SCREW, name: 'FCU' }, M, A);
   const [dx, dy] = F(1290, 169); const dw = 930 * S, dh = 62 * S;
   const frame = new THREE.Mesh(new THREE.PlaneGeometry(dw + 0.003, dh + 0.003), new THREE.MeshBasicMaterial({ color: 0x0a0b0c })); frame.position.set(dx, dy, 0.0004); p.add(frame);
-  const disp = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), fcuWindow(dw, dh)); disp.position.set(dx, dy, 0.0008); disp.name = 'fcuDisplay'; p.add(disp); p.userData.windows = { all: disp };
+  const disp = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), fcuWindow(dw, dh)); disp.position.set(dx, dy, 0.0008); disp.name = 'fcuDisplay'; disp.userData.draw = (v) => disp.userData.onMat.userData.draw(v); p.add(disp); p.userData.windows = { all: disp };
   return p;
 }
 
 // small QNH window: amber QNH caption over the big pressure figure
-function qnhWindow(w, h, value = '1003') {
+function qnhWindow(w, h) {
   const K = 4; const cv = document.createElement('canvas'); cv.width = 132 * K; cv.height = 65 * K; const c = cv.getContext('2d'); const AMB = '#ffb43a';
-  c.fillStyle = '#151a12'; c.fillRect(0, 0, cv.width, cv.height);
-  c.fillStyle = AMB; c.font = `700 ${17 * K}px "B612", Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('QNH', 95 * K, 13 * K);
-  [...value].forEach((ch, i) => seg7(c, ch, (16 + i * 27) * K, 26 * K, 21 * K, 32 * K, AMB));
-  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.25 });
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; let last = '';
+  const draw = (value) => {
+    if (value === last) return false; last = value;
+    c.fillStyle = '#151a12'; c.fillRect(0, 0, cv.width, cv.height);
+    c.fillStyle = AMB; c.font = `700 ${17 * K}px "B612", Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; if (value !== 'Std') c.fillText('QNH', 95 * K, 13 * K);
+    if (value === 'Std') { c.font = `700 ${30 * K}px "B612", Arial, sans-serif`; c.fillText('Std', 66 * K, 40 * K); }
+    else [...value].forEach((ch, i) => seg7(c, ch, (16 + i * 27) * K, 26 * K, 21 * K, 32 * K, AMB));
+    tx.needsUpdate = true; return true;
+  };
+  draw('1013');
+  const mat = new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.25 }); mat.userData.draw = draw; return mat;
 }
 
 export function efisPanel(M, A, side) {
@@ -133,15 +151,16 @@ export function efisPanel(M, A, side) {
   // QNH window and the baro knob: grey PULL STD knob inside its black in Hg / hPa selector ring, lit amber surround
   const [qx, qy] = C(196, 212); const ww = 132 * S, wh = 65 * S;
   const fr = new THREE.Mesh(new THREE.PlaneGeometry(ww + 0.002, wh + 0.002), new THREE.MeshBasicMaterial({ color: 0x0a0b0c })); fr.position.set(qx, qy, 0.0004); p.add(fr);
-  const w = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), qnhWindow(ww, wh)); w.position.set(qx, qy, 0.0008); w.name = 'baroWin'; p.add(w);
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), qnhWindow(ww, wh)); w.position.set(qx, qy, 0.0008); w.name = 'baroWin'; w.userData.side = side; w.userData.draw = (fcu) => w.userData.onMat.userData.draw(fcu === 'test' ? '8888' : fcu.baro[side === 1 || side < 0 ? 0 : 1]); p.add(w);
   const H = { dark: new THREE.MeshStandardMaterial({ color: 0x141618, roughness: 0.45 }), grey: new THREE.MeshStandardMaterial({ color: 0xc4c8cb, roughness: 0.38, metalness: 0.25 }),
     amber: new THREE.MeshStandardMaterial({ color: 0xe8963a, roughness: 0.4, emissive: 0xd0701c, emissiveIntensity: 0.9 }) };
   const kb = new THREE.Group(); kb.position.set(bx, by, 0); p.add(kb);
   const glow = new THREE.Mesh(new THREE.TorusGeometry(0.0118, 0.0011, 10, 48), H.amber); glow.position.z = 0.0012; kb.add(glow);
   const sel = new THREE.Mesh(new THREE.CylinderGeometry(0.0108, 0.011, 0.007, 48).rotateX(Math.PI / 2), H.dark); sel.position.z = 0.0035; sel.castShadow = true; kb.add(sel);
-  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.0072, 0.0075, 0.013, 40).rotateX(Math.PI / 2), H.grey); knob.position.set(-0.0016, 0.0016, 0.0098); knob.castShadow = true; kb.add(knob);
-  for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 2; const fl = new THREE.Mesh(new THREE.BoxGeometry(0.0008, 0.0012, 0.012), H.grey); fl.position.set(-0.0016 + Math.cos(a) * 0.0075, 0.0016 + Math.sin(a) * 0.0075, 0.0098); fl.rotation.z = a; kb.add(fl); }
-  const face = A.mesh('PULL\nSTD', 0.006, { px: 40, weight: 700, color: '#5d6266' }, 0.009); face.position.set(-0.0016, 0.0016, 0.0166); face.rotation.z = -0.5; kb.add(face);
+  const kg = new THREE.Group(); kg.position.set(-0.0016, 0.0016, 0); kb.add(kg); p.userData.baro = { knob: kg, ring: sel };
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.0072, 0.0075, 0.013, 40).rotateX(Math.PI / 2), H.grey); knob.position.set(0, 0, 0.0098); knob.castShadow = true; kg.add(knob);
+  for (let i = 0; i < 30; i++) { const a = (i / 30) * Math.PI * 2; const fl = new THREE.Mesh(new THREE.BoxGeometry(0.0008, 0.0012, 0.012), H.grey); fl.position.set(Math.cos(a) * 0.0075, Math.sin(a) * 0.0075, 0.0098); fl.rotation.z = a; kg.add(fl); }
+  const face = A.mesh('PULL\nSTD', 0.006, { px: 40, weight: 700, color: '#5d6266' }, 0.009); face.position.set(0, 0, 0.0166); face.rotation.z = -0.5; kg.add(face);
   return p;
 }
 

@@ -73,7 +73,9 @@ export function makeSidestick(M, side = -1) {
   let yy = 0; sizes.forEach((w) => { const p = rbox(w, 0.009, w, 0.004, plateMat); p.position.y = yy + 0.0045; g.add(p); yy += 0.0085; });   // stacked stepped rubber boot
   const top = rbox(0.046, 0.004, 0.046, 0.002, M.rubber); top.position.y = yy + 0.002; g.add(top); yy += 0.004;
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.16, metalness: 0.1 });   // glossy black grip
-  const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); grip.position.y = yy; g.add(grip);
+  // everything above the boot moves with the stick: built in a group pivoting at the boot top
+  const stick = new THREE.Group(); stick.position.y = yy; g.add(stick); g.userData.stick = stick;
+  const grip = shade(new THREE.Mesh(gripGeometry(), gripMat)); stick.add(grip);
   // find surface points on the head to mount the button and the pad exactly on the grip
   const gp = grip.geometry.attributes.position, gn = grip.geometry.attributes.normal;
   let inb = null, topP = null; const vtx = new THREE.Vector3();
@@ -86,16 +88,16 @@ export function makeSidestick(M, side = -1) {
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });
   const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 28), btnMat));
   btn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), inb.n.clone().normalize());
-  btn.position.copy(inb.p).addScaledVector(inb.n, 0.0015); btn.position.y += yy; g.add(btn);
+  btn.position.copy(inb.p).addScaledVector(inb.n, 0.0015); stick.add(btn);
   const pad = rbox(0.026, 0.005, 0.026, 0.005, gripMat);
   const up = topP.n.clone().normalize(); pad.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up); pad.rotateY(Math.PI / 4);
-  pad.position.copy(topP.p).addScaledVector(up, -0.0012); pad.position.y += yy; g.add(pad);   // seated into the top
+  pad.position.copy(topP.p).addScaledVector(up, -0.0012); stick.add(pad);   // seated into the top
   for (const k of [-1, 1]) {
     const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.0016, 0.001, 10), M.screw);
-    sc.quaternion.copy(pad.quaternion); sc.position.copy(pad.position).addScaledVector(up, 0.0027).add(new THREE.Vector3(0, 0, k * 0.008).applyQuaternion(pad.quaternion)); g.add(sc);
+    sc.quaternion.copy(pad.quaternion); sc.position.copy(pad.position).addScaledVector(up, 0.0027).add(new THREE.Vector3(0, 0, k * 0.008).applyQuaternion(pad.quaternion)); stick.add(sc);
   }
   // radio transmit trigger under the head, for the index finger
-  const trig = rbox(0.012, 0.012, 0.014, 0.004, gripMat); trig.position.set(0, yy + 0.098, -0.05); trig.rotation.x = -0.5; g.add(trig);
+  const trig = rbox(0.012, 0.012, 0.014, 0.004, gripMat); trig.position.set(0, 0.098, -0.05); trig.rotation.x = -0.5; stick.add(trig);
   g.userData.button = btn;
   return g;
 }
@@ -104,11 +106,12 @@ export function makeSidestick(M, side = -1) {
 export function makeTiller(M) {
   const g = new THREE.Group();
   const base = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.038, 0.006, 48), M.metal)); base.position.y = 0.003; g.add(base);
-  const hub = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.018, 32), M.rubber)); hub.position.y = 0.014; g.add(hub);
+  const arm = new THREE.Group(); g.add(arm); g.userData.arm = arm;   // the handle turns, the base stays
+  const hub = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.018, 32), M.rubber)); hub.position.y = 0.014; arm.add(hub);
   // curved loop handle lying almost flat, open towards the pilot
   const loop = shade(new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0075, 14, 48, Math.PI * 1.15), M.rubber));
-  loop.rotation.set(-Math.PI / 2 + 0.12, 0, Math.PI * 0.43); loop.position.set(0, 0.024, -0.018); g.add(loop);
-  const knob = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.008, 0.022, 20), M.rubber)); knob.position.set(0.0, 0.034, -0.054); g.add(knob);
+  loop.rotation.set(-Math.PI / 2 + 0.12, 0, Math.PI * 0.43); loop.position.set(0, 0.024, -0.018); arm.add(loop);
+  const knob = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.008, 0.022, 20), M.rubber)); knob.position.set(0.0, 0.034, -0.054); arm.add(knob);
   return g;
 }
 
@@ -233,6 +236,6 @@ export function makeTrimScale(M, atlas) {
   const g = new THREE.Group();
   const plate = rbox(0.03, 0.075, 0.006, 0.003, M.panelDark); g.add(plate);
   const lab = atlas.mesh(['UP', '', '0', '', 'DN'], 0.06, { px: 28, weight: 600 }, 0.016); lab.position.set(-0.004, 0, 0.0035); g.add(lab);
-  const ptr = new THREE.Mesh(new THREE.PlaneGeometry(0.008, 0.0025), new THREE.MeshStandardMaterial({ color: 0xe6e8e3 })); ptr.position.set(0.009, 0.006, 0.0036); g.add(ptr);
+  const ptr = new THREE.Mesh(new THREE.PlaneGeometry(0.008, 0.0025), new THREE.MeshStandardMaterial({ color: 0xe6e8e3 })); ptr.position.set(0.009, 0.006, 0.0036); g.add(ptr); g.userData.ptr = ptr;
   return g;
 }
