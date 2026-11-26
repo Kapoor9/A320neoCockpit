@@ -338,12 +338,25 @@ function buildWindowFrames(M) {
       base.forEach((b, i) => { const w = b.distanceTo(other[i]); const tR = other[i].clone().sub(b).normalize(); const sw = Math.min(0.012, w * 0.14); const dn = DIN[i].clone().multiplyScalar(k);
         SH.forEach(([dd, ll], j) => out[j].push(b.clone().addScaledVector(dn, dd).addScaledVector(tR, sw * ll))); });
       for (let j = 0; j < SH.length - 1; j++) { const m = stripMesh(out[j], out[j + 1], (j < 4 || (j >= 8 && j < 12)) ? postSide : f); m.castShadow = m.receiveShadow = true; grp.add(m); } return out[SH.length - 1]; };
-    const seamDk = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
     { const keep = postSide; Li.push(...(() => { const r = stairs(L, R, 1); return r; })()); }
     Ri.push(...stairs(R, L, 0.85));
     grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f));
     // dark seam between the post and the windshield frame, out to the shell, as on the aircraft
-    grp.add(stripMesh(L, L.map((p) => onHull(s, p.z, p.y, 0.0)), seamDk));
+    // third piece: fills from the side-window glass up onto the post's inner face along its whole length,
+    // and carries on below the post down onto the lower pillar, so post, window frame and pillar read as one moulding
+    { const W2 = D.SIDE_WINDOWS.w2; const ez = W2[4][0] - W2[0][0], ey = W2[4][1] - W2[0][1], el = Math.hypot(ez, ey);
+      let nz = ey / el, ny = -ez / el; const cz = W2.reduce((a2, q) => a2 + q[0], 0) / W2.length, cy = W2.reduce((a2, q) => a2 + q[1], 0) / W2.length;
+      if (nz * (cz - W2[0][0]) + ny * (cy - W2[0][1]) < 0) { nz = -nz; ny = -ny; }   // into the window
+      const rows = [[], [], [], [], [], []];
+      const add = (z, y, top) => { const at = (o, d) => onHull(s, z + nz * o, y + ny * o, d);
+        const a = at(0.004, 0.009), b = top; const mid = a.clone().lerp(b, 0.5); const inw = new THREE.Vector3(-s, 0, 0);
+        rows[0].push(at(0.016, 0.002)); rows[1].push(at(0.016, 0.0075)); rows[2].push(a); rows[3].push(a.clone().lerp(b, 0.25).addScaledVector(inw, 0.008));
+        rows[4].push(mid.addScaledVector(inw, 0.01)); rows[5].push(b); };
+      // below the post: down the window's front corner onto the lower pillar's top
+      for (let k = 4; k >= 1; k--) { const y = W2[0][1] - 0.03 * k / 4, z = W2[0][0] + 0.01 * k / 4;
+        add(z, y, onHull(s, LP_ZF(y) + 0.02, y, 0.07)); }
+      for (let i = 0; i <= n; i++) { const t = i / n; add(W2[0][0] + ez * t, W2[0][1] + ey * t, Ri[i].clone()); }
+      for (let j = 0; j < 5; j++) { const m = stripMesh(rows[j], rows[j + 1], j === 0 ? metal : f); m.castShadow = m.receiveShadow = true; grp.add(m); } }
     // lower pillar: the post carries on below the sill as one moulding, widening aft as it runs down
     // into the side wall; edges roll down onto the lining, the front edge meets the dark connector
     { const nu = 28, nv = 40, rows = [];
