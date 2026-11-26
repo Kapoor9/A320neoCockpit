@@ -509,7 +509,7 @@ function buildGlareshield(M, refs) {
   // the control strip: a housing that stands proud of the rear face, panels on its face
   const S = G.strip; const half = S.half;
   const th = Math.atan(0.1); const cw = 0.27;
-  const hc = rbox(cw * 2, S.h + 0.006, 0.05, 0.008, new THREE.MeshStandardMaterial({ color: 0x1d2124, roughness: 0.6 }));   // black FCU/EFIS housing
+  const hc = rbox(cw * 2, S.h + 0.006, 0.05, 0.008, new THREE.MeshStandardMaterial({ color: 0x44535c, roughness: 0.6 }));   // FCU/EFIS housing: a shade darker, so the panels still read as separate
   hc.position.set(0, S.y, S.faceZ - 0.023); grp.add(hc);
   // outboard housings: one moulded piece each side, flush with the black block, its face easing down
   // the bend and narrowing smoothly toward the window post; rounded top and bottom edges roll back

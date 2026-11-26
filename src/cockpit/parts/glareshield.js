@@ -43,7 +43,7 @@ function fcuWindow(w, h) {
   const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
   return new THREE.MeshStandardMaterial({ map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.25 });
 }
-const PANEL_BG = '#3a4247', PLATE = new THREE.MeshStandardMaterial({ color: 0x2c3236, roughness: 0.55 }), SCREW = new THREE.MeshStandardMaterial({ color: 0x4a5055, roughness: 0.4, metalness: 0.5 });
+const PANEL_BG = '#7d919b', PLATE = new THREE.MeshStandardMaterial({ color: 0x6f838d, roughness: 0.55 }), SCREW = new THREE.MeshStandardMaterial({ color: 0x8a9399, roughness: 0.4, metalness: 0.5 });   // same blue-grey as the surroundings
 const S = 0.000214;   // metres per photo pixel
 
 export function fcuPanel(M, A) {
