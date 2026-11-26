@@ -5,43 +5,58 @@ import * as THREE from 'three';
 const C = { bg: '#04060a', w: '#f2f2f2', g: '#2ee86a', a: '#ff9a1e', c: '#22d3f2', m: '#ff4fd8', y: '#ffe23a', sky: '#2c8ad8', gnd: '#8a4a1c', r: '#ff2a2a' };
 const FONT = '"B612", "B612 Mono", sans-serif';
 
-function canvas(n = 512) { const cv = document.createElement('canvas'); cv.width = cv.height = n; const c = cv.getContext('2d'); c.fillStyle = C.bg; c.fillRect(0, 0, n, n); c.lineCap = 'round'; return [cv, c]; }
+// drawn at 2x (1024 px for a main display) so symbology stays sharp up close; drawing code works in 512 units
+function canvas(n = 512) { const cv = document.createElement('canvas'); cv.width = cv.height = n * 2; const c = cv.getContext('2d'); c.scale(2, 2); c.fillStyle = C.bg; c.fillRect(0, 0, n, n); c.lineCap = 'round'; return [cv, c]; }
 function txt(c, s, x, y, col, px, align = 'center') { c.fillStyle = col; c.font = `600 ${px}px ${FONT}`; c.textAlign = align; c.textBaseline = 'middle'; c.fillText(s, x, y); }
 
 function pfd(side) {
   const [cv, c] = canvas();
-  // FMA boxes
-  c.strokeStyle = '#6b6f73'; c.lineWidth = 2; for (const x of [96, 192, 288, 384]) { c.beginPath(); c.moveTo(x, 8); c.lineTo(x, 62); c.stroke(); }
-  txt(c, 'V/S', 145, 22, C.g, 20); txt(c, '0', 186, 22, C.c, 18); txt(c, 'HDG', 238, 22, C.g, 20); txt(c, side < 0 ? '1 FD 2' : '1 FD 2', 448, 22, C.w, 18);
-  // attitude sphere: sky over ground, clipped
-  c.save(); c.beginPath(); c.moveTo(150, 120); c.quadraticCurveTo(256, 76, 362, 120); c.lineTo(362, 360); c.quadraticCurveTo(256, 420, 150, 360); c.closePath(); c.clip();
-  c.fillStyle = C.sky; c.fillRect(140, 70, 230, 186); c.fillStyle = C.gnd; c.fillRect(140, 256, 230, 170);
-  c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.moveTo(140, 256); c.lineTo(370, 256); c.stroke();
-  for (const [d, w] of [[-60, 70], [-40, 34], [-20, 70], [20, 70], [40, 34], [60, 70]]) { c.lineWidth = 2; c.beginPath(); c.moveTo(256 - w / 2, 256 + d); c.lineTo(256 + w / 2, 256 + d); c.stroke(); if (w > 50) { txt(c, '10', 256 - w / 2 - 16, 256 + d, C.w, 14); txt(c, '10', 256 + w / 2 + 16, 256 + d, C.w, 14); } }
+  const G = '#4d5258', thin = 1.4;
+  // FMA: five columns
+  c.strokeStyle = '#7a7e82'; c.lineWidth = 1.5; for (const x of [100, 200, 300, 400]) { c.beginPath(); c.moveTo(x, 6); c.lineTo(x, 66); c.stroke(); }
+  txt(c, '1 FD 2', 452, 36, C.w, 17); txt(c, 'A/THR', 452, 56, C.w, 15);
+  // attitude: sky over ground inside the familiar clipped shape
+  const cx = 256, cy = 250, pp = 5.2;   // px per degree of pitch
+  c.save(); c.beginPath(); c.moveTo(152, 132); c.quadraticCurveTo(cx, 96, 360, 132); c.lineTo(360, 368); c.quadraticCurveTo(cx, 404, 152, 368); c.closePath(); c.clip();
+  c.fillStyle = '#2f86e0'; c.fillRect(140, 80, 232, cy - 80); c.fillStyle = '#8a4b1d'; c.fillRect(140, cy, 232, 180);
+  c.strokeStyle = C.w; c.lineWidth = 2.5; c.beginPath(); c.moveTo(140, cy); c.lineTo(372, cy); c.stroke();
+  c.lineWidth = thin;
+  for (let d = -30; d <= 30; d += 2.5) { if (!d) continue; const y = cy - d * pp; const w = d % 10 === 0 ? 64 : d % 5 === 0 ? 36 : 16; c.beginPath(); c.moveTo(cx - w / 2, y); c.lineTo(cx + w / 2, y); c.stroke();
+    if (d % 10 === 0) { txt(c, String(Math.abs(d)), cx - w / 2 - 14, y, C.w, 14); txt(c, String(Math.abs(d)), cx + w / 2 + 14, y, C.w, 14); } }
+  // heading ticks along the horizon
+  for (let k = -4; k <= 4; k++) { c.beginPath(); c.moveTo(cx + k * 26, cy); c.lineTo(cx + k * 26, cy + 7); c.stroke(); }
   c.restore();
-  // aircraft symbol and roll pointer
-  c.fillStyle = C.y; c.strokeStyle = '#000'; c.lineWidth = 2;
-  for (const s of [-1, 1]) { c.fillRect(256 + s * 46 - (s < 0 ? 40 : 0), 252, 40, 8); c.fillRect(256 + s * 46 + (s < 0 ? -8 : 0), 252, 8, 18); }
-  c.fillRect(252, 252, 8, 8); c.beginPath(); c.moveTo(256, 92); c.lineTo(246, 110); c.lineTo(266, 110); c.closePath(); c.fill();
-  c.strokeStyle = C.w; c.lineWidth = 2; c.beginPath(); c.arc(256, 256, 166, Math.PI * 1.33, Math.PI * 1.67); c.stroke();
-  // speed tape
-  c.fillStyle = '#3d4248'; c.fillRect(28, 96, 76, 320); c.strokeStyle = C.w; c.strokeRect(28, 96, 76, 320);
-  for (let i = 0; i < 7; i++) { const y = 120 + i * 46; c.beginPath(); c.moveTo(90, y); c.lineTo(104, y); c.stroke(); if (i % 2 === 0) txt(c, String(100 - (i - 3) * 20).padStart(3, '0'), 62, y, C.w, 18); }
-  c.fillStyle = C.y; c.fillRect(20, 254, 92, 4);
-  // altitude tape
-  c.fillStyle = '#3d4248'; c.fillRect(392, 96, 72, 320); c.strokeRect(392, 96, 72, 320);
-  for (let i = 0; i < 7; i++) { const y = 120 + i * 46; c.beginPath(); c.moveTo(392, y); c.lineTo(404, y); c.stroke(); }
-  c.fillStyle = '#000'; c.fillRect(398, 238, 60, 36); c.strokeStyle = C.y; c.strokeRect(398, 238, 60, 36); txt(c, '00', 428, 256, C.g, 20);
-  txt(c, '010', 428, 120, C.w, 16); c.fillStyle = C.r; c.fillRect(392, 330, 8, 86);
-  // V/S scale and heading tape
-  c.strokeStyle = C.w; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(474, 140 + i * 30); c.lineTo(484, 140 + i * 30); c.stroke(); }
-  c.fillStyle = '#3d4248'; c.fillRect(160, 452, 192, 36); c.strokeRect(160, 452, 192, 36);
-  ['3', '4', '5', '6', '7'].forEach((s, i) => { c.beginPath(); c.moveTo(176 + i * 40, 452); c.lineTo(176 + i * 40, 464); c.stroke(); txt(c, s, 176 + i * 40, 476, C.w, 16); });
-  c.fillStyle = C.y; c.fillRect(254, 440, 4, 26);
-  txt(c, 'QNH 1013', 430, 470, C.c, 16);
+  // bank scale: ticks at 0, 10, 20, 30, 45 and the fixed yellow index; roll pointer and slip index
+  c.strokeStyle = C.w; c.lineWidth = 2;
+  for (const a of [-45, -30, -20, -10, 10, 20, 30, 45]) { const r = THREE.MathUtils.degToRad(a - 90), R0 = 140, R1 = Math.abs(a) % 30 === 0 || Math.abs(a) === 45 ? 156 : 150;
+    c.beginPath(); c.moveTo(cx + Math.cos(r) * R0, cy + Math.sin(r) * R0); c.lineTo(cx + Math.cos(r) * R1, cy + Math.sin(r) * R1); c.stroke(); }
+  c.fillStyle = C.y; c.beginPath(); c.moveTo(cx, cy - 140); c.lineTo(cx - 9, cy - 156); c.lineTo(cx + 9, cy - 156); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(cx, cy - 138); c.lineTo(cx - 9, cy - 124); c.lineTo(cx + 9, cy - 124); c.closePath(); c.fill(); c.fillRect(cx - 10, cy - 121, 20, 5);
+  // aircraft symbol: yellow with black outline
+  c.lineWidth = 1.5; c.strokeStyle = '#000';
+  for (const s2 of [-1, 1]) { const x0 = cx + s2 * 52; c.fillStyle = C.y; c.beginPath(); c.rect(s2 < 0 ? x0 - 46 : x0, cy - 4, 46, 8); c.fill(); c.stroke(); c.beginPath(); c.rect(s2 < 0 ? x0 - 8 : x0, cy - 4, 8, 20); c.fill(); c.stroke(); }
+  c.fillStyle = C.y; c.beginPath(); c.rect(cx - 5, cy - 5, 10, 10); c.fill(); c.stroke();
+  // speed tape: grey band, ticks every 10 kt, labels every 20, yellow speed reference, 30 kt floor
+  c.fillStyle = G; c.fillRect(24, 100, 78, 300); c.strokeStyle = C.w; c.lineWidth = thin; c.beginPath(); c.moveTo(24, 100); c.lineTo(102, 100); c.moveTo(102, 100); c.lineTo(102, 400); c.moveTo(24, 400); c.lineTo(102, 400); c.stroke();
+  for (let v = 40; v <= 100; v += 10) { const y = cy - (v - 40) * 2.6 - 0; if (y < 104 || Math.abs(y - cy) < 12) continue; c.beginPath(); c.moveTo(90, y); c.lineTo(102, y); c.stroke(); if (v % 20 === 0) txt(c, String(v).padStart(3, '0'), 58, y, C.w, 18); }
+  c.fillStyle = C.y; c.fillRect(18, cy - 2, 96, 4); c.beginPath(); c.moveTo(102, cy); c.lineTo(114, cy - 7); c.lineTo(114, cy + 7); c.closePath(); c.fill();
+  // altitude tape with the yellow-framed readout window and the drum
+  c.fillStyle = G; c.fillRect(398, 100, 62, 300); c.strokeStyle = C.w; c.beginPath(); c.moveTo(398, 100); c.lineTo(460, 100); c.moveTo(398, 400); c.lineTo(460, 400); c.moveTo(398, 100); c.lineTo(398, 400); c.stroke();
+  for (let k = -5; k <= 5; k++) { const y = cy + k * 30; c.beginPath(); c.moveTo(398, y); c.lineTo(408, y); c.stroke(); if (k % 2 === 0 && k) txt(c, String(-k * 5 * 10 / 10 * 10 < 0 ? '' : '').padStart(0), 0, 0, C.w, 1); }
+  txt(c, '005', 426, cy - 60, C.w, 17); txt(c, '995', 426, cy + 60, C.w, 17);
+  c.fillStyle = '#000'; c.fillRect(402, cy - 20, 48, 40); c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(402, cy - 20, 48, 40); txt(c, '00', 424, cy, C.g, 21);
+  c.fillStyle = '#000'; c.fillRect(450, cy - 30, 22, 60); c.strokeRect(450, cy - 30, 22, 60); txt(c, '20', 461, cy - 18, C.g, 14); txt(c, '00', 461, cy, C.g, 16); txt(c, '80', 461, cy + 18, C.g, 14);
+  // V/S scale
+  c.fillStyle = G; c.beginPath(); c.moveTo(476, 120); c.lineTo(500, 140); c.lineTo(500, 360); c.lineTo(476, 380); c.closePath(); c.fill();
+  c.strokeStyle = C.w; c.lineWidth = thin; for (const k of [-3, -2, -1, 0, 1, 2, 3]) { const y = cy - k * 34; c.beginPath(); c.moveTo(478, y); c.lineTo(k ? 486 : 492, y); c.stroke(); if (k && Math.abs(k) !== 3) txt(c, String(Math.abs(k)), 471, y, C.w, 12); }
+  c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.moveTo(482, cy); c.lineTo(510, cy); c.stroke();
+  // heading tape
+  c.fillStyle = G; c.fillRect(150, 432, 212, 40); c.strokeStyle = C.w; c.lineWidth = thin; c.strokeRect(150, 432, 212, 40);
+  for (let hdg = 30; hdg <= 80; hdg += 5) { const x = cx + (hdg - 54) * 4.2; if (x < 152 || x > 360) continue; c.beginPath(); c.moveTo(x, 432); c.lineTo(x, hdg % 10 ? 440 : 446); c.stroke(); if (hdg % 10 === 0) txt(c, String(hdg / 10), x, 458, C.w, 17); }
+  c.fillStyle = C.y; c.fillRect(cx - 2, 420, 4, 30);
+  txt(c, 'QNH', 410, 498, C.c, 15, 'right'); txt(c, '1013', 452, 498, C.c, 16, 'right');
   return cv;
 }
-
 function nd() {
   const [cv, c] = canvas();
   txt(c, 'GS', 30, 22, C.w, 16, 'left'); txt(c, '0', 72, 22, C.g, 18); txt(c, 'TAS', 100, 22, C.w, 16, 'left'); txt(c, '---', 140, 22, C.g, 16, 'left');
@@ -139,7 +154,20 @@ function dcdu() {
 export function paintDisplays(scene, refs) {
   const apply = (mesh, cv, bright = 1.0) => {
     if (!mesh) return; const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
-    mesh.material = new THREE.MeshPhysicalMaterial({ color: 0x000000, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright, roughness: 0.55, clearcoat: 0.12, clearcoatRoughness: 0.5, envMapIntensity: 0.25 });
+    const m = new THREE.MeshPhysicalMaterial({ color: 0x050607, map: tx, emissiveMap: tx, emissive: 0xffffff, emissiveIntensity: bright * 1.35, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.08, envMapIntensity: 0.35 });
+    // LCD: faint RGB sub-pixel stripes and pixel grid visible up close, slightly lifted blacks, a touch of edge falloff
+    const px = cv.width;
+    m.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { vec2 q = vEmissiveMapUv * ${px.toFixed(1)}; float sp = fract(q.x) * 3.0; vec3 sub = vec3(step(sp, 1.0), step(1.0, sp) * step(sp, 2.0), step(2.0, sp));
+          float grid = smoothstep(0.0, 0.12, fract(q.y)) * smoothstep(0.0, 0.08, fract(q.x));
+          float near = 1.0 - smoothstep(0.25, 0.6, max(fwidth(q.x), fwidth(q.y)));   // pixel structure only when it is larger than a screen pixel (no moire)
+          totalEmissiveRadiance *= mix(vec3(1.0), sub * 2.2, 0.18 * near) * mix(1.0, mix(0.82, 1.0, grid), near);
+          vec2 e = abs(vEmissiveMapUv - 0.5) * 2.0; totalEmissiveRadiance *= 1.0 - 0.12 * pow(max(e.x, e.y), 4.0);
+          totalEmissiveRadiance += vec3(0.004, 0.005, 0.007); }`);
+    };
+    m.customProgramCacheKey = () => 'lcd' + px;
+    mesh.material = m;
   };
   const S = refs.screens || {};
   apply(S.PFD1, pfd(-1)); apply(S.PFD2, pfd(1)); apply(S.ND1, nd()); apply(S.ND2, nd()); apply(S.EWD, ewd()); apply(S.SD, sd()); apply(S.ISIS, isis(), 0.9);

@@ -29,7 +29,8 @@ float skyVis(vec3 p, vec3 n) {
     F += aperture(p, n, vec3(sx * 0.98, 1.1, 0.72), vec3(-sx, 0.0, 0.0), 0.27) * sill;
     F += aperture(p, n, vec3(sx * 0.98, 1.1, 1.33), vec3(-sx, 0.0, 0.0), 0.27) * sill;
   }
-  return clamp(F * 4.5, 0.0, 1.0);
+  // surfaces facing down (overhead, glareshield underside) see the sunlit pedestal, seats and floor: bounce light
+  return clamp(F * 4.5 + max(-n.y, 0.0) * 0.85 * smoothstep(1.0, 1.35, p.y), 0.0, 1.0);
 }`;
 
 export function applySkyOcclusion(root, { floor = 0.3, spec = 0.12 } = {}) {

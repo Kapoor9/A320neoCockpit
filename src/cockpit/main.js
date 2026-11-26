@@ -84,7 +84,7 @@ const flood = [-0.45, 0.45].map((x) => { const l = new THREE.SpotLight(0xffe2b8,
 let night = false;
 function setNight(on) {
   night = on; sun.intensity = on ? 0 : 3.0; hemi.intensity = on ? 0.04 : 1.0; scene.environmentIntensity = on ? 0.03 : 0.8;
-  dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.4 : 0));
+  dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.14 : 0));
   for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.6 : 0, on ? 1.3 : 0, on ? 0.95 : 0); }
   scene.traverse((o) => { if (o.userData.isSky) o.visible = !on; if (o.userData.nightOnly) o.visible = on; });
   if (scene.fog) scene.fog.color.set(on ? 0x06080c : 0xdbe3e8);
