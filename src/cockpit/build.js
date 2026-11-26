@@ -1106,16 +1106,64 @@ export function makeSky(radius = 400) {
   }));
 }
 function buildOutside(scene) {
-  scene.add(makeSky());
-  const apronMat = addGrain(new THREE.MeshStandardMaterial({ color: 0x7a7c7c, roughness: 0.95 }), 'lining');
-  const apron = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), apronMat);
-  apron.rotation.x = -Math.PI / 2; apron.position.y = D.GROUND_Y; apron.receiveShadow = true; scene.add(apron);
-  const lineMat = new THREE.MeshStandardMaterial({ color: 0xc9a43a, roughness: 0.8 });
-  const line = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 400), lineMat);
-  line.rotation.x = -Math.PI / 2; line.position.set(0, D.GROUND_Y + 0.01, -200); scene.add(line);
-  // edge line of a taxiway crossing ahead, for depth
-  for (const z of [-60, -63]) { const e = new THREE.Mesh(new THREE.PlaneGeometry(400, 0.2), lineMat); e.rotation.x = -Math.PI / 2; e.position.set(0, D.GROUND_Y + 0.01, z); scene.add(e); }
-  scene.fog = new THREE.Fog(0xd6e1e7, 40, 700);
+  { const sky = makeSky(); sky.userData.isSky = true; scene.add(sky); }
+  // ground: one large surface whose look is computed per pixel from world position - concrete apron slabs with
+  // joints and stains around the stand, asphalt taxiway and runway with their paint, grass beyond
+  const gMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 });
+  gMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vG;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvG = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vG;
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(h2(i), h2(i+vec2(1,0)), f.x), mix(h2(i+vec2(0,1)), h2(i+vec2(1,1)), f.x), f.y); }
+      float fb(vec2 p){ float a = 0.5, s = 0.0; for (int k = 0; k < 5; k++) { s += a * n2(p); p *= 2.07; a *= 0.5; } return s; }
+      float band(float v, float c, float w){ return 1.0 - smoothstep(w * 0.5, w * 0.5 + 0.03, abs(v - c)); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      { vec2 p = vG.xz; float d = length(p);
+        float rough = 0.92;
+        vec3 concrete = vec3(0.62, 0.61, 0.58) * (0.9 + 0.15 * fb(p * 0.35)) * (0.94 + 0.08 * n2(floor(p / 5.0) * 3.1));
+        float joint = max(1.0 - smoothstep(0.0, 0.06, abs(fract(p.x / 5.0) - 0.5) * 5.0 - 2.4), 1.0 - smoothstep(0.0, 0.06, abs(fract(p.y / 5.0) - 0.5) * 5.0 - 2.4));
+        concrete *= 1.0 - joint * 0.35; concrete *= 1.0 - 0.18 * smoothstep(0.55, 0.8, fb(p * 0.12 + 7.0));   // oil and rubber stains
+        vec3 asphalt = vec3(0.21, 0.215, 0.22) * (0.85 + 0.25 * fb(p * 0.8));
+        vec3 grass = mix(vec3(0.27, 0.33, 0.18), vec3(0.36, 0.38, 0.22), fb(p * 0.05)) * (0.85 + 0.2 * n2(p * 2.0));
+        float apronZone = step(abs(p.x), 90.0) * step(-55.0, p.y) * step(p.y, 60.0);
+        float taxiZone = step(abs(p.y + 75.0), 12.0) * step(abs(p.x), 700.0) + step(abs(p.x), 11.5) * step(-75.0, p.y) * step(p.y, -50.0);
+        float rwyZone = step(abs(p.y + 330.0), 22.5) * step(abs(p.x), 1500.0);
+        vec3 col = grass; rough = 0.95;
+        if (taxiZone > 0.5 || rwyZone > 0.5) { col = asphalt; rough = 0.85; }
+        if (apronZone > 0.5) { col = concrete; rough = 0.9; }
+        // paint: yellow lead-in line and taxiway centreline, white runway markings
+        vec3 yel = vec3(0.78, 0.6, 0.15), wht = vec3(0.86, 0.86, 0.84);
+        float lead = band(p.x, 0.0, 0.25) * step(-75.0, p.y) * step(p.y, 60.0) + band(p.y, -75.0, 0.25) * step(abs(p.x), 700.0);
+        col = mix(col, yel, clamp(lead, 0.0, 1.0) * 0.9);
+        float edgeY = (band(p.y, -63.0, 0.18) + band(p.y, -87.0, 0.18)) * step(abs(p.x), 700.0);
+        col = mix(col, yel, clamp(edgeY, 0.0, 1.0) * 0.85);
+        if (rwyZone > 0.5) {
+          float cl = band(p.y, -330.0, 0.9) * step(0.5, fract(p.x / 50.0));
+          float edge = band(p.y, -330.0 + 21.5, 0.9) + band(p.y, -330.0 - 21.5, 0.9);
+          float piano = step(abs(p.x - 1450.0), 30.0) * step(0.45, fract((p.y + 330.0) / 3.6)) * step(abs(p.y + 330.0), 19.0);
+          col = mix(col, wht, clamp(cl + edge + piano, 0.0, 1.0) * 0.9);
+          col *= 1.0 - 0.25 * smoothstep(0.6, 0.9, fb(vec2(p.x * 0.02, p.y * 0.6)));   // rubber deposits along the centre
+        }
+        diffuseColor.rgb = col; vRoughG = rough; }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n');
+    sh.fragmentShader = sh.fragmentShader.replace('varying vec3 vG;', 'varying vec3 vG; float vRoughG = 0.9;');
+  };
+  gMat.customProgramCacheKey = () => 'ground-v2';
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000, 1, 1), gMat);
+  ground.rotation.x = -Math.PI / 2; ground.position.y = D.GROUND_Y; ground.receiveShadow = true; scene.add(ground);
+  // distant airport: terminal, hangars and a tree line on the horizon, simple masses that read through the haze
+  const bld = (w, h, d, x, z, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 })); m.position.set(x, D.GROUND_Y + h / 2, z); scene.add(m); return m; };
+  bld(260, 18, 40, -380, -700, 0x9ea4a6); bld(120, 26, 60, 260, -820, 0xb3b6b2); bld(90, 22, 60, 420, -760, 0xa9adab); bld(14, 42, 14, -120, -900, 0xc8cac6);
+  { const tm = new THREE.MeshStandardMaterial({ color: 0x3f4a33, roughness: 1 }); const n = 140; const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), tm, n); const m4 = new THREE.Matrix4();
+    for (let i = 0; i < n; i++) { const a = -Math.PI * 0.9 + (i / n) * Math.PI * 1.8, r = 1400 + 300 * Math.sin(i * 7.1); const s = 14 + 10 * Math.abs(Math.sin(i * 3.3));
+      m4.compose(new THREE.Vector3(Math.sin(a) * r, D.GROUND_Y + s * 0.6, -Math.cos(a) * r), new THREE.Quaternion(), new THREE.Vector3(s * 1.6, s, s * 1.6)); inst.setMatrixAt(i, m4); }
+    scene.add(inst); }
+  // blue taxiway edge lights and green centreline lights: they show at night
+  { const blue = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.25, 0.45, 2.2) }); const n = 2 * 60; const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(0.18, 8, 6), blue, n); const m4 = new THREE.Matrix4(); let k = 0;
+    for (let i = 0; i < 60; i++) for (const z of [-63.8, -86.2]) { m4.makeTranslation(-700 + i * 24, D.GROUND_Y + 0.35, z); inst.setMatrixAt(k++, m4); }
+    inst.userData.nightOnly = true; inst.visible = false; scene.add(inst); }
+  scene.fog = new THREE.Fog(0xdbe3e8, 120, 2600);
 }
 
 export function buildCockpit(scene) {

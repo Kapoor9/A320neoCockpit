@@ -3,10 +3,13 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { INTEGRAL } from './parts/panel.js';
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
 import { paintDisplays } from './displays.js';
 import { loadFonts } from './labels.js';
+import { applySkyOcclusion } from './skyocc.js';
 
 await loadFonts();
 
@@ -42,6 +45,7 @@ sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.015; sun.shadow.radius = 6;
 scene.add(sun, sun.target);
 // ground colour = light bouncing back up off the panels, floor and seats onto the overhead
 scene.add(new THREE.HemisphereLight(0xdde3e8, 0x8c877f, 1.0));
+const hemi = scene.children[scene.children.length - 1];
 const dome = new THREE.PointLight(0xfff0da, 0.45, 3.2, 2); dome.position.set(0, 1.85, 1.3); scene.add(dome);
 // soft upward bounce from the sunlit pedestal and panels, so the overhead is never pitch black
 const bounce = new THREE.PointLight(0xe9e3d8, 0.8, 2.6, 2); bounce.position.set(0, 0.75, 0.75); scene.add(bounce);
@@ -51,7 +55,7 @@ const { refs } = buildCockpit(scene);
 const controls = new CockpitCamera(camera, canvas, scene);
 
 // Post-processing: multisampled render + ambient occlusion + tone mapping
-let composer = null, gtao = null;
+let composer = null, gtao = null, bloom = null;
 if (!LITE) {
   const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
   composer = new EffectComposer(renderer, rt);
@@ -61,6 +65,9 @@ if (!LITE) {
   gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
   gtao.blendIntensity = 1.0;
   composer.addPass(gtao);
+  // glow around lit lights and displays only (threshold above anything the daylight scene reaches, the sun disc aside)
+  bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.32, 0.45, 1.05);
+  composer.addPass(bloom);
   composer.addPass(new OutputPass());
 }
 
@@ -71,7 +78,20 @@ for (const [key, v] of Object.entries(VIEWS)) {
   b.onclick = () => { controls.goTo(key); mark(key); };
   bar.appendChild(b);
 }
-const mark = (key) => bar.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b.dataset.view === key));
+// day / night: at night the sun and sky go, the panel legends and lines glow (integral lighting), the dome and
+// the flood lights under the glareshield light the panels softly
+const flood = [-0.45, 0.45].map((x) => { const l = new THREE.SpotLight(0xffe2b8, 0, 1.6, 0.9, 0.8, 2); l.position.set(x, 0.86, 0.36); l.target.position.set(x, 0.55, 0.05); scene.add(l, l.target); return l; });
+let night = false;
+function setNight(on) {
+  night = on; sun.intensity = on ? 0 : 3.0; hemi.intensity = on ? 0.04 : 1.0; scene.environmentIntensity = on ? 0.03 : 0.8;
+  dome.intensity = on ? 0.35 : 0.45; bounce.intensity = on ? 0.05 : 0.8; flood.forEach((l) => (l.intensity = on ? 0.4 : 0));
+  for (const m of INTEGRAL) { m.emissive.setRGB(on ? 1.6 : 0, on ? 1.3 : 0, on ? 0.95 : 0); }
+  scene.traverse((o) => { if (o.userData.isSky) o.visible = !on; if (o.userData.nightOnly) o.visible = on; });
+  if (scene.fog) scene.fog.color.set(on ? 0x06080c : 0xdbe3e8);
+  scene.background = on ? new THREE.Color(0x05070b) : null; renderer.toneMappingExposure = on ? 1.25 : 1.0; dirty = 3;
+}
+{ const b = document.createElement('button'); b.textContent = 'Night'; b.onclick = () => { setNight(!night); b.classList.toggle('sel', night); }; bar.appendChild(b); }
+const mark = (key) => bar.querySelectorAll('button[data-view]').forEach((b) => b.classList.toggle('sel', b.dataset.view === key));
 mark('cpt');
 
 let dirty = 3;
@@ -93,5 +113,6 @@ renderer.setAnimationLoop(() => {
 });
 document.getElementById('loading')?.remove();
 
-window.cockpit = { THREE, scene, camera, controls, renderer, refs, lite: LITE, invalidate: () => (dirty = 3) };
+window.cockpit = { THREE, scene, camera, controls, renderer, refs, lite: LITE, setNight, composer, invalidate: () => (dirty = 3) };
 try { paintDisplays(scene, refs); dirty = 3; } catch (e) { console.error('displays', e); }
+applySkyOcclusion(scene);

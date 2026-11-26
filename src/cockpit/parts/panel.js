@@ -7,6 +7,7 @@ import { FONT_PANEL } from '../labels.js';
 import { addGrain } from '../surface.js';
 
 const PX_PER_M = 2600;
+export const INTEGRAL = new Set();   // panel faces with integral lighting (dark by day)
 const rbox = (w, h, d, r, mat) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2) * 0.98), mat); m.castShadow = true; m.receiveShadow = true; return m; };
 
 
@@ -119,7 +120,14 @@ export function buildPanel(spec, M, atlas) {
     c.strokeRect(x0, y0, pw * PX_PER_M, ph * PX_PER_M);
   }
   c.restore();
-  const faceMat = addGrain(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }), 'paint');
+  // integral (back) lighting: the engraved legends, lines and pushbutton surrounds are the translucent parts that
+  // glow at night; build that mask from the painted face (anything much brighter than the paint)
+  const em = document.createElement('canvas'); em.width = cw; em.height = ch; { const ex = em.getContext('2d'); const src = c.getImageData(0, 0, cw, ch); const d = src.data;
+    for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]); if (mx < 175) { d[i] = d[i + 1] = d[i + 2] = 0; } else { const k = (mx - 175) / 80; d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; } }
+    ex.putImageData(src, 0, 0); }
+  const emTex = new THREE.CanvasTexture(em); emTex.colorSpace = THREE.SRGBColorSpace;
+  const faceMat = addGrain(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissiveMap: emTex, emissive: 0x000000 }), 'paint');
+  INTEGRAL.add(faceMat);
   const gap = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.004, h + 0.004), new THREE.MeshBasicMaterial({ color: 0x07080a })); gap.position.z = -0.0085; g.add(gap);
   const plate = rbox(w - 0.001, h - 0.001, 0.009, 0.0035, spec.plate || M.module); plate.position.z = -0.0045; g.add(plate);
   const face = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.006, h - 0.006), faceMat); face.position.z = 0.0001; face.receiveShadow = true; g.add(face);

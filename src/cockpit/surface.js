@@ -25,13 +25,13 @@ vec3 gPerturb(vec3 pos, vec3 n, vec2 dH, float fd){
 `;
 
 const PRESETS = {
-  paint:   { scale: 900,  rough: 0.10, bump: 0.0035, tint: 0.035, broad: 0.04 },
-  matte:   { scale: 1400, rough: 0.06, bump: 0.0025, tint: 0.02,  broad: 0.03 },
+  paint:   { scale: 900,  rough: 0.10, bump: 0.0035, tint: 0.035, broad: 0.04, wear: 0.06, dust: 0.10 },
+  matte:   { scale: 1400, rough: 0.06, bump: 0.0025, tint: 0.02,  broad: 0.03, wear: 0.03, dust: 0.22 },
   fabric:  { scale: 420,  rough: 0.08, bump: 0.012,  tint: 0.10,  broad: 0.05, weave: 1.0 },
   carpet:  { scale: 650,  rough: 0.04, bump: 0.02,   tint: 0.16,  broad: 0.08 },
   rubber:  { scale: 1600, rough: 0.08, bump: 0.002,  tint: 0.03,  broad: 0.0 },
   brushed: { scale: 1200, rough: 0.12, bump: 0.002,  tint: 0.05,  broad: 0.0, stretch: 1.0 },
-  lining:  { scale: 300,  rough: 0.05, bump: 0.006,  tint: 0.04,  broad: 0.05 },
+  lining:  { scale: 300,  rough: 0.05, bump: 0.006,  tint: 0.04,  broad: 0.05, wear: 0.02, dust: 0.05 },
 };
 
 export function addGrain(material, kind) {
@@ -55,7 +55,14 @@ export function addGrain(material, kind) {
         roughnessFactor = clamp(roughnessFactor + (gh-0.5)*${P.rough.toFixed(3)} + (gBroad-0.5)*0.05, 0.04, 1.0);`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         { vec2 dH = vec2(dFdx(gh), dFdy(gh)) * ${P.bump.toFixed(4)} * 60.0;
-          normal = gPerturb(-vViewPosition, normal, dH, faceDirection); }`);
+          normal = gPerturb(-vViewPosition, normal, dH, faceDirection); }
+        ${P.wear ? `{ // use and age: rubbed, slightly polished edges; a film of dust on upward-facing surfaces; grime in low corners
+          vec3 wn = inverseTransformDirection(normal, viewMatrix);
+          float edge = clamp(length(fwidth(normal)) * 2.2, 0.0, 1.0) * smoothstep(0.35, 0.75, gNoise(vGrainPos * 160.0));
+          diffuseColor.rgb *= 1.0 + edge * ${P.wear.toFixed(3)}; roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.7, edge);
+          float dust = smoothstep(0.7, 0.97, wn.y) * (0.55 + 0.45 * gFbm(vGrainPos * 35.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.56, 0.55, 0.52), dust * ${(P.dust || 0).toFixed(3)}); roughnessFactor = min(1.0, roughnessFactor + dust * 0.12);
+          float low = 1.0 - smoothstep(0.05, 0.5, vGrainPos.y); diffuseColor.rgb *= 1.0 - low * 0.06 * gFbm(vGrainPos * 12.0); }` : ''}`);
   };
   material.customProgramCacheKey = () => 'grain-' + kind;
   return material;
