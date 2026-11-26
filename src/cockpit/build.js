@@ -327,45 +327,43 @@ function buildWindowFrames(M) {
       const xA = C.clone().sub(B).normalize(), yA = B.clone().sub(A).normalize(); const zA = xA.clone().cross(yA).normalize(); if (zA.dot(nIn) < 0) zA.negate();
     }
     const C2 = onHull(s, D.SIDE_WINDOWS.w2[4][0], D.SIDE_WINDOWS.w2[4][1], 0.0), D2 = onHull(s, D.SIDE_WINDOWS.w2[0][0], D.SIDE_WINDOWS.w2[0][1], 0.0);
-    // solid corner post: outer face spans from the pane's edge to the sliding window's front edge,
-    // 6 cm deep into the cockpit
-    const n = 10; const L = [], R = [], Li = [], Ri = [], DIN = [];
-    const postSide = addGrain(new THREE.MeshStandardMaterial({ color: 0x74878f, roughness: 0.62, side: THREE.DoubleSide }), 'paint');   // side faces, a shade under the face
-    for (let i = 0; i <= n; i++) {
-      const tt = i / n; const l = lift(Dp.clone().lerp(C, tt), 0.004), r = D2.clone().lerp(C2, tt);
-      const din = new THREE.Vector3(-l.x, 1.1 - l.y, 0.25).normalize().multiplyScalar(0.095 * (1 - 0.8 * THREE.MathUtils.smoothstep(tt, 0.8, 1.0)) * (0.75 + 0.25 * THREE.MathUtils.smoothstep(tt, 0.0, 0.3)));
-      L.push(l); R.push(r); DIN.push(din);
-    }
-    // each long side of the post climbs in three steps toward its inner face
-    const SH = []; { const tier = (d0, dd, l0, dl) => { for (let q = 1; q <= 4; q++) { const an = (q / 4) * Math.PI / 2; SH.push([d0 + dd * Math.sin(an), l0 + dl * (1 - Math.cos(an))]); } };
-      SH.push([0, 0]); tier(0, 0.34, 0, 1); tier(0.34, 0.34, 1, 1); SH.push([1, 2]); }
-    const stairs = (base, other, k) => { const out = SH.map(() => []);
-      base.forEach((b, i) => { const w = b.distanceTo(other[i]); const tR = other[i].clone().sub(b).normalize(); const sw = Math.min(0.012, w * 0.14); const dn = DIN[i].clone().multiplyScalar(k);
-        SH.forEach(([dd, ll], j) => out[j].push(b.clone().addScaledVector(dn, dd).addScaledVector(tR, sw * ll))); });
-      for (let j = 0; j < SH.length - 1; j++) { const m = stripMesh(out[j], out[j + 1], (j < 4 || (j >= 8 && j < 12)) ? postSide : f); m.castShadow = m.receiveShadow = true; grp.add(m); } return out[SH.length - 1]; };
-    { const keep = postSide; Li.push(...(() => { const r = stairs(L, R, 1); return r; })()); }
-    Ri.push(...stairs(R, L, 0.85));
-    grp.add(stripMesh(L, R, f), stripMesh(Li, Ri, f));
-    // dark seam between the post and the windshield frame, out to the shell, as on the aircraft
-    // third piece: fills from the side-window glass up onto the post's inner face along its whole length,
-    // and carries on below the post down onto the lower pillar, so post, window frame and pillar read as one moulding
-    { const W2 = D.SIDE_WINDOWS.w2; const ez = W2[4][0] - W2[0][0], ey = W2[4][1] - W2[0][1], el = Math.hypot(ez, ey);
-      let nz = ey / el, ny = -ez / el; const cz = W2.reduce((a2, q) => a2 + q[0], 0) / W2.length, cy = W2.reduce((a2, q) => a2 + q[1], 0) / W2.length;
-      if (nz * (cz - W2[0][0]) + ny * (cy - W2[0][1]) < 0) { nz = -nz; ny = -ny; }   // into the window
-      const rows = [[], [], [], [], [], []];
-      const add = (z, y, top) => { const at = (o, d) => onHull(s, z + nz * o, y + ny * o, d);
-        const a = at(0.004, 0.009), b = top; const mid = a.clone().lerp(b, 0.5); const inw = new THREE.Vector3(-s, 0, 0);
-        rows[0].push(at(0.016, 0.002)); rows[1].push(at(0.016, 0.0075)); rows[2].push(a); rows[3].push(a.clone().lerp(b, 0.25).addScaledVector(inw, 0.008));
-        rows[4].push(mid.addScaledVector(inw, 0.01)); rows[5].push(b); };
-      // toward the bottom the aft edge flares out in one smooth curve, so the post widens down onto the lower pillar's top
-      const FL = 0.11, N2 = 3 * n;
-      for (let i = 0; i <= N2; i++) { const t = i / N2; const u = Math.min(1, t / 0.55); const fl = FL * (1 - u) * (1 - u);
-        const fi = t * n, i0 = Math.min(n - 1, Math.floor(fi)), fr = fi - i0; const top = Ri[i0].clone().lerp(Ri[i0 + 1], fr);
-        add(W2[0][0] + ez * t + fl, W2[0][1] + ey * t, top); }
-      // the flared foot lands exactly on the lower pillar's top edge: no gap, no ledge
-      { const UJ = [1, 0.97, 0.9, 0.6, 0.35, 0.14], NB = Math.round(N2 * 0.3); rows.forEach((r, j) => { const tgt = lpAt(s, 0, UJ[j]);
-          for (let i = 0; i <= NB; i++) { const w = (1 - i / NB) ** 2; r[i].lerp(tgt, w); } }); }
-      for (let j = 0; j < 5; j++) { const m = stripMesh(rows[j], rows[j + 1], j === 0 ? metal : f); m.castShadow = m.receiveShadow = true; grp.add(m); } }
+    // corner post: a straight bar of constant section between the windshield and the sliding window.
+    // Inner face flat and straight; a dark stepped side down to the windshield frame; a plain side down to the
+    // side-window glass with a metal lip. It runs straight down into the lower frame.
+    const n = 14; const L = [], R = [], Li = [], Ri = [];
+    const postSide = addGrain(new THREE.MeshStandardMaterial({ color: 0x74878f, roughness: 0.62, side: THREE.DoubleSide }), 'paint');
+    const postDark = addGrain(new THREE.MeshStandardMaterial({ color: 0x4e5c64, roughness: 0.6, side: THREE.DoubleSide }), 'paint');
+    const T0 = -0.32, T1 = 1.0;   // the bar starts below the pane corner, buried in the lower frame
+    const eye = new THREE.Vector3(s * 0.5, 1.15, 0.92);
+    const mid = (t) => lift(Dp.clone().lerp(C, t), 0.004).lerp(D2.clone().lerp(C2, t), 0.5);
+    const m0 = mid(0.0), m1 = mid(1.0); const ua = m1.clone().sub(m0).normalize();
+    const nb = eye.clone().sub(m0.clone().lerp(m1, 0.4)); nb.addScaledVector(ua, -nb.dot(ua)).normalize();
+    let wv = ua.clone().cross(nb).normalize(); if (wv.dot(Dp.clone().sub(D2)) < 0) wv.negate();   // wv points to the windshield side
+    const BW = 0.085, BD = 0.072;
+    // below the pane corner the bar's line bends aft and down and sinks into the lower frame (the moulding with the grab handle)
+    const cAt = (tt) => m0.clone().lerp(m1, tt).addScaledVector(nb, BD * (1 - 0.55 * THREE.MathUtils.smoothstep(tt, 0.82, 1.0)));
+    const foot = lpAt(s, 0.42, 0.3); const ex = ua.clone().multiplyScalar(-0.07);
+    const P0 = cAt(0), P1 = P0.clone().add(ex), P2 = foot.clone().addScaledVector(new THREE.Vector3(s, 0, 0), 0.035);
+    for (let i = 0; i <= n; i++) { const tt = T0 + (T1 - T0) * i / n;
+      const c = cAt(tt);
+      Li.push(c.clone().addScaledVector(wv, BW / 2)); Ri.push(c.clone().addScaledVector(wv, -BW / 2));
+      if (tt >= 0) { L.push(lift(Dp.clone().lerp(C, tt), 0.004)); R.push(D2.clone().lerp(C2, tt)); }
+      else { L.push(c.clone().addScaledVector(wv, BW / 2 + 0.02).addScaledVector(nb, -BD)); R.push(c.clone().addScaledVector(wv, -BW / 2 - 0.02).addScaledVector(nb, -BD)); } }
+    const loftRows = (rows, mats) => { for (let j = 0; j < rows.length - 1; j++) { const m = stripMesh(rows[j], rows[j + 1], mats(j)); m.castShadow = m.receiveShadow = true; grp.add(m); } };
+    // inner face with rolled edges
+    { const rr = 0.008; const A2 = Li.map((p) => p.clone().addScaledVector(wv, -rr)), B2 = Ri.map((p) => p.clone().addScaledVector(wv, rr));
+      const roll = (P, Q, dir) => P.map((p, i) => p.clone().addScaledVector(dir, 0.0).addScaledVector(nb, -rr));
+      const Lr = roll(Li, null, wv), Rr = roll(Ri, null, wv);
+      loftRows([Lr, Li.map((p) => p.clone().addScaledVector(wv, -rr * 0.3).addScaledVector(nb, -rr * 0.3)), A2, B2, Ri.map((p) => p.clone().addScaledVector(wv, rr * 0.3).addScaledVector(nb, -rr * 0.3)), Rr], () => f);
+      // windshield side: dark band stepping down to the windshield frame
+      const s1 = Lr.map((p, i) => p.clone().lerp(L[i], 0.45).addScaledVector(nb, 0.012));
+      const s2 = s1.map((p, i) => p.clone().lerp(L[i], 0.35));
+      loftRows([Lr, s1, s2, L], (j) => (j === 1 ? f : postDark));
+      // side-window side: plain face down to the glass, with a metal lip
+      const g0 = R.map((p, i) => p.clone().addScaledVector(wv, -0.014)), g1 = g0.map((p) => p.clone().addScaledVector(nb, 0.006));
+      const q1 = Rr.map((p, i) => p.clone().lerp(R[i], 0.5).addScaledVector(nb, 0.008));
+      loftRows([Rr, q1, R, g1, g0], (j) => (j >= 2 ? metal : postSide));
+      grp.add(stripMesh(L, R, f)); }
     // lower pillar: the post carries on below the sill as one moulding, widening aft as it runs down
     // into the side wall; edges roll down onto the lining, the front edge meets the dark connector
     { const nu = 28, nv = 40, rows = [];
@@ -385,10 +383,10 @@ function buildWindowFrames(M) {
       for (const e of [-0.045, 0.045]) { const st = rbox(0.016, 0.018, 0.03, 0.004, hm); st.position.set(e, 0, 0.004); hg.add(st); }
       grp.add(hg); }
     // ridge along the inner face, an eyeball outlet and the window latch fitting
-    { const fn = Ri[6].clone().sub(Li[6]).cross(Li[7].clone().sub(Li[6])).normalize(); if (fn.x * s > 0) fn.negate();
+    { const fn = Ri[10].clone().sub(Li[10]).cross(Li[11].clone().sub(Li[10])).normalize(); if (fn.x * s > 0) fn.negate();
       // reading-light control set into the post: recessed rounded panel, knurled knob, sensor, ON/OFF switch
-      { const up = Li[8].clone().lerp(Ri[8], 0.5).sub(Li[4].clone().lerp(Ri[4], 0.5)).normalize(); const xa = up.clone().cross(fn).normalize();
-        const lp = new THREE.Group(); lp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xa, up, fn)); lp.position.copy(Li[6].clone().lerp(Ri[6], 0.5)).add(fn.clone().multiplyScalar(0.001)); grp.add(lp);
+      { const up = Li[12].clone().lerp(Ri[12], 0.5).sub(Li[8].clone().lerp(Ri[8], 0.5)).normalize(); const xa = up.clone().cross(fn).normalize();
+        const lp = new THREE.Group(); lp.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xa, up, fn)); lp.position.copy(Li[11].clone().lerp(Ri[11], 0.5)).add(fn.clone().multiplyScalar(0.001)); grp.add(lp);
         const dk = new THREE.MeshStandardMaterial({ color: 0x14171a, roughness: 0.5 });
         const rim = rbox(0.05, 0.15, 0.004, 0.012, new THREE.MeshStandardMaterial({ color: 0x4f5f69, roughness: 0.55 })); rim.position.z = 0.001; lp.add(rim);
         const pnl = rbox(0.04, 0.14, 0.003, 0.009, postSide); pnl.position.z = 0.0028; lp.add(pnl);
@@ -398,8 +396,7 @@ function buildWindowFrames(M) {
         const sens = new THREE.Mesh(new THREE.CircleGeometry(0.003, 16), dk); sens.position.set(0, 0.012, 0.0045); lp.add(sens);
         const sw = rbox(0.009, 0.018, 0.005, 0.0015, dk); sw.position.set(0, -0.022, 0.0055); lp.add(sw);
         const on = A_LBL('ON', 0.004); on.position.set(0, -0.009, 0.0047); lp.add(on); const off = A_LBL('OFF', 0.004); off.position.set(0, -0.035, 0.0047); lp.add(off); }
-      const go = gasper(M); go.position.copy(Li[9].clone().lerp(Ri[9], 0.5)).add(fn.clone().multiplyScalar(0.004)); go.lookAt(go.position.clone().add(fn)); grp.add(go);
-      const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 20), new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.5 })); lk.position.copy(Li[4].clone().lerp(Ri[4], 0.5)).add(fn.clone().multiplyScalar(0.005)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fn); grp.add(lk); }
+      const lk = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.005, 20), new THREE.MeshStandardMaterial({ color: 0x5d6d76, roughness: 0.5 })); lk.position.copy(Li[7].clone().lerp(Ri[7], 0.5)).add(fn.clone().multiplyScalar(0.003)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fn); grp.add(lk); }
     // sill skirt under the pane's lower edge, down to the shell
     const P = [], Q = [];
     for (let i = 0; i <= 16; i++) { const t = i / 16; const e = A.clone().lerp(Dp, t); P.push(lift(e, 0.005)); Q.push(onHull(s, e.z, 0.86, 0.005)); }
@@ -428,7 +425,7 @@ function buildWindowFrames(M) {
     let pi = 0;
     for (const [z, y] of pts) {
       const dz = z - cz, dy = y - cy, l = Math.hypot(dz, dy), uz = dz / l, uy = dy / l;
-      const gT = skip >= 0 ? 0.1 + 0.9 * THREE.MathUtils.smoothstep(pi++, 0, 16) : 1;   // the front end eases out of the pillar
+      const gT = 1;   // the front end eases out of the pillar
       let lim = W + 0.006; while (lim > 0.012 && shellCell(s * hullHW(z + uz * lim, y + uy * lim), y + uy * lim, z + uz * lim) === 'open') lim *= 0.8;
       PROF.forEach(([o, d], k) => {
         let oo = Math.min(o, lim), zz = z + uz * oo, yy = y + uy * oo, dd = d * gT;
@@ -612,7 +609,7 @@ function buildGlareshield(M, refs) {
   for (const s of [-1, 1]) {
     // end face of the glareshield: a smooth dark moulded connector. Its top is tucked under the end of the cap,
     // and its aft face sweeps down and back in one S-curve to the side console, edges rolled
-    const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.95, yLo = 0.735, xIn = 0.813, r = 0.014;
+    const ax = xEnd, zA = zf(ax) - 0.02, yb = 0.9, yLo = 0.735, xIn = 0.813, r = 0.014;
     const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.6, side: THREE.DoubleSide });
     const rows = []; const nv = 24;
     for (let iv = 0; iv <= nv; iv++) { const y = yb + (yLo - yb) * iv / nv; const zfp = LP_ZF(y) - 0.0015; const xo = Math.max(xIn + r + 0.004, hullHW(zfp, y) - 0.004);
