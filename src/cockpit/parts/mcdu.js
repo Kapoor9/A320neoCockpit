@@ -10,9 +10,9 @@ const box = (w, h, d, r, mat) => { const rr = Math.min(r, w / 2, h / 2, d / 2) *
 
 export function makeMCDU(M, atlas, { side = -1 } = {}) {
   const g = new THREE.Group(); g.name = 'MCDU' + (side < 0 ? '1' : '2');
-  const body = new THREE.MeshStandardMaterial({ color: 0x2f3437, roughness: 0.6 });
-  const keyMat = new THREE.MeshStandardMaterial({ color: 0x24282b, roughness: 0.55 });
-  const keyLight = new THREE.MeshStandardMaterial({ color: 0x3a3f43, roughness: 0.5 });
+  const body = new THREE.MeshStandardMaterial({ color: 0x6a798a, roughness: 0.6 });   // same paint as the pedestal panels
+  const keyMat = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.45 });
+  const keyLight = new THREE.MeshStandardMaterial({ color: 0x1d2024, roughness: 0.45 });
   const toY = (top) => mm(H / 2 - top);       // measure from the top edge, in mm
   const toX = (left) => mm(left - W / 2);
 

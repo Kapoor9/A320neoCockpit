@@ -121,28 +121,39 @@ export function makeThrustQuadrant(M, atlas) {
   // measured: the lever gates are a tight drum, radius ~7.8 cm about a pivot at deck level, top ~9.5 cm up
   const pivotZ = 0.0, armLen = 0.098, A0 = -1.35, A1 = 1.35;   // handle seated just above the drum
   // central housing with two curved lever slots
-  const base = rbox(0.16, 0.26, 0.012, 0.004, M.panelDark); base.position.set(0, 0.04, 0.0); g.add(base);
+  const base = rbox(0.16, 0.26, 0.012, 0.004, new THREE.MeshStandardMaterial({ color: 0x2c3034, roughness: 0.6 })); base.position.set(0, 0.04, 0.0); g.add(base);
   // raised centre divider between the two lever tracks
   const divShape = new THREE.Shape(); divShape.moveTo(0, 0);
   for (let i = 0; i <= 32; i++) { const a = A0 + (A1 - A0) * (i / 32); divShape.lineTo(Math.sin(a) * (armLen - 0.03), Math.cos(a) * (armLen - 0.03) + pivotZ); }
   divShape.lineTo(Math.sin(A1) * (armLen - 0.03), pivotZ); divShape.lineTo(Math.sin(A0) * (armLen - 0.03), pivotZ); divShape.closePath();
   const div = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(divShape, { depth: 0.02, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelOffset: -0.002, bevelSegments: 2 }).rotateY(Math.PI / 2), M.module));
-  div.position.x = -0.01; g.add(div);
+  div.material = new THREE.MeshStandardMaterial({ color: 0x34393e, roughness: 0.55 }); div.position.x = -0.01; g.add(div);
   // curved top over which the levers travel (a cylinder segment)
   const rArc = 0.078, a0 = A0, a1 = A1;
-  const arcMat = M.module.clone(); arcMat.side = THREE.DoubleSide;
+  const ccv = document.createElement('canvas'); ccv.width = 64; ccv.height = 1024; { const cc = ccv.getContext('2d'); cc.fillStyle = '#34393e'; cc.fillRect(0, 0, 64, 1024);
+    const yv = (deg) => (1 - (THREE.MathUtils.degToRad(deg) - A0) / (A1 - A0)) * 1024; cc.fillStyle = '#d8dad6';
+    for (let d = 0; d <= 45; d += 2.5) { const y = yv(d); const w = d % 5 === 0 ? 30 : 16; cc.fillRect(32 - w / 2, y - 1.5, w, 3); } }
+  const ctex = new THREE.CanvasTexture(ccv); ctex.colorSpace = THREE.SRGBColorSpace;
+  const arcMat = new THREE.MeshStandardMaterial({ map: ctex, roughness: 0.6, side: THREE.DoubleSide });
   // the arc surface, interrupted by the two lever slots
   const edges = [-0.074, -0.0335, -0.0225, 0.0225, 0.0335, 0.074];
   // printed scale: graduations, green A/THR arc (IDLE..CL), yellow/black hatched reverse zone
   const cv = document.createElement('canvas'); cv.width = 128; cv.height = 1024; const c = cv.getContext('2d');
-  c.fillStyle = '#5b676f'; c.fillRect(0, 0, 128, 1024);
+  c.fillStyle = '#3a3f44'; c.fillRect(0, 0, 128, 1024);
   const vOf = (deg) => (THREE.MathUtils.degToRad(deg) - a0) / (a1 - a0);           // 0..1 along the arc
   const yOf = (deg) => (1 - vOf(deg)) * 1024;
-  c.fillStyle = '#c9a83a';
-  for (let y = yOf(DETENT_DEG.IDLE - 2); y < 1024; y += 22) { c.save(); c.beginPath(); c.rect(70, yOf(DETENT_DEG.IDLE - 2), 52, 1024); c.clip(); c.translate(70, y); c.rotate(-0.6); c.fillRect(-20, 0, 120, 9); c.restore(); }
-  c.fillStyle = '#4f9a5c'; c.fillRect(72, yOf(DETENT_DEG.CL), 10, yOf(DETENT_DEG.IDLE) - yOf(DETENT_DEG.CL));
+  // reverse zone: orange chevrons below IDLE, REV lettering, FULL at the end (as on the aircraft)
+  c.strokeStyle = '#e0702a'; c.lineWidth = 5; c.fillStyle = '#e0702a';
+  for (let k = 0; k < 6; k++) { const y = yOf(DETENT_DEG.IDLE - 2) + 14 + k * 20; c.beginPath(); c.moveTo(40, y); c.lineTo(72, y + 16); c.lineTo(104, y); c.stroke(); }
+  c.font = '600 22px Arial'; c.textAlign = 'center'; c.fillText('FULL', 72, yOf(DETENT_DEG.REV) + 6);
+  // A/THR range bracket (IDLE to CL) and detent index lines
+  c.strokeStyle = '#d8dad6'; c.lineWidth = 3; c.beginPath(); c.moveTo(108, yOf(DETENT_DEG.CL)); c.lineTo(118, yOf(DETENT_DEG.CL)); c.lineTo(118, yOf(DETENT_DEG.IDLE)); c.lineTo(108, yOf(DETENT_DEG.IDLE)); c.stroke();
+  c.fillStyle = '#d8dad6'; c.font = '600 20px Arial';
+  ['A', '/', 'T', 'H', 'R'].forEach((ch, i) => c.fillText(ch, 96, yOf(DETENT_DEG.CL) + 40 + i * 30));
   c.fillStyle = '#e8ebe6';
-  for (let d = -12; d <= 46; d += 2) { const y = yOf(d); c.fillRect(d % 10 === 0 ? 30 : 44, y - 1.5, d % 10 === 0 ? 34 : 20, 3); }
+  for (const d of [DETENT_DEG.TOGA, DETENT_DEG.FLX, DETENT_DEG.CL, DETENT_DEG.IDLE]) { c.beginPath(); c.moveTo(8, yOf(d) - 8); c.lineTo(20, yOf(d)); c.lineTo(8, yOf(d) + 8); c.fill(); }
+  // thin green line along the outer edge (as on the aircraft)
+  c.fillStyle = '#2f6a3a'; c.fillRect(2, 0, 3, 1024);
   const scaleTex = new THREE.CanvasTexture(cv); scaleTex.colorSpace = THREE.SRGBColorSpace; scaleTex.anisotropy = 8;
   const scaleMat = new THREE.MeshStandardMaterial({ map: scaleTex, roughness: 0.6, side: THREE.DoubleSide });
   for (let k = 0; k < edges.length; k += 2) {
@@ -157,7 +168,7 @@ export function makeThrustQuadrant(M, atlas) {
     const sh = new THREE.Shape(); sh.moveTo(0, 0);
     for (let i = 0; i <= 24; i++) { const a = a0 + (a1 - a0) * (i / 24); sh.lineTo(Math.sin(a) * rArc, Math.cos(a) * rArc + pivotZ); }
     sh.lineTo(Math.sin(a1) * rArc, pivotZ); sh.lineTo(Math.sin(a0) * rArc, pivotZ); sh.closePath();
-    const cheek = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }).rotateY(Math.PI / 2), M.panelDark));
+    const cheek = shade(new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }).rotateY(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x2c3034, roughness: 0.6 })));
     cheek.position.x = x - 0.003; g.add(cheek);
   }
   // detent scale on the arc's outer edges, with white index lines
@@ -182,12 +193,13 @@ export function makeThrustQuadrant(M, atlas) {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.0285, 0, pivotZ); g.add(pivot);
     const arm = rbox(0.009, 0.03, armLen, 0.004, M.metal);   // broad lever blade running in the gate slot arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
-    const handle = rbox(0.05, 0.034, 0.03, 0.011, new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.18, metalness: 0.1 })); handle.position.set(0, 0.003, armLen + 0.01); pivot.add(handle);
-    const grip = rbox(0.05, 0.012, 0.012, 0.004, M.panelDark); grip.position.set(0, 0.019, armLen + 0.006); pivot.add(grip);
-    const face = rbox(0.05, 0.005, 0.02, 0.002, M.panelDark); face.position.set(0, -0.016, armLen + 0.01); pivot.add(face);
-    // A/THR instinctive disconnect pushbutton on the outboard side
-    const b = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 20).rotateZ(Math.PI / 2), btnMat));
-    b.position.set(s * 0.026, 0.003, armLen + 0.01); pivot.add(b);
+    const blk = new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.3, metalness: 0.1 });
+    const neck = rbox(0.016, 0.02, 0.03, 0.004, blk); neck.position.set(0, -0.004, armLen - 0.004); pivot.add(neck);
+    const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.0125, 0.03, 8, 24).rotateZ(Math.PI / 2), blk); grip.position.set(s * 0.004, 0.0, armLen + 0.012); grip.castShadow = true; pivot.add(grip);
+    for (const k of [-1, 1]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.0126, 0.0009, 8, 32).rotateY(Math.PI / 2), M.panelDark); band.position.set(s * 0.004 + k * 0.01, 0, armLen + 0.012); pivot.add(band); }
+    // A/THR instinctive disconnect pushbutton: red, set into the outboard end of the grip
+    const b = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.004, 20).rotateZ(Math.PI / 2), btnMat));
+    b.position.set(s * (0.004 + 0.0275), 0, armLen + 0.012); pivot.add(b);
     // reverse thrust latch lever in front of the handle
     const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(0, 0.02, armLen - 0.012); latch.rotation.x = 0.5; pivot.add(latch);
     pivot.rotation.x = 0; levers.push(pivot);
@@ -202,13 +214,13 @@ export function makeThrustQuadrant(M, atlas) {
 export function makeTrimWheel(M, side = -1) {
   // A rounded rim (like a thick ring) with wide white bands; the web is set back inside the pedestal.
   const g = new THREE.Group();
-  const R = 0.162, tube = 0.0135;
+  const R = 0.136, tube = 0.0115;   // sized against the reference model
   const black = new THREE.MeshStandardMaterial({ color: 0x1b1e20, roughness: 0.6 });
   const white = new THREE.MeshStandardMaterial({ color: 0xe9ebe6, roughness: 0.55 });
   const rim = shade(new THREE.Mesh(new THREE.TorusGeometry(R, tube, 20, 160).rotateY(Math.PI / 2), black)); g.add(rim);
-  for (let k = 0; k < 8; k++) {
-    const band = shade(new THREE.Mesh(new THREE.TorusGeometry(R, tube + 0.0004, 20, 24, 0.36).rotateY(Math.PI / 2), white));
-    band.rotation.x = (k / 8) * Math.PI * 2; g.add(band);
+  for (let k = 0; k < 12; k++) {   // short white marks, black between (about one third white)
+    const band = shade(new THREE.Mesh(new THREE.TorusGeometry(R, tube + 0.0004, 20, 16, 0.17).rotateY(Math.PI / 2), white));
+    band.rotation.x = (k / 12) * Math.PI * 2; g.add(band);
   }
   const web = shade(new THREE.Mesh(new THREE.CylinderGeometry(R - tube * 0.6, R - tube * 0.6, 0.008, 96).rotateZ(Math.PI / 2), black)); web.position.x = -side * 0.004; g.add(web);
   g.userData.radius = R;
