@@ -686,7 +686,7 @@ function buildPedestal(M, refs) {
   refs.rudTrim = at(PED.rudderTrimPanel(M, A), 0, 0.81);
   refs.flaps = at(PED.flapsPanel(M, A), 0.125, 0.82);
   refs.parkBrake = at(PED.parkBrakePanel(M, A), 0, 0.94);
-  at(PED.genericPanel(M, A, 0.125, 0.075, 'COCKPIT DOOR', [['UNLOCK', 'NORM', 'LOCK'], ['VIDEO']]), -0.13, 0.935);
+  at(PED.cockpitDoorPanel(M, A), -0.13, 0.935);
   // printer on the right, blank panels on the left, gravity gear extension handle in the middle, stowage handle and SLEW key aft right
   { const pr = PED.genericPanel(M, A, 0.125, 0.075, '', []); at(pr, 0.13, 0.935); const slot = rbox(0.1, 0.022, 0.012, 0.003, new THREE.MeshStandardMaterial({ color: 0x121416, roughness: 0.5 })); slot.position.z = 0.006; pr.add(slot); }
   for (const z of [0.99, 1.06]) at(PED.genericPanel(M, A, 0.125, 0.065, '', []), -0.13, z);
@@ -695,7 +695,11 @@ function buildPedestal(M, refs) {
     const k = rbox(0.016, 0.01, 0.004, 0.002, M.trim); k.position.set(-0.03, -0.045, 0.004); p.add(k); }
   { const g = PED.genericPanel(M, A, 0.1, 0.13, 'GEAR', []); at(g, 0, 1.03);
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.008, 40).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 })); disc.position.z = 0.004; g.add(disc);
-    const hnd = rbox(0.024, 0.06, 0.022, 0.004, new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.45 })); hnd.position.set(0, -0.01, 0.017); g.add(hnd); refs.gravityGear = hnd; }
+    const hnd = rbox(0.024, 0.06, 0.022, 0.004, new THREE.MeshStandardMaterial({ color: 0xa8302a, roughness: 0.45 })); hnd.position.set(0, -0.01, 0.017); g.add(hnd); refs.gravityGear = hnd;
+    // lettering on the handle and the GEAR arrows either side (as in the references)
+    const hl = A.mesh(['GRAVITY', 'GEAR', 'EXTN'], 0.026, { px: 34, weight: 700, color: '#f2f0ea' }, 0.022); hl.position.set(0, -0.004, 0.0285); g.add(hl);
+    for (const sx of [-1, 1]) { const gl = A.mesh(['G', 'E', 'A', 'R'], 0.026, { px: 30, weight: 600 }, 0.008); gl.position.set(sx * 0.043, -0.004, 0.0008); g.add(gl);
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(0.039, 0.0007, 6, 32, 0.9), new THREE.MeshBasicMaterial({ color: 0xe8ebe6 })); arc.rotation.z = sx < 0 ? Math.PI * 0.86 : -Math.PI * 0.14; arc.position.z = 0.0008; g.add(arc); } }
   // padded side rails along the pedestal edges and the ribbed rubber bumper across its rear (as photographed)
   const pad = new THREE.MeshStandardMaterial({ color: 0x252c38, roughness: 0.55 });
   for (const s of [-1, 1]) for (const [z0, z1, hw, y] of [[P.profile[0][0] + 0.05, P.aftZ, P.halfWidth, P.profile[1][1]], [P.aftZ, P.rearZ - 0.03, P.aftHalfWidth, P.profile[2][1]]]) {

@@ -138,28 +138,29 @@ export function makeThrustQuadrant(M, atlas) {
   // the arc surface, interrupted by the two lever slots
   const edges = [-0.074, -0.0335, -0.0225, 0.0225, 0.0335, 0.074];
   // printed scale: graduations, green A/THR arc (IDLE..CL), yellow/black hatched reverse zone
-  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 1024; const c = cv.getContext('2d');
+  const scaleMatFor = (mir) => { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 1024; const c = cv.getContext('2d');
+  const X = (x) => (mir ? 128 - x : x);
   c.fillStyle = '#3a3f44'; c.fillRect(0, 0, 128, 1024);
   const vOf = (deg) => (THREE.MathUtils.degToRad(deg) - a0) / (a1 - a0);           // 0..1 along the arc
   const yOf = (deg) => (1 - vOf(deg)) * 1024;
   // reverse zone: orange chevrons below IDLE, REV lettering, FULL at the end (as on the aircraft)
   c.strokeStyle = '#e0702a'; c.lineWidth = 5; c.fillStyle = '#e0702a';
-  for (let k = 0; k < 6; k++) { const y = yOf(DETENT_DEG.IDLE - 2) + 14 + k * 20; c.beginPath(); c.moveTo(40, y); c.lineTo(72, y + 16); c.lineTo(104, y); c.stroke(); }
-  c.font = '600 22px Arial'; c.textAlign = 'center'; c.fillText('FULL', 72, yOf(DETENT_DEG.REV) + 6);
+  for (let k = 0; k < 6; k++) { const y = yOf(DETENT_DEG.IDLE - 2) + 14 + k * 20; c.beginPath(); c.moveTo(X(40), y); c.lineTo(X(72), y + 16); c.lineTo(X(104), y); c.stroke(); }
+  c.font = '600 22px Arial'; c.textAlign = 'center'; c.fillText('FULL', X(72), Math.min(1010, yOf(DETENT_DEG.IDLE - 2) + 150));
   // A/THR range bracket (IDLE to CL) and detent index lines
-  c.strokeStyle = '#d8dad6'; c.lineWidth = 3; c.beginPath(); c.moveTo(108, yOf(DETENT_DEG.CL)); c.lineTo(118, yOf(DETENT_DEG.CL)); c.lineTo(118, yOf(DETENT_DEG.IDLE)); c.lineTo(108, yOf(DETENT_DEG.IDLE)); c.stroke();
+  c.strokeStyle = '#d8dad6'; c.lineWidth = 3; c.beginPath(); c.moveTo(X(108), yOf(DETENT_DEG.CL)); c.lineTo(X(118), yOf(DETENT_DEG.CL)); c.lineTo(X(118), yOf(DETENT_DEG.IDLE)); c.lineTo(X(108), yOf(DETENT_DEG.IDLE)); c.stroke();
   c.fillStyle = '#d8dad6'; c.font = '600 20px Arial';
-  ['A', '/', 'T', 'H', 'R'].forEach((ch, i) => c.fillText(ch, 96, yOf(DETENT_DEG.CL) + 40 + i * 30));
+  ['A', '/', 'T', 'H', 'R'].forEach((ch, i) => c.fillText(ch, X(96), yOf(DETENT_DEG.CL) + 40 + i * 30));
   c.fillStyle = '#e8ebe6';
-  for (const d of [DETENT_DEG.TOGA, DETENT_DEG.FLX, DETENT_DEG.CL, DETENT_DEG.IDLE]) { c.beginPath(); c.moveTo(8, yOf(d) - 8); c.lineTo(20, yOf(d)); c.lineTo(8, yOf(d) + 8); c.fill(); }
+  for (const d of [DETENT_DEG.TOGA, DETENT_DEG.FLX, DETENT_DEG.CL, DETENT_DEG.IDLE]) { c.beginPath(); c.moveTo(X(8), yOf(d) - 8); c.lineTo(X(20), yOf(d)); c.lineTo(X(8), yOf(d) + 8); c.fill(); }
   // thin green line along the outer edge (as on the aircraft)
-  c.fillStyle = '#2f6a3a'; c.fillRect(2, 0, 3, 1024);
+  c.fillStyle = '#2f6a3a'; c.fillRect(mir ? 123 : 2, 0, 3, 1024);
   const scaleTex = new THREE.CanvasTexture(cv); scaleTex.colorSpace = THREE.SRGBColorSpace; scaleTex.anisotropy = 8;
-  const scaleMat = new THREE.MeshStandardMaterial({ map: scaleTex, roughness: 0.6, side: THREE.DoubleSide });
+  return new THREE.MeshStandardMaterial({ map: scaleTex, roughness: 0.6, side: THREE.DoubleSide }); };
+  const scaleMat = scaleMatFor(false), scaleMatR = scaleMatFor(true);
   for (let k = 0; k < edges.length; k += 2) {
     const outer = k !== 2; const geo = curvedStrip(edges[k], edges[k + 1], rArc, a0, a1, pivotZ);
-    if (outer && edges[k] > 0) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); }
-    g.add(shade(new THREE.Mesh(geo, outer ? scaleMat : arcMat)));
+    g.add(shade(new THREE.Mesh(geo, outer ? (edges[k] > 0 ? scaleMatR : scaleMat) : arcMat)));
   }
   const slotMat = new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 1, side: THREE.DoubleSide });
   for (const x of [-0.028, 0.028]) g.add(new THREE.Mesh(curvedStrip(x - 0.0055, x + 0.0055, rArc - 0.012, a0, a1, pivotZ), slotMat));

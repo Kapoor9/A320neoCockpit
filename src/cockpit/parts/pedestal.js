@@ -225,6 +225,19 @@ export function parkBrakePanel(M, A) {
   h.position.set(0.026, -0.004, 0); p.add(h); p.userData.handle = h;
   return p;
 }
+export function cockpitDoorPanel(M, A) {
+  // as in the references: OPEN light, three-position UNLOCK / NORM / LOCK switch in a black housing, round VIDEO button
+  const items = [
+    { t: 'text', x: -0.03, y: 0.026, s: 'COCKPIT DOOR', size: 0.0052 },
+    { t: 'annun', x: -0.049, y: -0.004, w: 0.014, h: 0.014, s: 'OPEN' },
+    { t: 'text', x: 0.0, y: 0.008, s: 'UNLOCK', size: 0.0034 }, { t: 'text', x: 0.0, y: -0.004, s: 'NORM', size: 0.0034 }, { t: 'text', x: 0.0, y: -0.016, s: 'LOCK', size: 0.0034 },
+    { t: 'text', x: 0.037, y: 0.012, s: 'VIDEO', size: 0.0036 }, { t: 'rbtn', x: 0.037, y: -0.004, r: 0.0065, id: 'doorVideoPed' },
+  ];
+  const p = buildPanel({ w: 0.125, h: 0.075, items, name: 'cockpitDoor' }, M, A);
+  const hs = rbox(0.017, 0.022, 0.006, 0.002, new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 })); hs.position.set(-0.027, -0.004, 0.003); p.add(hs);
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.008, 20).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8cbcc, roughness: 0.25, metalness: 0.85 })); t.position.set(-0.027, -0.004, 0.009); p.add(t);
+  return p;
+}
 export function genericPanel(M, A, w, h, title, rows) {
   const items = [];
   rows.forEach((r, i) => r.forEach((s, j) => items.push({ t: 'pb', x: -w / 2 + (w / (r.length + 1)) * (j + 1), y: h / 2 - 0.022 - i * 0.022, w: 0.015, h: 0.013, legends: [s, ''] })));
