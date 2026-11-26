@@ -6,14 +6,21 @@ import { buildPanel } from './panel.js';
 
 // outboard lighting / loudspeaker panel (captain: side -1, F/O: side +1)
 export function lightingPanel(M, A, side) {
+  // instrument lighting control panel (as in reference photographs): PFD and ND rheostats with the PFD/ND XFR
+  // button between them, LOUD SPKR rheostat and CONSOLE/FLOOR switch below, GPWS warning button in the corner
+  const m = side < 0 ? 1 : -1;   // the F/O panel is the mirror image
+  const T = (x, y, s, size = 0.0032) => ({ t: 'text', x: m * x, y, s, size });
+  const rh = (x, y, id) => ({ t: 'knob', style: 'knurl', x: m * x, y, r: 0.0078, id, arc: 130 });
+  const L = (pts) => ({ t: 'line', pts: pts.map(([x, y]) => [m * x, y]), w: 0.0006 });
   const items = [
-    { t: 'annun', x: side < 0 ? 0.045 : -0.045, y: 0.036, w: 0.024, h: 0.016, s: 'PULL UP' },
-    { t: 'text', x: -0.045, y: 0.018, s: 'PFD', size: 0.0034 }, { t: 'knob', x: -0.045, y: 0.0, r: 0.008, id: 'pfdBrt' },
-    { t: 'text', x: 0.0, y: 0.018, s: 'PFD/ND', size: 0.0034 }, { t: 'knob', x: 0.0, y: 0.0, r: 0.008, id: 'ndBrt' },
-    { t: 'text', x: 0.045, y: 0.018, s: 'ND', size: 0.0034 }, { t: 'knob', x: 0.045, y: 0.0, r: 0.008, id: 'wxBrt' },
-    { t: 'text', x: -0.045, y: -0.022, s: 'LOUDSPEAKER', size: 0.003 }, { t: 'knob', x: -0.045, y: -0.038, r: 0.008, id: 'loud' },
-    { t: 'text', x: 0.0, y: -0.022, s: 'CONSOLE/FLOOR', size: 0.003 }, { t: 'toggle', x: 0.0, y: -0.04, id: 'console' },
-    { t: 'text', x: 0.045, y: -0.022, s: 'PILOT WINDOW', size: 0.003 }, { t: 'toggle', x: 0.045, y: -0.04, id: 'winHeat' },
+    { t: 'pb', x: m * 0.052, y: 0.036, w: 0.016, h: 0.016, legends: ['PULL UP', ''], cols: ['#c93a2a', '#c93a2a'], id: 'pullUp' + side },
+    T(-0.045, 0.02, 'PFD'), rh(-0.045, 0.004, 'pfdBrt'), T(-0.057, -0.009, 'OFF', 0.0028), T(-0.033, -0.009, 'BRT', 0.0028),
+    L([[-0.023, 0.024], [-0.023, -0.012]]), T(0, 0.024, 'PFD/ND'), T(0, 0.018, 'XFR'), { t: 'rbtn', x: 0, y: 0.004, r: 0.0058, id: 'pfdNdXfr' + side },
+    L([[0.023, 0.024], [0.023, -0.012]]), T(0.045, 0.02, 'ND'), rh(0.045, 0.004, 'ndBrt'), T(0.033, -0.009, 'OFF', 0.0028), T(0.057, -0.009, 'BRT', 0.0028),
+    L([[-0.062, -0.016], [0.062, -0.016]]),
+    T(-0.045, -0.022, 'LOUD SPKR'), rh(-0.045, -0.035, 'loud'), T(-0.057, -0.046, 'OFF', 0.0028), T(-0.033, -0.046, 'MAX', 0.0028),
+    T(0.006, -0.022, 'CONSOLE/FLOOR', 0.003), { t: 'toggle', x: m * 0.0, y: -0.036, id: 'console' + side },
+    T(0.02, -0.029, 'BRT', 0.0028), T(0.02, -0.037, 'DIM', 0.0028), T(0.02, -0.045, 'OFF', 0.0028), L([[0.028, -0.026], [0.028, -0.048]]),
   ];
   return buildPanel({ w: 0.14, h: 0.1, items, name: 'lighting' + side }, M, A);
 }
