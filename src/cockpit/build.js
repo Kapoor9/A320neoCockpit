@@ -566,8 +566,9 @@ function buildGlareshield(M, refs) {
     const ax = xEnd, f0 = zf(ax), r0 = zr(ax), yb = yBot(ax);
     const q = [[f0, yT(0, ax)], [f0 + (r0 - f0) * 0.5, yT(0.5, ax)], [r0 - 0.002, yT(1, ax)], [r0 - 0.004, yb + 0.004], [r0 - 0.02, yb - 0.03], [r0 - 0.01, 0.8], [f0, 0.8]];
     const shp = new THREE.Shape(q.map(([z, y]) => new THREE.Vector2(z, y)));
-    const eg = new THREE.ExtrudeGeometry(shp, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 3 });
-    eg.rotateY(-Math.PI / 2); const em = new THREE.Mesh(eg, M.fcu); em.position.x = s * ax + (s > 0 ? 0.03 : 0); em.castShadow = em.receiveShadow = true; grp.add(em);
+    const eg = new THREE.ExtrudeGeometry(shp, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.007, bevelSegments: 4 });
+    const joint = new THREE.MeshStandardMaterial({ color: 0x1b1f23, roughness: 0.55 });   // thick black joint between glareshield and side wall
+    eg.rotateY(-Math.PI / 2); const em = new THREE.Mesh(eg, joint); em.position.x = s * (ax - 0.035) + (s > 0 ? 0.07 : 0); em.castShadow = em.receiveShadow = true; grp.add(em);
   }
 
   return grp;
