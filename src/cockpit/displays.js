@@ -178,7 +178,7 @@ export function paintDisplays(scene, refs) {
     PFD2: [make(S.PFD2, pfd(1)), (sys) => [ir(sys, 1)], (sys) => flags(pfd(1), 'pfd', ir(sys, 1))],
     ND1: [make(S.ND1, nd()), (sys) => [ir(sys, 0)], (sys) => flags(nd(), 'nd', ir(sys, 0))],
     ND2: [make(S.ND2, nd()), (sys) => [ir(sys, 1)], (sys) => flags(nd(), 'nd', ir(sys, 1))],
-    EWD: [make(S.EWD, ewdDraw(EMPTY)), (sys) => [sys.warnings.map((w) => w.text), sys.memos.map((m) => m.t), Math.round(sys.fuel.fob / 20)], (sys) => ewdDraw(sys)],
+    EWD: [make(S.EWD, ewdDraw(EMPTY)), (sys) => [sys.warnings.map((w) => w.text), sys.memos.map((m) => m.t + m.c), Math.round(sys.fuel.fob / 20), sys.toMemo, (sys.eng || []).map((e) => [e.fadec, e.n1.toFixed(1), Math.round(e.egt), e.n2.toFixed(1), Math.round(e.ff / 10), e.starting, e.ign, e.rev, e.running && sys.t - (sys.engStartedAt?.[0] ?? -99) < 10])], (sys) => ewdDraw(sys)],
     SD: [make(S.SD, sdDraw(EMPTY, 'DOOR')), (sys) => sdKey(sys), (sys) => sdDraw(sys, sys.sdPage)],
     ISIS: [make(S.ISIS, isis(), 0.9), () => [], () => isis()],
   };
@@ -214,9 +214,10 @@ export function paintDisplays(scene, refs) {
     },
   });
 }
-const EMPTY = { warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [25.8, 25.8], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
+const EMPTY = { eng: [], warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [25.8, 25.8], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
 const sdKey = (S) => [S.sdPage, Math.round(S.apu.n), Math.round(S.apu.egt / 5), S.apu.avail, S.apu.bleed, S.apu.flap > 0.98, S.apu.shutting, S.elec, S.batV.map((v) => v.toFixed(0)), S.extAvail,
-  Math.round(S.hyd.G / 50), Math.round(S.hyd.B / 50), Math.round(S.hyd.Y / 50), S.hyd.ptu, S.fuel.xfeedOpen >= 1, S.fuel.pumps, S.packs, S.xbleedOpen, new Date().getUTCMinutes()];
+  Math.round(S.hyd.G / 50), Math.round(S.hyd.B / 50), Math.round(S.hyd.Y / 50), S.hyd.ptu, S.fuel.xfeedOpen >= 1, S.fuel.pumps, S.packs, S.xbleedOpen, new Date().getUTCMinutes(),
+  (S.eng || []).map((e) => [e.fadec, Math.round(e.oilP), Math.round(e.oilT), e.ign, e.startValve, e.starting, e.running]), S.bleedPsi];
 // no attitude / heading until the IR is aligned: red ATT and HDG flags (as on the aircraft during alignment)
 function flags(cv, kind, ok) {
   if (ok) return cv; const c = cv.getContext('2d'); c.save(); c.setTransform(2, 0, 0, 2, 0, 0);

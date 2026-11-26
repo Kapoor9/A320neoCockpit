@@ -272,7 +272,7 @@ export function buildPanel(spec, M, atlas) {
       const lens = rbox(it.w - 0.0004, it.h - 0.0004, 0.0038, 0.0004, capMat); lens.position.z = 0.0021; k.add(lens);
       if (it.s) { const lab = atlas.mesh(it.s, it.h * (it.bar ? 0.32 : 0.4), { px: 32, weight: 600, color: '#c9ccc8' }, it.w * 0.84); lab.position.set(0, it.bar ? -it.h * 0.16 : 0, 0.0041); k.add(lab); }
       if (it.bar) {   // green 'engaged' bar: three segments, unlit
-        const bm = new THREE.MeshStandardMaterial({ color: 0x0f2414, roughness: 0.3, emissive: 0x000000 }); k.userData.bar = [];
+        const bm = new THREE.MeshStandardMaterial({ color: 0x0f2414, roughness: 0.6, emissive: 0x000000 }); k.userData.bar = [];
         for (const sx of [-1, 0, 1]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(it.w * 0.22, it.h * 0.13), bm); s.position.set(sx * it.w * 0.26, it.h * 0.24, 0.0042); k.add(s); k.userData.bar.push(s); }
       }
       k.position.set(it.x, it.y, 0); g.add(k); if (it.id) controls[it.id] = k; register(k, it);

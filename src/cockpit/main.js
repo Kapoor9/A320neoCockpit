@@ -15,6 +15,7 @@ import { Interaction } from './sim/interact.js';
 import { registerPhysical } from './sim/physical.js';
 import { makeLighting } from './sim/lighting.js';
 import { PRESETS, applyPreset } from './sim/presets.js';
+import { CockpitSound } from './sim/sound.js';
 
 await loadFonts();
 
@@ -153,8 +154,10 @@ lighting = makeLighting(scene, { dome, flood, invalidate: () => (dirty = Math.ma
 if (screens) screens.onChange = () => (dirty = Math.max(dirty, 2));
 systems = new Systems(sim, { ...lighting, screens }); sim.systems = systems;
 const interaction = new Interaction(sim, camera, canvas, scene);
+systems.sound = new CockpitSound(sim, systems);
 applyPreset(sim, systems, 'cold');
 Object.assign(window.cockpit, { sim, systems, interaction, preset: (n) => applyPreset(sim, systems, n) });
 { const st = document.getElementById('state') || bar;
   const b = document.createElement('button'); b.textContent = 'Cold & dark'; b.title = 'Everything off, ground power available'; b.onclick = () => { applyPreset(sim, systems, 'cold'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(b);
+  const snd = document.createElement('button'); snd.textContent = 'Sound: on'; snd.onclick = () => { const on = !systems.sound.enabled; systems.sound.setEnabled(on); snd.textContent = 'Sound: ' + (on ? 'on' : 'off'); }; st.appendChild(snd);
   const r = document.createElement('button'); r.textContent = 'Ready for start'; r.title = 'APU running, IRS aligned'; r.onclick = () => { applyPreset(sim, systems, 'ready'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(r); }

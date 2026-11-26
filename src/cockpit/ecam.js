@@ -14,22 +14,43 @@ const fmt = (v, d = 0) => (Math.round(v / (d || 1)) * (d || 1)).toString();
 
 // ---------------------------------------------------------------------------------------------- E/WD
 export function ewd(S) {
-  const [cv, c] = canvas();
-  const gauge = (x, y, r) => { line(c, [], C.a); c.strokeStyle = C.a; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r, Math.PI * 0.92, Math.PI * 2.02); c.stroke();
-    c.lineWidth = 2; for (let k = 0; k <= 5; k++) { const a = Math.PI * 0.92 + (k / 5) * Math.PI * 1.1; c.beginPath(); c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.lineTo(x + Math.cos(a) * (r - 7), y + Math.sin(a) * (r - 7)); c.stroke(); }
-    c.strokeStyle = '#d03020'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, Math.PI * 1.88, Math.PI * 2.02); c.stroke(); };
-  for (const x of [190, 340]) { gauge(x, 70, 40); XX(c, x, 64, 22); XX(c, x + 16, 92); gauge(x, 172, 34); XX(c, x, 186, 19); gauge(x, 254, 40); XX(c, x + 16, 272, 19); }
-  txt(c, 'EPR', 266, 66, C.w, 20); txt(c, 'EGT', 266, 158, C.w, 20); txt(c, '°C', 266, 176, C.c, 15); txt(c, 'N1', 266, 254, C.w, 20); txt(c, '%', 266, 272, C.c, 15);
-  txt(c, 'FF', 36, 158, C.w, 18, 'left'); txt(c, 'KG/H', 66, 158, C.c, 14, 'left'); XX(c, 56, 180);
-  txt(c, 'FF', 420, 158, C.w, 18, 'left'); txt(c, 'KG/H', 450, 158, C.c, 14, 'left'); XX(c, 440, 180);
-  txt(c, 'N2', 40, 236, C.w, 18, 'left'); txt(c, '%', 74, 236, C.c, 15, 'left'); XX(c, 56, 256);
-  txt(c, 'N2', 428, 236, C.w, 18, 'left'); txt(c, '%', 462, 236, C.c, 15, 'left'); XX(c, 444, 256);
+  // A320neo with CFM LEAP-1A: N1 and EGT gauges, N2 and fuel flow as numbers. Amber XX while the FADEC is unpowered.
+  const [cv, c] = canvas(); const E = S.eng || [];
+  const arc = (x, y, r, a0, a1, col, w) => { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.arc(x, y, r, a0, a1); c.stroke(); };
+  const A0 = Math.PI * 0.86, A1 = Math.PI * 2.08;
+  const gauge = (x, y, r, val, max, red, ok, digits, avail) => {
+    if (!ok) { arc(x, y, r, A0, A1, C.a, 3); txt(c, 'XX', x, y - 4, C.a, 22); return; }
+    arc(x, y, r, A0, A1, C.w, 3); arc(x, y, r, A0 + (A1 - A0) * red, A1, C.r, 4);
+    c.strokeStyle = C.w; c.lineWidth = 2; for (let k = 0; k <= 5; k++) { const a = A0 + (k / 5) * (A1 - A0); c.beginPath(); c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); c.lineTo(x + Math.cos(a) * (r - 7), y + Math.sin(a) * (r - 7)); c.stroke(); }
+    const a = A0 + (A1 - A0) * Math.min(1, Math.max(0, val / max)); line(c, [[x + Math.cos(a) * 10, y + Math.sin(a) * 10], [x + Math.cos(a) * (r + 4), y + Math.sin(a) * (r + 4)]], C.g, 4);
+    box(c, x - 6, y + 6, 62, 30, C.grey, 1.5); txt(c, digits, x + 52, y + 21, C.g, 22, 'right');
+    if (avail) txt(c, 'AVAIL', x, y - r - 10, C.g, 15);
+  };
+  E.forEach((e, i) => {
+    const x = i ? 352 : 160, ok = !!e.fadec, av = e.running && S.engStartedAt && S.t - (S.engStartedAt[i] || -99) < 10;
+    gauge(x, 82, 52, e.n1, 110, 0.93, ok, e.n1.toFixed(1), av);
+    gauge(x, 198, 38, e.egt, 1100, 0.9, ok, String(Math.round(e.egt)), false);
+    if (ok) { if (e.starting) { c.fillStyle = '#3a3f45'; c.fillRect(x - 36, 256, 70, 26); } txt(c, e.n2.toFixed(1), x + 30, 270, C.g, 21, 'right'); txt(c, String(Math.round(e.ff / 10) * 10), x + 30, 308, C.g, 21, 'right'); }
+    else { XX(c, x, 270); XX(c, x, 308); }
+    if (e.ign) txt(c, e.ign ? 'IGN A' : '', x + (i ? 78 : -78), 270, C.g, 14);
+    if (e.rev) { box(c, x - 22, 30, 44, 22, C.g, 2); txt(c, 'REV', x, 41, C.g, 16); }
+  });
+  txt(c, 'N1', 256, 76, C.w, 20); txt(c, '%', 256, 96, C.c, 15); txt(c, 'EGT', 256, 192, C.w, 20); txt(c, '°C', 256, 210, C.c, 15);
+  txt(c, 'N2', 256, 262, C.w, 18); txt(c, '%', 256, 280, C.c, 14); txt(c, 'FF', 256, 300, C.w, 18); txt(c, 'KG/H', 256, 318, C.c, 13);
   txt(c, 'FOB :', 16, 346, C.w, 22, 'left'); txt(c, fmt(S.fuel.fob, 20), 104, 346, C.g, 24, 'left'); txt(c, 'KG', 192, 348, C.c, 17, 'left');
   line(c, [[8, 372], [296, 372]], C.w, 3); line(c, [[330, 372], [504, 372]], C.w, 3); line(c, [[316, 384], [316, 496]], C.w, 3);
-  // left: warnings (red / amber), then the IRS alignment memo; right: memos
-  let y = 394;
+  // left: warnings, else the T.O memo, else the alignment memo; right: memos
+  let y = 394; const right = [];
   for (const w of S.warnings) { txt(c, w.text, 14, y, w.lvl === 3 ? C.r : C.a, 19, 'left'); y += 22; }
-  const right = []; for (const m of S.memos) { if (m.t.startsWith('IRS IN ALIGN') && y < 480) { txt(c, m.t, 14, y, C.g, 19, 'left'); y += 22; } else right.push(m); }
+  if (!S.warnings.length && S.toMemo) {
+    S.toMemo.forEach(([lab, val, done, doneVal], i) => {
+      const yy = 394 + i * 19; if (i === 0) txt(c, 'T.O', 14, yy, C.w, 17, 'left');
+      const name = i === 0 ? lab.slice(4) : lab;
+      if (done) txt(c, name + ' ' + (doneVal || val), 54, yy, C.g, 17, 'left');
+      else { txt(c, name, 54, yy, C.c, 17, 'left'); c.font = `600 17px ${FONT}`; const w = c.measureText(name).width; const dots = '.'.repeat(Math.max(2, Math.round((206 - w) / 5))); txt(c, dots + val, 54 + w, yy, C.c, 17, 'left'); }
+    });
+  }
+  for (const m of S.memos) { if (m.t.startsWith('IRS IN ALIGN') && !S.toMemo && y < 480) { txt(c, m.t, 14, y, m.c === 'a' ? C.a : C.g, 19, 'left'); y += 22; } else if (!m.t.startsWith('IRS IN ALIGN')) right.push(m); }
   right.slice(0, 5).forEach((m, i) => txt(c, m.t, 336, 394 + i * 22, m.c === 'a' ? C.a : C.g, 19, 'left'));
   return cv;
 }
@@ -92,7 +113,7 @@ const PAGES = {
     for (const [x, s, on] of [[40, 'TR 1', E.ac1], [210, 'ESS TR', false], [380, 'TR 2', E.ac2]]) { box(c, x, 214, 90, 60, on ? C.w : C.grey); txt(c, s, x + 45, 228, on ? C.w : C.grey, 15); if (on) { txt(c, '28', x + 52, 248, C.g, 16, 'right'); txt(c, 'V', x + 56, 248, C.c, 12, 'left'); txt(c, '35', x + 52, 264, C.g, 16, 'right'); txt(c, 'A', x + 56, 264, C.c, 12, 'left'); } }
     if (E.dc1) line(c, [[85, 214], [85, 176]], C.g); if (E.dc2) line(c, [[427, 214], [427, 176]], C.g); if (E.ac1) line(c, [[85, 300], [85, 274]], C.g); if (E.ac2) line(c, [[427, 300], [427, 274]], C.g);
     // sources: engine generators (engines stopped), APU GEN, EXT PWR
-    src(20, 360, 'GEN 1', false, [0]); src(400, 360, 'GEN 2', false, [0]);
+    src(20, 360, 'GEN 1', !!E.gen?.[0], [28]); src(400, 360, 'GEN 2', !!E.gen?.[1], [28]);
     const apuOn = S.apu.avail; src(140, 372, 'APU GEN', apuOn, [S.elec.source === 'APU GEN' ? 18 : 0], apuOn ? undefined : false);
     const ext = S.extAvail; box(c, 280, 372, 92, 80, ext ? C.w : C.grey); txt(c, 'EXT PWR', 326, 386, ext ? C.w : C.grey, 16);
     if (ext) { txt(c, '115', 334, 410, C.g, 18, 'right'); txt(c, 'V', 340, 410, C.c, 13, 'left'); txt(c, '400', 334, 432, C.g, 18, 'right'); txt(c, 'HZ', 340, 432, C.c, 13, 'left'); }
@@ -153,12 +174,23 @@ const PAGES = {
     box(c, 160, 300, 192, 120, C.w, 2); txt(c, 'SAFETY', 256, 330, C.w, 15); txt(c, 'PACK 1', 120, 440, S.packs?.[0] ? C.w : C.a, 15); txt(c, 'PACK 2', 392, 440, S.packs?.[1] ? C.w : C.a, 15);
     txt(c, 'VENT', 90, 300, C.w, 15); txt(c, 'INLET', 90, 330, C.w, 13); txt(c, 'EXTRACT', 90, 360, C.w, 13);
   },
-  ENG(c) {
-    title(c, 'ENG'); txt(c, 'F.USED', 256, 70, C.w, 16); txt(c, 'KG', 256, 90, C.c, 13); XX(c, 160, 90); XX(c, 352, 90);
-    txt(c, 'OIL', 256, 140, C.w, 17); txt(c, 'QT', 256, 160, C.c, 13);
-    for (const x of [140, 372]) { c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.arc(x, 160, 42, Math.PI * 0.9, Math.PI * 2.1); c.stroke(); txt(c, '17.5', x, 176, C.g, 18); c.beginPath(); c.arc(x, 260, 42, Math.PI * 0.9, Math.PI * 2.1); c.stroke(); XX(c, x, 276); }
-    txt(c, 'PSI', 256, 260, C.c, 13); txt(c, 'VIB N1', 256, 330, C.w, 15); txt(c, 'N2', 256, 352, C.w, 15); XX(c, 160, 330); XX(c, 352, 330); XX(c, 160, 352); XX(c, 352, 352);
-    txt(c, 'IGN', 256, 410, C.w, 15);
+  ENG(c, S) {
+    title(c, 'ENG'); const E = S.eng || [];
+    txt(c, 'F.USED', 256, 70, C.w, 16); txt(c, 'KG', 256, 90, C.c, 13);
+    txt(c, 'OIL', 256, 140, C.w, 17); txt(c, 'QT', 256, 160, C.c, 13); txt(c, 'PSI', 256, 252, C.c, 13); txt(c, '°C', 256, 300, C.c, 13);
+    E.forEach((e, i) => {
+      const x = i ? 372 : 140, ok = !!e.fadec;
+      if (ok) txt(c, '0', x, 90, C.g, 18); else XX(c, x, 90);
+      c.strokeStyle = C.w; c.lineWidth = 3; c.beginPath(); c.arc(x, 160, 42, Math.PI * 0.9, Math.PI * 2.1); c.stroke(); txt(c, ok ? '17.5' : 'XX', x, 176, ok ? C.g : C.a, 18);
+      c.beginPath(); c.arc(x, 252, 42, Math.PI * 0.9, Math.PI * 2.1); c.stroke();
+      if (ok) { const a = Math.PI * 0.9 + Math.PI * 1.2 * Math.min(1, e.oilP / 140); line(c, [[x, 252], [x + Math.cos(a) * 40, 252 + Math.sin(a) * 40]], e.oilP < 13 && e.running ? C.r : C.g, 3); txt(c, String(Math.round(e.oilP)), x, 268, C.g, 18); txt(c, String(Math.round(e.oilT)), x, 300, C.g, 18); }
+      else { XX(c, x, 268); XX(c, x, 300); }
+      txt(c, ok ? (e.n1 > 1 ? '0.1' : '0.0') : 'XX', x, 340, ok ? C.g : C.a, 17); txt(c, ok ? (e.n2 > 1 ? '0.2' : '0.0') : 'XX', x, 362, ok ? C.g : C.a, 17);
+      if (e.ign) txt(c, 'A', x + (i ? 40 : -40), 410, C.g, 18);
+      // start valve and bleed pressure during the start
+      if (ok && (e.starting || e.running)) { c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.arc(x, 438, 13, 0, Math.PI * 2); c.stroke(); line(c, e.startValve ? [[x, 425], [x, 451]] : [[x - 13, 438], [x + 13, 438]], C.g, 3); txt(c, String(S.bleedPsi?.[i] ?? 0), x + (i ? 50 : -50), 438, C.g, 17); txt(c, 'PSI', x + (i ? 84 : -84), 439, C.c, 12); }
+    });
+    txt(c, 'VIB N1', 256, 340, C.w, 15); txt(c, 'N2', 256, 362, C.w, 15); txt(c, 'IGN', 256, 410, C.w, 15);
   },
   WHEEL(c, S) {
     title(c, 'WHEEL'); const tri = (x, y) => { c.strokeStyle = C.g; c.lineWidth = 3; c.beginPath(); c.moveTo(x - 18, y); c.lineTo(x + 18, y); c.lineTo(x, y + 22); c.closePath(); c.stroke(); };
