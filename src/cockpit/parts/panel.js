@@ -46,6 +46,8 @@ function hw() {
   HW.knobDark = new THREE.MeshStandardMaterial({ color: 0x232628, roughness: 0.55 });
   HW.ringDark = new THREE.MeshStandardMaterial({ color: 0x3e4347, roughness: 0.35, metalness: 0.5 });
   HW.chrome = new THREE.MeshStandardMaterial({ color: 0xc4c7c8, roughness: 0.25, metalness: 0.85 });
+  HW.amberDim = new THREE.MeshStandardMaterial({ color: 0x8a5a2a, roughness: 0.5, emissive: 0xb0601c, emissiveIntensity: 0.35 });   // integral light at a bezel rim, daylight
+  HW.lever = new THREE.MeshStandardMaterial({ color: 0x9a9690, roughness: 0.45, metalness: 0.45 });   // satin grey light levers
   HW.red = new THREE.MeshStandardMaterial({ color: 0xa3261d, roughness: 0.45 });
   HW.cage = new THREE.MeshStandardMaterial({ color: 0x151719, roughness: 0.5 });
   HW.clear = new THREE.MeshPhysicalMaterial({ color: 0xc9cfd2, roughness: 0.15, transparent: true, opacity: 0.35, depthWrite: false });
@@ -95,13 +97,17 @@ export function buildPanel(spec, M, atlas) {
     c.font = `${weight} ${size * PX_PER_M}px ${FONT_PANEL}`; c.textAlign = align; c.textBaseline = 'middle';
     String(s).split('\n').forEach((line, i, arr) => { const [px, py] = P(x, y + (arr.length - 1) * size * 0.55 - i * size * 1.1); const f = c.fillStyle; c.fillStyle = 'rgba(8,10,12,0.55)'; c.fillText(line, px + 1.2, py + 1.4); c.fillStyle = f; c.fillText(line, px, py); });
   };
-  if (spec.title) text(spec.title, 0, h / 2 - 0.007, 0.0065);
+  if (spec.title) text(spec.title, 0, h / 2 - (spec.titleSize ? spec.titleSize * 1.25 : 0.007), spec.titleSize || 0.0065);
   for (const it of spec.items || []) {
     if (it.t === 'text') { text(it.s, it.x, it.y, it.size, it.align, it.weight); if (it.boxed) { c.font = `600 ${(it.size || 0.006) * PX_PER_M}px ${FONT_PANEL}`; const tw = c.measureText(String(it.s)).width + (it.size || 0.006) * PX_PER_M * 0.8, th = (it.size || 0.006) * PX_PER_M * 1.5; const [px, py] = P(it.x, it.y); c.lineWidth = 0.0005 * PX_PER_M; c.strokeRect(px - tw / 2, py - th / 2, tw, th); } }
     else if (it.t === 'line') { c.save(); if (it.col) c.strokeStyle = it.col; c.lineWidth = (it.w || 0.0006) * PX_PER_M; c.beginPath(); it.pts.forEach(([x, y], i) => (i ? c.lineTo(...P(x, y)) : c.moveTo(...P(x, y)))); c.stroke(); c.restore(); }
+    else if (it.t === 'arrow') { c.save(); c.fillStyle = it.col || '#e8ebe6'; const [px, py] = P(it.x, it.y); const a = (it.s || 0.003) * PX_PER_M; const d = it.dir === 'down' ? 1 : -1;
+      c.beginPath(); c.moveTo(px, py + d * a * 0.6); c.lineTo(px - a * 0.6, py - d * a * 0.5); c.lineTo(px + a * 0.6, py - d * a * 0.5); c.closePath(); c.fill(); c.restore(); }
+    else if (it.t === 'circ') { c.save(); if (it.col) c.strokeStyle = it.col; c.lineWidth = (it.w || 0.0006) * PX_PER_M; const [px, py] = P(it.x, it.y); c.beginPath(); c.arc(px, py, it.r * PX_PER_M, (it.a0 || 0) * Math.PI / 180, (it.a1 ?? 360) * Math.PI / 180); c.stroke(); c.restore(); }
     else if (it.t === 'box') { c.lineWidth = 0.0006 * PX_PER_M; const [x0, y0] = P(it.x - it.w / 2, it.y + it.h / 2); c.strokeRect(x0, y0, it.w * PX_PER_M, it.h * PX_PER_M); }
     else if (it.t === 'knob' && it.ring !== false) { // white tick ring around selectors
       c.lineWidth = 0.0005 * PX_PER_M; const [px, py] = P(it.x, it.y); const R = ((it.r || 0.011) * 1.45) * PX_PER_M;
+      if (it.arc) { c.beginPath(); c.arc(px, py, R * 1.02, THREE.MathUtils.degToRad(-90 - it.arc), THREE.MathUtils.degToRad(-90 + it.arc)); c.stroke(); }
       for (const a of it.ticks || [-45, 0, 45]) { const ra = THREE.MathUtils.degToRad(90 - a); c.beginPath(); c.moveTo(px + Math.cos(ra) * R * 0.92, py - Math.sin(ra) * R * 0.92); c.lineTo(px + Math.cos(ra) * R * 1.12, py - Math.sin(ra) * R * 1.12); c.stroke(); }
     }
   }
@@ -140,6 +146,16 @@ export function buildPanel(spec, M, atlas) {
         const tm = new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: 0x2f62c8 })); tm.position.z = 0.0207; k.add(tm);
       } else { const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 0.62, 0.00045, 6, 48), H.pointer); ring.position.z = 0.0205; k.add(ring); }
       k.position.set(it.x, it.y, 0); g.add(k); if (it.id) controls[it.id] = k;
+    } else if (it.t === 'knob' && it.style === 'bar') {
+      // overhead bar selector: low round base, a long light-grey grip tapering toward the pointer end, black index stripe
+      const r = it.r || 0.011; const k = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.98, r * 1.04, 0.005, 40).rotateX(Math.PI / 2), H.knob); base.position.z = 0.0025; base.castShadow = true; k.add(base);
+      const sh = new THREE.Shape(); const L = r * 1.05, W0 = r * 0.5, W1 = r * 0.3;
+      sh.moveTo(-W1, L); sh.quadraticCurveTo(0, L * 1.12, W1, L); sh.lineTo(W0, -L * 0.75); sh.quadraticCurveTo(0, -L * 1.05, -W0, -L * 0.75); sh.closePath();
+      const fin = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.011, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0012, bevelSegments: 4, curveSegments: 12 }), H.knob);
+      fin.position.z = 0.004; fin.castShadow = true; k.add(fin);
+      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.1, L * 1.55), new THREE.MeshBasicMaterial({ color: 0x141618 })); stripe.position.set(0, L * 0.12, 0.0166); k.add(stripe);
+      k.position.set(it.x, it.y, 0); k.rotation.z = THREE.MathUtils.degToRad(-(it.angle || 0)); g.add(k); if (it.id) controls[it.id] = k;
     } else if (it.t === 'knob') {
       // Airbus rotary selector: tapered light-grey body on a thin skirt, a raised pointer fin across the top
       const r = it.r || 0.011; const k = new THREE.Group(); const km = it.dark ? H.knobDark : H.knob;
@@ -200,8 +216,21 @@ export function buildPanel(spec, M, atlas) {
       const bush = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0032, 0.004, 20).rotateX(Math.PI / 2), H.chrome); bush.position.z = 0.0042; tg.add(bush);
       const bat = new THREE.Group(); bat.position.z = 0.006; bat.rotation.x = -0.35;
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0021, 0.0026, 0.012, 16).rotateX(Math.PI / 2), H.chrome); stem.position.z = 0.006; bat.add(stem);
-      const tip = it.style === 'paddle' ? rbox(0.0105, 0.0032, 0.013, 0.0014, H.chrome) : rbox(0.0062, 0.0044, 0.0068, 0.0018, H.chrome);   // landing/nose lights: wide flat paddle
-      tip.position.z = it.style === 'paddle' ? 0.0165 : 0.0135; bat.add(tip);
+      if (it.style === 'ribbed') {   // light levers (strobe, beacon, nav): wide grey lever with ribbed grip, hanging down
+        stem.visible = false; const lv = new THREE.Group(); lv.rotation.x = 0.9; bat.add(lv);
+        const blade = rbox(0.0088, 0.0026, 0.018, 0.0010, H.lever); blade.position.z = 0.009; lv.add(blade);
+        for (let i = 0; i < 6; i++) { const rib = rbox(0.0094, 0.0006, 0.0011, 0.0002, H.lever); rib.position.set(0, -0.0015, 0.007 + i * 0.0018); lv.add(rib); }
+      } else if (it.style === 'tbar') {   // landing light levers: stem with a wide flat T handle
+        const tb = rbox(0.0125, 0.0042, 0.0045, 0.0016, H.lever); tb.position.z = 0.0145; bat.add(tb);
+      } else {
+        const tip = it.style === 'paddle' ? rbox(0.0105, 0.0032, 0.013, 0.0014, H.chrome) : new THREE.Mesh(new THREE.SphereGeometry(0.0028, 16, 10), H.chrome);
+        tip.position.z = it.style === 'paddle' ? 0.0165 : 0.0128; bat.add(tip);
+      }
+      if (it.lit) {   // integrally lit bezel: black ring with an amber glow at its rim
+        const db = new THREE.Mesh(new THREE.CylinderGeometry(0.0078, 0.0082, 0.0022, 36).rotateX(Math.PI / 2), H.knobDark); db.position.z = 0.0011; tg.add(db);
+        const ar = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.00028, 6, 48), H.amberDim); ar.position.z = 0.0018; tg.add(ar);
+        nut.visible = false;
+      }
       tg.add(bat); tg.userData.bat = bat;
       tg.position.set(it.x, it.y, 0); g.add(tg); if (it.id) controls[it.id] = tg;
     } else if (it.t === 'cb') {   // rows of push/pull circuit breakers

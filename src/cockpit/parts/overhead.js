@@ -205,18 +205,6 @@ Object.assign(PANELS, {
     ...pb(-0.125, -0.044, 'IDG 1', 'FAULT', '', { guard: 'grey', cs: 0.0022 }), ...pb(-0.085, -0.044, 'GEN 1', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(-0.035, -0.044, 'APU GEN', 'FAULT', 'OFF', { cs: 0.0022 }),
     ...pb(0.035, -0.044, 'EXT PWR', 'AVAIL', 'ON', { cs: 0.0022 }), ...pb(0.085, -0.044, 'GEN 2', 'FAULT', 'OFF', { cs: 0.0022 }), ...pb(0.125, -0.044, 'IDG 2', 'FAULT', '', { guard: 'grey', cs: 0.0022 }),
   ] }),
-  airCond: () => ({ title: 'AIR COND', items: [
-    { t: 'text', x: -0.112, y: 0.052, s: 'PACK FLOW', size: 0.0024 }, { t: 'text', x: -0.128, y: 0.036, s: 'LO', size: 0.0021 }, { t: 'text', x: -0.096, y: 0.036, s: 'HI', size: 0.0021 }, { t: 'knob', x: -0.112, y: 0.03, r: 0.0085, id: 'packFlow' },
-    ...[['COCKPIT', -0.05], ['FWD CABIN', 0.005], ['AFT CABIN', 0.06]].flatMap(([s, x]) => [{ t: 'text', x, y: 0.05, s, size: 0.0024, boxed: true }, { t: 'text', x: x - 0.017, y: 0.02, s: 'COLD', size: 0.002 }, { t: 'text', x: x + 0.017, y: 0.02, s: 'HOT', size: 0.002 }, { t: 'knob', x, y: 0.03, r: 0.0095, id: 't' + s }]),
-    ...pb(0.122, 0.034, 'HOT AIR', 'FAULT', 'OFF', { cs: 0.0022 }),
-    { t: 'line', pts: [[-0.05, 0.02], [-0.05, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.005, 0.02], [0.005, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[0.06, 0.02], [0.06, 0.01]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.095, 0.01], [0.105, 0.01]], w: 0.0008, col: '#5ccf98' },
-    { t: 'text', x: -0.095, y: 0.004, s: 'PACK 1', size: 0.0026, boxed: true }, { t: 'text', x: 0.105, y: 0.004, s: 'PACK 2', size: 0.0026, boxed: true },
-    ...pb(-0.112, -0.012, '', 'FAULT', 'OFF', { id: 'pack1' }), ...pb(0.122, -0.012, '', 'FAULT', 'OFF', { id: 'pack2' }),
-    { t: 'line', pts: [[-0.095, 0.0], [-0.095, -0.027], [0.1, -0.027], [0.1, 0.0]], w: 0.0008, col: '#5ccf98' }, { t: 'line', pts: [[-0.01, -0.027], [-0.01, -0.034]], w: 0.0008, col: '#5ccf98' },
-    ...pb(-0.1, -0.044, 'ENG 1 BLEED', 'FAULT', 'OFF', { cs: 0.0021 }), ...pb(-0.055, -0.044, 'RAM AIR', '', 'ON', { guard: 'grey', cs: 0.0021 }), ...pb(-0.01, -0.044, 'APU BLEED', 'FAULT', 'ON', { cs: 0.0021 }),
-    { t: 'text', x: 0.045, y: -0.026, s: 'X BLEED', size: 0.0022 }, { t: 'text', x: 0.028, y: -0.038, s: 'SHUT', size: 0.002 }, { t: 'text', x: 0.045, y: -0.032, s: 'AUTO', size: 0.002 }, { t: 'text', x: 0.062, y: -0.038, s: 'OPEN', size: 0.002 }, { t: 'knob', x: 0.045, y: -0.046, r: 0.0085, id: 'xbleed' },
-    ...pb(0.1, -0.044, 'ENG 2 BLEED', 'FAULT', 'OFF', { cs: 0.0021 }),
-  ] }),
   paVideo: () => ({ title: '', items: [...pb(-0.035, -0.004, 'PA', '', ''), { t: 'line', pts: [[0.0, 0.022], [0.0, -0.022]], w: 0.0006 }, ...pb(0.04, -0.004, 'COCKPIT DOOR VIDEO', '', 'OFF', { cs: 0.0023 })] }),
   adirs: () => ({ title: 'ADIRS', items: [
     { t: 'annun', x: 0, y: 0.056, w: 0.03, h: 0.009, s: 'ON BAT' },
@@ -247,18 +235,6 @@ Object.assign(PANELS, {
     items.push({ t: 'line', pts: [[-0.049, 0.045], [-0.049, -0.045]], w: 0.0006 }, { t: 'line', pts: [[0.049, 0.045], [0.049, -0.045]], w: 0.0006 });
     return { title: '', items };
   },
-  antiIce: () => ({ title: 'ANTI ICE', items: [...pb(-0.032, -0.006, 'WING', 'FAULT', 'ON'), ...pb(0.0, -0.006, 'ENG 1', 'FAULT', 'ON'), ...pb(0.032, -0.006, 'ENG 2', 'FAULT', 'ON')] }),
-  probeHeat: () => ({ title: 'PROBE/WINDOW HEAT', items: pb(0, -0.008, '', '', 'ON') }),
-  cabPress: () => ({ title: 'CABIN PRESS', items: [...tg(-0.045, -0.008, 'MAN V/S CTL'), ...pb(-0.014, -0.006, 'MODE SEL', 'FAULT', 'MAN'), ...kn(0.017, -0.008, 'LDG ELEV', 0.0075, 'ldgElev'), ...pb(0.048, -0.006, 'DITCHING', '', 'ON', { guard: 'grey' })] }),
-  extLt: () => ({ title: 'EXT LT', items: [
-    ...[['STROBE', -0.045], ['BEACON', -0.015], ['WING', 0.015], ['NAV & LOGO', 0.045]].flatMap(([c, x]) => tg(x, 0.006, c)),
-    ...[['RWY TURN OFF', -0.045], ['LAND', -0.015], ['', 0.015], ['NOSE', 0.045]].flatMap(([c, x]) => tg(x, -0.022, c, undefined, 'paddle')),
-  ] }),
-  apu: () => ({ title: 'APU', items: [...pb(0, 0.006, 'MASTER SW', 'FAULT', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuMaster' }), ...pb(0, -0.019, 'START', 'AVAIL', 'ON', { w: 0.014, h: 0.013, cs: 0.002, id: 'apuStart' })] }),
-  signsIntLt: () => ({ title: 'INT LT', items: [
-    ...kn(-0.042, 0.006, 'OVHD INTEG LT', 0.0068, 'ovhdInteg'), ...tg(-0.012, 0.006, 'ICE IND & STBY COMPASS'), ...tg(0.016, 0.006, 'DOME'), ...tg(0.042, 0.006, 'ANN LT'),
-    cap(-0.028, -0.009, 'SIGNS', 0.003), ...tg(-0.034, -0.024, 'SEAT BELTS'), ...tg(-0.004, -0.024, 'NO SMOKING'), ...tg(0.034, -0.024, 'EMER EXIT LT'),
-  ] }),
   acp: () => {
     const T = ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB']; const items = [];
     T.forEach((s, i) => { const x = -0.066 + i * 0.022; items.push({ t: 'key', x, y: 0.05, w: 0.017, h: 0.009, s: '', id: 'acpT' + s }, cap(x, 0.035, s, 0.0026), { t: 'knob', x, y: 0.022, r: 0.0055, dark: true, pointer: false }); });
@@ -271,12 +247,91 @@ Object.assign(PANELS, {
   vent: () => ({ title: 'VENTILATION', items: [...pb(-0.05, -0.007, 'BLOWER', 'FAULT', 'OVRD'), ...pb(-0.012, -0.007, 'EXTRACT', 'FAULT', 'OVRD'), ...pb(0.055, -0.007, 'CAB FANS', '', 'OFF')] }),
   engMan: () => ({ title: 'ENG', items: [cap(-0.04, 0.008, 'MAN START', 0.0024), ...pb(-0.056, -0.01, '1', '', 'ON'), ...pb(-0.024, -0.01, '2', '', 'ON'), cap(0.04, 0.008, 'N1 MODE', 0.0024), ...pb(0.024, -0.01, '1', '', 'ON'), ...pb(0.056, -0.01, '2', '', 'ON')] }),
 });
+// ---- forward panels, laid out from the owner's photo of the overhead (pixel positions -> metres).
+// K: metres per photo pixel across; photo rows are foreshortened, so each row has its own vertical factor.
+const OK = 0.29 / 2440, GRN = '#8ee86a', GW = 0.0011;
+const ocap = (x, y, s, size = 0.0029) => ({ t: 'text', x, y, s, size: size * 1.3, weight: 700 });
+const obox = (x, y, s, size = 0.0029) => ({ t: 'text', x, y, s, size: size * 1.3, weight: 700, boxed: true });
+const opb = (x, y, top, bot, o = {}) => ({ t: 'pb', x, y, w: o.w || 0.0175, h: o.h || 0.0135, legends: [top, bot], guard: o.guard, id: o.id });
+const otg = (x, y, style, id) => ({ t: 'toggle', x, y, style, id, lit: true });
+const bracket = (x0, x1, y, d = 0.0025) => ({ t: 'line', pts: [[x0, y - d], [x0, y], [x1, y], [x1, y - d]], w: 0.0006 });
+const lcap = (x, y, s, size = 0.0029) => ({ t: 'text', x, y, s, size: size * 1.05, weight: 700 });
+const vtext = (x, y, s, size = 0.0024) => s.split('').map((ch, i) => ocap(x, y + (s.length - 1) * size * 0.6 - i * size * 1.2, ch, size));
+Object.assign(PANELS, {
+  airCond: () => { const X = (px) => (px - 1283) * OK, Y = (py) => (300 - py) * (0.12 / 570);
+    const knob = (px, py, id, r = 0.0118, ticks = [-120, -60, 0, 60, 120], arc = 125) => ({ t: 'knob', x: X(px), y: Y(py), r, id, ticks, arc, style: 'bar' });
+    const ln = (pts, w = GW) => ({ t: 'line', pts: pts.map(([a, b]) => [X(a), Y(b)]), w, col: GRN });
+    const ar = (px, py, dir) => ({ t: 'arrow', x: X(px), y: Y(py), dir, s: 0.0032, col: GRN });
+    return { title: '', items: [
+      ocap(X(325), Y(38), 'PACK FLOW', 0.0031), ocap(X(325), Y(60), 'NORM', 0.0028), ocap(X(195), Y(112), 'LO', 0.0028), ocap(X(475), Y(112), 'HI', 0.0028),
+      opb(X(320), Y(358), '', 'OFF', { id: 'pack1' }), ocap(X(255), Y(285), 'PACK 1', 0.0026),
+      knob(330, 205, 'packFlow', 0.0105, [-50, 0, 50], 55),
+      ...[['COCKPIT', 910], ['FWD CABIN', 1310], ['AFT CABIN', 1715]].flatMap(([n, px]) => [obox(X(px), Y(47), n, 0.0031), ar(px, 76, 'up'), ocap(X(px - 140), Y(262), 'COLD', 0.0028), ocap(X(px + 140), Y(262), 'HOT', 0.0028), knob(px, 205, 't' + n.replace(' ', ''))]),
+      ocap(X(2258), Y(90), 'HOT AIR', 0.0031), opb(X(2248), Y(168), 'FAULT', 'OFF'),
+      ocap(X(2328), Y(282), 'PACK 2', 0.0031), opb(X(2316), Y(352), 'FAULT', 'OFF', { id: 'pack2' }),
+      obox(X(597), Y(328), 'PACK 1', 0.0029), obox(X(2037), Y(325), 'PACK 2', 0.0029),
+      // flow lines: packs to the mixer and the three zones; bleed manifold with the crossbleed valve
+      ln([[590, 420], [590, 288], [2040, 288], [2040, 420]]), ln([[910, 288], [910, 240]]), ln([[1310, 288], [1310, 240]]), ln([[1715, 288], [1715, 240]]),
+      ln([[600, 362], [960, 362]]), ln([[1000, 362], [1640, 362]]), ln([[1720, 362], [2030, 362]]), { t: 'circ', x: X(980), y: Y(362), r: 20 * OK, a0: 180, a1: 360, w: GW, col: GRN },
+      { t: 'circ', x: X(1680), y: Y(362), r: 40 * OK, w: GW, col: GRN }, ln([[980, 342], [980, 288]]), ln([[1680, 402], [1680, 430]]),
+      ln([[790, 362], [790, 392]]), ar(790, 398, 'down'), ln([[1140, 362], [1140, 400]]), ar(1140, 372, 'up'), ln([[1315, 362], [1315, 405]]), ar(1315, 372, 'up'), ln([[1835, 362], [1835, 392]]), ar(1835, 398, 'down'),
+      ocap(X(1605), Y(315), 'x', 0.003), ocap(X(795), Y(415), 'START', 0.0028), ocap(X(1835), Y(415), 'START', 0.0028),
+      // bottom row
+      bracket(X(500), X(725), Y(415)), ocap(X(612), Y(434), 'ENG 1 BLEED', 0.0029), opb(X(622), Y(503), 'FAULT', 'OFF'),
+      bracket(X(905), X(1070), Y(402)), ocap(X(985), Y(418), 'RAM AIR', 0.0029), opb(X(990), Y(503), '', 'ON', { guard: 'grey' }),
+      bracket(X(1080), X(1205), Y(415)), ocap(X(1142), Y(434), 'GND HP', 0.0029),
+      bracket(X(1218), X(1415), Y(415)), ocap(X(1315), Y(434), 'APU BLEED', 0.0029), opb(X(1318), Y(503), 'FAULT', 'ON'),
+      ocap(X(1678), Y(404), 'AUTO', 0.0028), ocap(X(1520), Y(450), 'SHUT', 0.0028), ocap(X(1830), Y(450), 'OPEN', 0.0028), knob(1670, 498, 'xbleed', 0.0095, [-60, 0, 60], 65),
+      bracket(X(1910), X(2140), Y(415)), ocap(X(2025), Y(434), 'ENG 2 BLEED', 0.0029), opb(X(2015), Y(503), 'FAULT', 'OFF'),
+    ] }; },
+  antiIce: () => { const X = (px) => (px - 642) * OK, Y = (py) => (702 - py) * (0.04 / 205);
+    return { title: '', items: [lcap(X(710), Y(628), 'ANTI ICE', 0.0036),lcap(X(340), Y(668), 'WING', 0.0028), opb(X(355), Y(733), 'FAULT', 'ON'), { t: 'line', pts: [[X(445), Y(650)], [X(445), Y(800)]], w: 0.0006 }, { t: 'line', pts: [[X(680), Y(650)], [X(680), Y(800)]], w: 0.0006 },
+      lcap(X(805), Y(668), 'ENG 1', 0.0028), opb(X(810), Y(733), 'FAULT', 'ON'), lcap(X(1022), Y(668), 'ENG 2', 0.0028), opb(X(1020), Y(733), 'FAULT', 'ON')] }; },
+  probeHeat: () => { const X = (px) => (px - 1300) * OK, Y = (py) => (702 - py) * (0.04 / 205);
+    return { title: '', items: [lcap(X(1302), Y(628), 'PROBE/WINDOW', 0.0031), lcap(X(1318), Y(660), 'HEAT', 0.0031),opb(X(1316), Y(733), '', 'ON'), ...vtext(X(1422), Y(733), 'AUTO')] }; },
+  cabPress: () => { const X = (px) => (px - 1970) * OK, Y = (py) => (702 - py) * (0.04 / 205);
+    return { title: '', items: [lcap(X(1770), Y(626), 'CABIN PRESS', 0.0034),
+      lcap(X(1585), Y(666), 'MAN V/S CTL', 0.0026), otg(X(1590), Y(733), undefined, 'manVs'), lcap(X(1690), Y(690), 'UP', 0.0026), lcap(X(1700), Y(768), 'DN', 0.0026),
+      lcap(X(1800), Y(666), 'MODE SEL', 0.0026), opb(X(1792), Y(733), 'FAULT', 'MAN'), ...vtext(X(1890), Y(733), 'AUTO'),
+      lcap(X(2080), Y(628), 'LDG ELEV', 0.0026), lcap(X(2080), Y(646), 'AUTO', 0.0024),
+      ...[['14', 1935, 705], ['12', 1920, 740], ['10', 1940, 775], ['-2', 2085, 668], ['0', 2120, 688], ['2', 2140, 722], ['4', 2122, 760]].map(([t, a, b]) => lcap(X(a), Y(b), t, 0.0023)),
+      { t: 'knob', style: 'bar', x: X(2035), y: Y(745), r: 0.0085, id: 'ldgElev', ticks: [-140, -110, -80, -50, -20, 10, 40, 70, 100, 130], arc: 140 },
+      lcap(X(2295), Y(646), 'DITCHING', 0.0026), opb(X(2280), Y(733), '', 'ON', { guard: 'grey' }),
+    ] }; },
+  extLt: () => { const X = (px) => (px - 675) * OK, Y = (py) => (967 - py) * (0.058 / 325);
+    return { title: '', items: [lcap(X(700), Y(827), 'EXT LT', 0.0036),
+      lcap(X(365), Y(848), 'STROBE', 0.0027), lcap(X(365), Y(866), 'ON', 0.0026), otg(X(380), Y(922), 'ribbed', 'strobe'), ...vtext(X(468), Y(912), 'AUTO', 0.0022), lcap(X(380), Y(990), 'OFF', 0.0024),
+      lcap(X(565), Y(848), 'BEACON', 0.0027), lcap(X(565), Y(866), 'ON', 0.0026), otg(X(575), Y(922), 'ribbed', 'beacon'),
+      lcap(X(808), Y(848), 'WING', 0.0027), lcap(X(808), Y(866), 'ON', 0.0026), otg(X(810), Y(922), undefined, 'wingLt'), lcap(X(810), Y(980), 'OFF', 0.0024),
+      lcap(X(1047), Y(848), 'NAV & LOGO', 0.0027), lcap(X(1047), Y(866), '2', 0.0026), otg(X(1045), Y(922), 'ribbed', 'navLogo'), lcap(X(1142), Y(920), '1', 0.0026), lcap(X(1045), Y(985), 'OFF', 0.0024),
+      lcap(X(425), Y(997), 'RWY TURN OFF', 0.0026), lcap(X(425), Y(1015), 'ON', 0.0026), otg(X(435), Y(1075), undefined, 'rwyTurnOff'), lcap(X(435), Y(1125), 'OFF', 0.0024),
+      bracket(X(600), X(880), Y(995), -0.002), lcap(X(737), Y(997), 'LAND', 0.0027), lcap(X(620), Y(1015), 'L', 0.0026), lcap(X(852), Y(1015), 'R', 0.0026),
+      lcap(X(740), Y(1030), 'ON', 0.0025), lcap(X(740), Y(1068), 'OFF', 0.0025), lcap(X(740), Y(1106), 'RETRACT', 0.0025),
+      otg(X(630), Y(1075), 'tbar', 'landL'), otg(X(856), Y(1075), 'tbar', 'landR'),
+      lcap(X(1052), Y(1015), 'NOSE', 0.0026), otg(X(1055), Y(1075), undefined, 'nose'), lcap(X(1150), Y(1042), 'T.O', 0.0024), lcap(X(1160), Y(1069), 'TAXI', 0.0024), lcap(X(1155), Y(1100), 'OFF', 0.0024),
+    ] }; },
+  apu: () => { const X = (px) => (px - 1312) * OK, Y = (py) => (967 - py) * (0.058 / 325);
+    return { title: '', items: [lcap(X(1318), Y(833), 'APU', 0.0036),lcap(X(1320), Y(888), 'MASTER SW', 0.0026), opb(X(1320), Y(945), 'FAULT', 'ON', { id: 'apuMaster' }), lcap(X(1322), Y(1015), 'START', 0.0026), opb(X(1322), Y(1072), 'AVAIL', 'ON', { id: 'apuStart' })] }; },
+  signsIntLt: () => { const X = (px) => (px - 1950) * OK, Y = (py) => (967 - py) * (0.058 / 325);
+    return { title: '', items: [lcap(X(1985), Y(812), 'INT LT', 0.0034),
+      lcap(X(1590), Y(836), 'OVHD INTEG LT', 0.0026), { t: 'knob', x: X(1565), y: Y(905), r: 0.0062, id: 'ovhdInteg', ticks: [-130, 130], arc: 130 }, lcap(X(1472), Y(950), 'OFF', 0.0024), lcap(X(1662), Y(950), 'BRT', 0.0024),
+      lcap(X(1815), Y(830), 'ICE IND &', 0.0026), lcap(X(1815), Y(848), 'STBY COMPASS', 0.0026), otg(X(1785), Y(905), undefined, 'iceInd'), lcap(X(1785), Y(960), 'OFF', 0.0024),
+      lcap(X(1975), Y(848), 'DOME', 0.0026), otg(X(1975), Y(905), undefined, 'dome'), lcap(X(2082), Y(872), 'BRT', 0.0024), lcap(X(2082), Y(903), 'DIM', 0.0024), lcap(X(2082), Y(935), 'OFF', 0.0024),
+      lcap(X(2205), Y(848), 'ANN LT', 0.0026), otg(X(2205), Y(905), undefined, 'annLt'), lcap(X(2340), Y(872), 'TEST', 0.0024), lcap(X(2335), Y(903), 'BRT', 0.0024), lcap(X(2330), Y(935), 'DIM', 0.0024),
+      { t: 'line', pts: [[X(1455), Y(975)], [X(2450), Y(975)]], w: 0.0006 }, lcap(X(1910), Y(995), 'SIGNS', 0.0032),
+      lcap(X(1545), Y(1000), 'SEAT BELTS', 0.0024), otg(X(1550), Y(1072), undefined, 'seatBelts'), lcap(X(1550), Y(1120), 'OFF', 0.0024), lcap(X(1550), Y(1022), 'ON', 0.0024),
+      lcap(X(1735), Y(1000), 'NO SMOKING', 0.0024), lcap(X(1735), Y(1022), 'ON', 0.0024), otg(X(1730), Y(1072), undefined, 'noSmoking'), ...vtext(X(1820), Y(1072), 'AUTO', 0.0021), lcap(X(1730), Y(1120), 'OFF', 0.0024),
+      { t: 'line', pts: [[X(1865), Y(1010)], [X(1865), Y(1130)]], w: 0.0006 },
+      { t: 'annun', x: X(1950), y: Y(1075), w: 0.012, h: 0.009, s: 'OFF' },
+      lcap(X(2080), Y(1015), 'EMER EXIT LT', 0.0024), otg(X(2130), Y(1072), undefined, 'emerExit'), lcap(X(2232), Y(1042), 'ON', 0.0024), lcap(X(2245), Y(1072), 'ARM', 0.0024), lcap(X(2240), Y(1102), 'OFF', 0.0024),
+    ] }; },
+});
 export const LAYOUT = {
   left: { w: 0.17, rows: [['paVideo', 0.065], ['adirs', 0.17], ['blank', 0.04], ['fltCtl1', 0.048], ['evac', 0.046], ['emerElec', 0.06], ['gpws', 0.044], ['rcdr', 0.04], ['oxygen', 0.046], ['callsWiper', 0.08]] },
   centre: { w: 0.29, rows: [['blank', 0.07], ['fire', 0.1], ['hyd', 0.08], ['fuel', 0.07], ['elec', 0.12], ['airCond', 0.12], [['antiIce', 'probeHeat', 'cabPress'], 0.04], [['extLt', 'apu', 'signsIntLt'], 0.058]] },
   right: { w: 0.17, rows: [['acp', 0.13], ['blank', 0.07], ['blank', 0.08], ['fltCtl2', 0.05], ['cargoVent', 0.065], ['cargoSmoke', 0.05], ['vent', 0.045], ['engMan', 0.045], ['wiperR', 0.05]] },
 };
-const WEIGHT = { antiIce: 0.38, probeHeat: 0.18, cabPress: 0.44, extLt: 0.44, apu: 0.12, signsIntLt: 0.44 };
+const WEIGHT = { antiIce: 0.416, probeHeat: 0.157, cabPress: 0.427, extLt: 0.443, apu: 0.114, signsIntLt: 0.443 };
 const GAP = 0.003;
 const COLX = { left: -0.32 + 0.17 / 2, centre: 0, right: 0.32 - 0.17 / 2 };
 
@@ -288,7 +343,7 @@ export function makeOverheadPanels(M, A, systemLen = 0.65) {
     const VT = { fire: 'FIRE', hyd: 'HYD', fuel: 'FUEL', elec: 'ELEC', airCond: 'AIR COND' };
     if (VT[key]) { spec.items = [...spec.items, ...vt(VT[key].replace(' ', ''), w / 2, hd)]; spec.title = ''; }
     const items = spec.items.map((i) => ({ ...i, y: i.y * f, ...(i.pts ? { pts: i.pts.map(([x, y]) => [x, y * f]) } : {}) }));
-    return buildPanel({ w, h: hd * f, name: key, bg: '#7d919b', ...spec, items }, M, A);
+    return buildPanel({ w, h: hd * f, name: key, bg: '#6a798a', titleSize: 0.0048, ...spec, items }, M, A);
   };
   const centreTotal = LAYOUT.centre.rows.reduce((s, [, h]) => s + h, 0);
   const fC = (systemLen - GAP * (LAYOUT.centre.rows.length - 1)) / centreTotal;
