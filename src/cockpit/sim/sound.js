@@ -26,9 +26,14 @@ export class CockpitSound {
     // air (AC ventilation) chain and engine-running ambience chain, each with its own level
     this.airLevel = c.createGain(); this.airLevel.gain.value = 0;
     this.airTone = c.createBiquadFilter(); this.airTone.type = 'lowpass'; this.airTone.frequency.value = 12000; this.airTone.Q.value = 0.4;
-    this.airLevel.connect(this.airTone);
+    // the recorded air is ~95 % below 250 Hz, which laptop / phone speakers hardly play: lift its upper part and its
+    // level so the rush is heard on any speaker. The EXT PWR build-up goes through the same tone so it joins seamlessly.
+    this.airHi = c.createBiquadFilter(); this.airHi.type = 'highshelf'; this.airHi.frequency.value = 600; this.airHi.gain.value = 9;
+    this.airMake = c.createGain(); this.airMake.gain.value = 2.2;
+    this.airLevel.connect(this.airTone).connect(this.airHi).connect(this.airMake);
+    this.rampIn = c.createGain(); this.rampIn.gain.value = 1; this.rampIn.connect(this.airHi);
     this.ambLevel = c.createGain(); this.ambLevel.gain.value = 0;
-    const hookBus = () => { if (this.audio.bus) { this.airTone.connect(this.audio.bus.ambience); this.ambLevel.connect(this.audio.bus.ambience); } else setTimeout(hookBus, 30); }; hookBus();
+    const hookBus = () => { if (this.audio.bus) { this.airMake.connect(this.audio.bus.ambience); this.ambLevel.connect(this.audio.bus.ambience); } else setTimeout(hookBus, 30); }; hookBus();
   }
   setEnabled(on) { this.enabled = on; const c = this.audio.ctx; if (!c) { if (on) this.init(); return; } on ? c.resume() : c.suspend(); }
 
@@ -70,7 +75,7 @@ export class CockpitSound {
     const g = this.airLevel.gain, f = this.airTone.frequency;
     if (want && !this.airOn) {
       g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); f.cancelScheduledValues(t); f.setValueAtTime(12000, t);
-      if (ac && !P.ac && !engOn) { const ramp = this.sample('ext_pwr_on', 1); if (ramp) { g.setValueAtTime(0, t + 1.5); g.linearRampToValueAtTime(1, t + 2.1); } else g.setTargetAtTime(1, t, 0.5); }   // relays + recorded build-up, then the loop
+      if (ac && !P.ac && !engOn) { const ramp = this.airSample('ext_pwr_on'); if (ramp) { g.setValueAtTime(0, t + 1.5); g.linearRampToValueAtTime(1, t + 2.1); } else g.setTargetAtTime(1, t, 0.5); }   // relays + recorded build-up, then the loop
       else if (apuAir && !P.apuAir) g.linearRampToValueAtTime(1, t + 2.0);   // APU start fading out over these same 2 s
       else g.setTargetAtTime(1, t, 0.6);
     }
@@ -103,5 +108,6 @@ export class CockpitSound {
     if (S.masterCaut && !P.mc && dc) a.masterCaution();
     P.mc = S.masterCaut;
   }
+  airSample(name) { const a = this.audio, c = a.ctx; if (!a.buffers.has(name)) return null; const s = c.createBufferSource(); s.buffer = a.buffers.get(name); s.connect(this.rampIn); s.start(); return s; }   // through the air's tone
   sample(name, gain) { const a = this.audio; if (!a.buffers.has(name)) return null; return a.play(name, { bus: 'ambience', gain }); }
 }
