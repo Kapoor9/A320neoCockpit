@@ -54,7 +54,11 @@ async function init(base, threads) {
   step('model in memory (' + model.length + ' bytes), creating session with ' + ort.env.wasm.numThreads + ' threads');
   session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
   step('session ready, warming up');
-  try { await say({ id: 0, text: 'Roger.', voice: { a: cfg.voices[0] }, speed: 1, silent: true }); } catch { /* warm-up only */ }   // first run is slow: do it now
+  // first speech: if it does not finish in time (Safari can stall running this model on several cores), say so,
+  // and the page restarts the voice on one core
+  const warm = (async () => { const ph = await phonemes('Roger.', 'en-us'); step('speech sounds ok (' + ph + ')'); await say({ id: 0, text: 'Roger.', voice: { a: cfg.voices[0] }, speed: 1, silent: true }); step('first speech ok'); })();
+  const ok = await Promise.race([warm.then(() => true, () => true), new Promise((r) => setTimeout(() => r(false), 15000))]);
+  if (!ok) { self.postMessage({ type: 'error', msg: 'warmup-stalled', threads: ort.env.wasm.numThreads }); return; }
   self.postMessage({ type: 'ready' }); pump();
 }
 

@@ -17,31 +17,36 @@ const pool = { workers: [], reply: null, jobs: new Map(), seq: 0, ready: false, 
 export const voiceState = () => (pool.ready ? 'ready' : pool.workers.length ? 'loading ' + pool.pct + '%' : 'off');
 // cores: the reply voice gets about half the machine (it must be quick), the background chatter a quarter
 const CORES = navigator.hardwareConcurrency || 2;
+let singleCore = false;
+try { singleCore = localStorage.getItem('a320.radio.oneCore') === '1'; } catch { /* storage unavailable */ }
 function makeWorker(onReady, threads) {
   const w = new Worker(new URL('./ttsWorker.js', import.meta.url), { type: 'module' }); w.load = 0;
   w.onmessage = (e) => {
     const m = e.data;
-    if (m.type === 'ready') { onReady(); return; }
+    if (m.type === 'ready') { onReady(w); return; }
     if (m.type === 'progress') { pool.pct = Math.max(pool.pct, m.pct); return; }
     if (m.type === 'step') return;
+    if (m.type === 'error' && m.msg === 'warmup-stalled') {   // this browser stalls on several cores: restart on one, and remember
+      console.warn('radio voice: multi-core stalled, using one core'); singleCore = true;
+      try { localStorage.setItem('a320.radio.oneCore', '1'); } catch { /* storage unavailable */ }
+      w.terminate(); const n = makeWorker(onReady, 1); w.replaced = n; w.onReplaced?.(n); return;
+    }
     const job = pool.jobs.get(m.id); if (job) { pool.jobs.delete(m.id); w.load--; }
     if (m.type === 'error') { if (m.msg !== 'cancelled') console.warn('radio voice', m.msg); job?.resolve(null); return; }
     job?.resolve(m.pcm);
   };
-  w.postMessage({ type: 'init', base: TTS, threads }); return w;
+  w.postMessage({ type: 'init', base: TTS, threads: singleCore ? 1 : threads }); return w;
 }
-// background chatter: one voice worker (two on machines with plenty of cores). Replies to the pilot: a worker of their
-// own, always free, so the controller answers at once instead of waiting for a background line to finish. It starts
-// once the first one is ready, reading the model from the browser's copy (no second download).
 // The models load one after another (chatter voice, then reply voice, then speech recognition), so loading never
 // takes over the whole computer and the cockpit's own sounds stay clean.
 export function preloadVoice() {
   if (pool.workers.length) return;
   try {
-    pool.workers.push(makeWorker(() => {
-      pool.ready = true;
-      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); }, Math.max(1, Math.min(6, Math.floor(CORES / 2))));
-    }, Math.max(1, Math.floor(CORES / 3))));
+    const chatter = makeWorker((w) => {
+      pool.workers[0] = w; pool.ready = true;
+      if (!pool.reply) pool.reply = makeWorker((r) => { pool.reply = r; pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); }, Math.max(1, Math.min(6, Math.floor(CORES / 2))));
+    }, Math.max(1, Math.floor(CORES / 3)));
+    pool.workers.push(chatter);
   } catch (e) { console.warn('radio voice', e); }
 }
 export const replyVoiceReady = () => pool.replyReady;
