@@ -33,7 +33,7 @@ const queue = []; let busy = false;
 async function init(base) {
   ort = await import(base + 'ort.wasm.min.mjs');
   ({ phonemize } = await import(base + 'phonemizer.js'));
-  ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = Math.min(4, self.crossOriginIsolated ? (navigator.hardwareConcurrency || 2) - 1 : 1);
+  ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 3))) : 1;   // several cores when the page is isolated (sw-coi.js)
   cfg = await (await fetch(base + 'kokoro.json')).json(); vocab = cfg.vocab;
   // kept in the browser's own storage after the first visit: later visits skip the download
   const key = 'kokoro-int8-' + cfg.bytes;

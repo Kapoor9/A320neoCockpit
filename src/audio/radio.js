@@ -30,16 +30,18 @@ function makeWorker(onReady) {
 // background chatter: one voice worker (two on machines with plenty of cores). Replies to the pilot: a worker of their
 // own, always free, so the controller answers at once instead of waiting for a background line to finish. It starts
 // once the first one is ready, reading the model from the browser's copy (no second download).
+// The models load one after another (chatter voice, then reply voice, then speech recognition), so loading never
+// takes over the whole computer and the cockpit's own sounds stay clean.
 export function preloadVoice() {
   if (pool.workers.length) return;
-  const n = (navigator.hardwareConcurrency || 2) >= 6 ? 2 : 1;
   try {
-    for (let i = 0; i < n; i++) pool.workers.push(makeWorker(() => {
+    pool.workers.push(makeWorker(() => {
       pool.ready = true;
-      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; });
+      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); });
     }));
   } catch (e) { console.warn('radio voice', e); }
 }
+export const replyVoiceReady = () => pool.replyReady;
 // drop queued background lines (not the one being spoken): the pilot's exchange goes first
 function cancelBackground() { pool.workers.forEach((w) => w.postMessage({ type: 'cancel' })); }
 function speak(text, v, priority = false) {

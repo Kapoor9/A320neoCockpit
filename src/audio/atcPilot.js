@@ -32,7 +32,8 @@ export class AtcPilot {
     this.box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const t = this.box.value.trim(); this.box.value = ''; this.box.style.display = 'none'; this.box.blur(); if (t) this.call(t, this.txStation()); } else if (e.key === 'Escape') { this.box.style.display = 'none'; this.box.blur(); } e.stopPropagation(); });
     window.addEventListener('keydown', (e) => this.key(e, true), { capture: true });
     window.addEventListener('keyup', (e) => this.key(e, false), { capture: true });
-    setTimeout(() => this.loadEars(), 6000);   // speech recognition loads in the background after the voice
+    window.addEventListener('radio-voice-ready', () => this.loadEars(), { once: true });   // speech recognition loads after the voices
+    setTimeout(() => this.loadEars(), 120000);   // ...or after two minutes in any case
     setInterval(() => { this.tick(); if (!this.tx) this.show(); }, 500);
   }
   get radio() { return this.sys.sound?.radio; }

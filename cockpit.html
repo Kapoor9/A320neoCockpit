@@ -2,6 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+// multi-core radio voice: install the isolation helper once, then reload into it (sw-coi.js)
+(function () {
+  if (window.crossOriginIsolated || !('serviceWorker' in navigator) || !window.isSecureContext) return;
+  if (!/(^|\.)github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) return;   // only where the site is hosted by us
+  var again = function () { try { if (sessionStorage.getItem('coi')) return; sessionStorage.setItem('coi', '1'); } catch (e) { return; } location.reload(); };
+  navigator.serviceWorker.register('sw-coi.js').then(function () {
+    if (navigator.serviceWorker.controller) again(); else navigator.serviceWorker.addEventListener('controllerchange', again);
+  }).catch(function () {});
+})();
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A320neo Cockpit</title>
 <link rel="icon" href="data:,">

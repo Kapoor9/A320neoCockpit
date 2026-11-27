@@ -27,7 +27,7 @@ function idb(op, key, val) {   // same cache as the radio voice; failure just me
 const f32 = (b64) => { const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); return new Float32Array(u.buffer); };
 
 async function init(ortUrl, base) {
-  ort = await import(ortUrl); ort.env.wasm.wasmPaths = new URL('.', ortUrl).href; ort.env.wasm.numThreads = 1;
+  ort = await import(ortUrl); ort.env.wasm.wasmPaths = new URL('.', ortUrl).href; ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 3))) : 1;   // several cores when the page is isolated (sw-coi.js)
   cfg = await (await fetch(base + 'whisper.json')).json();
   mel = f32(cfg.mel); tokens = cfg.tokens.map((t) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0)));
   let e = await idb('get', 'enc'), d = await idb('get', 'dec'), emb = await idb('get', 'emb');

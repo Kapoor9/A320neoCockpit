@@ -1,5 +1,17 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Radio self-test</title>
+<html lang="en"><head><meta charset="utf-8">
+<script>
+// multi-core radio voice: install the isolation helper once, then reload into it (sw-coi.js)
+(function () {
+  if (window.crossOriginIsolated || !('serviceWorker' in navigator) || !window.isSecureContext) return;
+  if (!/(^|\.)github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) return;   // only where the site is hosted by us
+  var again = function () { try { if (sessionStorage.getItem('coi')) return; sessionStorage.setItem('coi', '1'); } catch (e) { return; } location.reload(); };
+  navigator.serviceWorker.register('sw-coi.js').then(function () {
+    if (navigator.serviceWorker.controller) again(); else navigator.serviceWorker.addEventListener('controllerchange', again);
+  }).catch(function () {});
+})();
+</script>
+<title>Radio self-test</title>
 <style>body{font:14px/1.5 monospace;background:#111;color:#ddd;padding:16px}b{color:#8be28b}.e{color:#ff6b6b}</style></head>
 <body><h3>A320 radio self-test</h3><div id="log"></div>
 <script type="module">
