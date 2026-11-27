@@ -10,6 +10,7 @@ const R = Math.random, pick = (a) => a[Math.floor(R() * a.length)], chance = (p)
 const STORE = 'a320.atc.flight';
 const CITIES = ['Mumbai', 'Bengaluru', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Goa', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Srinagar', 'Guwahati', 'Kochi', 'Cochin', 'Amritsar', 'Chandigarh', 'Varanasi', 'Patna', 'Indore', 'Nagpur', 'Bhopal', 'Leh', 'Dehradun', 'Dubai', 'Doha', 'London', 'Heathrow', 'Frankfurt', 'Singapore', 'Bangkok', 'Kathmandu', 'Abu Dhabi', 'Riyadh', 'Paris', 'Tokyo', 'Colombo', 'Dhaka', 'Male', 'Muscat', 'Sharjah', 'Kuala Lumpur', 'Hong Kong', 'Istanbul', 'New York', 'Toronto'];
 const FIXES = ['PARVA', 'SIPRA', 'BUBIM', 'NIKAS', 'GUDUM', 'LUMAN', 'AKBAN', 'TELAP', 'RIDAV', 'OSKAN', 'MOLAD', 'KAMRI'];
+const NATO_WORDS = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu';
 const TWY = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'Juliet', 'Kilo', 'Lima', 'Mike', 'November', 'Papa', 'Sierra', 'Tango', 'Victor', 'Whiskey', 'Yankee', 'Zulu'];
 const SPOKEN = { spicejet: 'Spice jet', speedbird: 'Speed bird', ifly: 'Eye fly', akasa: 'Akasa', indigo: 'Indigo' };
 const STATION = { ground: 'Delhi Ground', tower: 'Delhi Tower' };
@@ -17,19 +18,55 @@ const STATION = { ground: 'Delhi Ground', tower: 'Delhi Tower' };
 // ------------------------------------------------------------------ what the pilot said, cleaned up
 const NUM = { zero: '0', oh: '0', one: '1', two: '2', three: '3', tree: '3', four: '4', five: '5', fife: '5', six: '6', seven: '7', eight: '8', nine: '9', niner: '9' };
 export function normalize(raw) {
-  let t = ' ' + raw.toLowerCase().replace(/(\d)er\b/g, '$1').replace(/(\d),(\d{3})\b/g, '$1$2') + ' ';
+  let t = ' ' + raw.toLowerCase().replace(/(\d)(er|r)\b/g, '$1').replace(/\b(\d) to knots\b/g, '$1 2 knots').replace(/(\d),(\d{3})\b/g, '$1$2') + ' ';
   t = t.replace(/\b(zero|oh|one|two|three|tree|four|five|fife|six|seven|eight|nine|niner)\b/g, (w) => NUM[w]);
   t = t.replace(/\b(\d)\b(?:[\s,\-]+\b(\d)\b)+/g, (m) => m.replace(/[^\d]/g, ''));   // "2, 4 5" -> "245"
   t = t.replace(/(\d)\s*(?:decimal|point|dot)\s*(\d)/g, '$1.$2');
   t = t.replace(/\btake[\s-]?off\b/g, 'takeoff').replace(/\bpush[\s-]?back\b/g, 'pushback').replace(/\bstart[\s-]?up\b/g, 'startup');
   return t.replace(/[^a-z0-9.\s]/g, ' ').replace(/(?<!\d)\.|\.(?!\d)/g, ' ').replace(/\s+/g, ' ').trim();
 }
+// ------------------------------------------------------------------ misheard words -> the word that was meant
+// Speech recognition hears "deli ground", "texi", "push bag", "in the go 245": phrase fixes first, then every word is
+// matched to the radio vocabulary with a small spelling tolerance (1 letter on short words, 2 on long ones).
+const AIRLINE_WORDS = ['indigo', 'spicejet', 'akasa', 'vistara', 'emirates', 'qatari', 'etihad', 'speedbird', 'lufthansa', 'singapore', 'thai', 'saudia', 'united', 'virgin', 'allied', 'express', 'india', 'air', 'gulf', 'france', 'japan', 'china', 'british', 'american', 'delta', 'qantas', 'turkish', 'oman', 'kuwaiti', 'cathay', 'alliance'];
+const VOCAB = new Set(('delhi ground tower delivery departure approach request requesting clearance pushback push startup start taxi takeoff ready runway holding point short lined line wait cleared clear squawk qnh weather information atis radio check mayday emergency reject rejecting abort aborting stopping vacated stand gate bay frequency say again repeat roger wilco copy copied standby standing affirm affirmative negative approved facing east west north south via thousand feet climb flight level destination time wind temperature good morning afternoon evening day thank thanks namaste return back contact monitor engine engines running both with heading left right center centre ifr vfr metar active use in hold position traffic sight behind follow '
+  + NATO_WORDS + ' ' + AIRLINE_WORDS.join(' ') + ' ' + CITIES.join(' ').toLowerCase()).split(/\s+/));
+const PHRASES = [
+  [/\b(deli|delly|dilly|dilli|dehli|delhis|daily|deli's|dili)\b(?= (ground|tower|delivery|departure))/g, 'delhi'],
+  [/\bpush(ed)?\s+(bag|pack|bank|back|backed|pack)\b/g, 'pushback'], [/\bpush and start\b/g, 'pushback and startup'],
+  [/\btake\s+(of|on|up|off)\b/g, 'takeoff'], [/\bstart(ed)?\s+(up|app|op)\b/g, 'startup'], [/\brun\s?a?\s?way\b/g, 'runway'],
+  [/\b(q n h|q and h|queue and h|cue and h|q nh|qn h|kuna|q h n)\b/g, 'qnh'], [/\b(in the go|in de go|indygo|endigo|indego|indi go|in digo)\b/g, 'indigo'],
+  [/\b(spice jet|spicy jet|spice chat)\b/g, 'spicejet'], [/\b(speed bird|speedbirds)\b/g, 'speedbird'], [/\b(a kasa|akasha|aakasa|akaasa)\b/g, 'akasa'],
+  [/\b(air india express|express india)\b/g, 'express india'], [/\bholding\s+short\b/g, 'holding short'], [/\bline\s+up\b/g, 'lineup'],
+  [/\b(may day)\b/g, 'mayday'], [/\b(squak|squawks|square|squad|squawked)\b(?= \d)/g, 'squawk'], [/\bready to go\b/g, 'ready'],
+];
+function lev(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9; const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const fixCache = new Map();
+function fixWord(w) {
+  if (w.length < 4 || /\d/.test(w) || VOCAB.has(w)) return w;
+  if (fixCache.has(w)) return fixCache.get(w);
+  let best = w, bd = w.length >= 7 ? 2 : 1;
+  for (const v of VOCAB) { if (v.length < 4 || v.includes(' ')) continue; const d = lev(w, v); if (d < bd || (d === bd && best === w && d <= (w.length >= 7 ? 2 : 1))) { if (d <= (w.length >= 7 ? 2 : 1)) { best = v; bd = d; } } }
+  fixCache.set(w, best); return best;
+}
+export function understand(raw) {
+  let t = normalize(raw);
+  for (const [re, to] of PHRASES) t = t.replace(re, to);
+  t = t.split(' ').map(fixWord).join(' ');
+  for (const [re, to] of PHRASES) t = t.replace(re, to);
+  return t.replace(/\blineup\b/g, 'line up');
+}
 const numbers = (t) => t.match(/\d+(?:\.\d+)?/g) || [];
 const has = (t, re) => re.test(t);
 
 const STOP = /^(request|requesting|ready|radio|with|for|at|on|holding|good|morning|evening|afternoon|namaste|hello|hi|is|and|the|we|are|stand|bay|gate|information|runway|taxi|pushback|startup|clearance|vacated|clear|lined|line|mayday|pan|say|time|delhi|deli|dehli|dilli|ground|tower|delivery|departure|this)$/;
 function parseCallsign(t) {
-  const w = t.replace(/\b(delhi|dilli|deli|dehli|delly|daily|delhis)\s+(ground|tower|delivery)\b/g, ' ').replace(/\b(ground|tower|delivery)\b/g, ' ').replace(/\b(good (morning|afternoon|evening|day)|namaste|hello|hi)\b/g, ' ').trim().split(' ').filter(Boolean);
+  const w = t.replace(/^(\w+\s+)?(ground|tower|delivery|departure)\b/, ' ').replace(/\b(delhi\s+)?(ground|tower|delivery)\b/g, ' ').replace(/\b(good (morning|afternoon|evening|day)|namaste|hello|hi)\b/g, ' ').trim().split(' ').filter(Boolean);
   const i = w.findIndex((x) => /^\d{1,5}$/.test(x)); if (i < 1) return null;
   const name = []; for (let j = i - 1; j >= 0 && name.length < 3 && !STOP.test(w[j]); j--) name.unshift(w[j]);
   if (!name.length) return null;
@@ -64,7 +101,7 @@ const INTENTS = [
 const BANK = {
   noCallsign: [() => 'Station calling Delhi, say again your callsign.', () => 'Aircraft calling, say again callsign.', () => 'Last station calling, your callsign was not readable, say again.'],
   unreadable: [(v) => `${v.cs}, say again, you were broken.`, (v) => `${v.cs}, you are unreadable, say again.`, (v) => `${v.cs}, say again your request.`, (v) => `${v.cs}, I did not get that, say again.`],
-  contact: [(v) => `${v.cs}, ${v.stn}, go ahead.`, (v) => `${v.cs}, ${v.stn}, good ${v.tod}, pass your message.`, (v) => `${v.cs}, ${v.stn}, go ahead with your request.`, (v) => `${v.cs}, ${v.stn}, namaste, go ahead.`],
+  contact: [(v) => `${v.cs}, ${v.stn}, ${v.hi}go ahead.`, (v) => `${v.cs}, ${v.stn}, good ${v.tod}, pass your message.`, (v) => `${v.cs}, ${v.stn}, ${v.hi}go ahead with your request.`, (v) => `${v.cs}, ${v.stn}, good ${v.tod}, go ahead.`],
   radio: [(v) => `${v.cs}, ${v.stn}, reading you five.`, (v) => `${v.cs}, loud and clear.`, (v) => `${v.cs}, ${v.stn}, readability five.`, (v) => `${v.cs}, read you five by five.`],
   time: [(v) => `${v.cs}, time ${v.hhmm}.`, (v) => `${v.cs}, the time is ${v.hhmm}.`, (v) => `${v.cs}, time check ${v.hhmm}.`],
   info: [(v) => `${v.cs}, Delhi information ${v.atis}, runway ${v.rwy} in use, ${v.wind}, visibility ${v.vis} kilometres, temperature ${v.temp}, Q N H ${v.qnh}.`,
@@ -129,31 +166,52 @@ export class AtcBrain {
   }
   vars(stn, extra = {}) {
     const f = this.f, d = new Date(), g = this.gen;
-    return { cs: f.cs?.say || 'Station calling', stn: STATION[stn], tod: d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening',
+    return { cs: f.cs?.say || 'Station calling', stn: STATION[stn], tod: f.greet && f.greet !== 'namaste' && f.greet !== 'day' ? f.greet : d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening',
       rwy: rwy(f.rwy), qnh: dig(f.qnh), atis: f.atis, temp: dig(f.temp), vis: f.vis, wind: g.wind(), hhmm: dig(String(d.getUTCHours()).padStart(2, '0') + String(d.getUTCMinutes()).padStart(2, '0')),
-      twr: freq(TOWER), gnd: freq(GROUND), dep: freq(DEPARTURE), depf: freq(DEPARTURE), bye: pick(['good day', 'namaste', 'bye bye', 'have a good flight']), next: '', ...extra };
+      twr: freq(TOWER), gnd: freq(GROUND), dep: freq(DEPARTURE), depf: freq(DEPARTURE), bye: pick(['good day', 'namaste', 'bye bye', 'have a good flight']), next: '', hi: f.greet === 'namaste' ? 'namaste, ' : f.greet ? `good ${f.greet === 'day' ? 'day' : f.greet}, ` : '', ...extra };
   }
 
   // the pilot's call -> {say, after?} ; ctx: live aircraft facts
   handle(raw, stn, ctx) {
-    const t = normalize(raw); const f = this.f;
+    const t = understand(raw); const f = this.f;
     if (!t) return null;
+    const gm = t.match(/\bgood (morning|afternoon|evening|day)\b|\bnamaste\b/); if (gm) f.greet = gm[1] || 'namaste';
     if (!f.cs) {   // first call of the flight: the callsign is whatever the pilot says
       const c = parseCallsign(t); if (!c) return { say: this.line('noCallsign', {}) };
       const words = c.name.split(' ').map((w) => SPOKEN[w] || w[0].toUpperCase() + w.slice(1)).join(' ');
       f.cs = { display: words + ' ' + c.num.toUpperCase(), say: words + ' ' + c.num.replace(/\d+/g, (n) => dig(n)) };
     }
-    const intent = (f.pending && this.isReadback(t)) ? 'readback' : (INTENTS.find(([, re]) => re.test(t))?.[0] || (parseCallsign(t) && t.split(' ').length <= 6 ? 'contact' : 'unknown'));
+    let intent = (f.pending && this.isReadback(t)) ? 'readback' : (INTENTS.find(([, re]) => re.test(t))?.[0] || null);
+    if (!intent) intent = this.guess(t, stn);
     f.count[intent] = (f.count[intent] || 0) + 1;
     const out = (H[intent] || H.unknown).call(this, t, stn, ctx);
     this.save(); return out;
   }
 
+  // no clear request: use where the flight is to work out what the pilot most likely means
+  guess(t, stn) {
+    const f = this.f, ready = /\b(ready|request|requesting|looking for|we would like|like to)\b/.test(t);
+    if (ready) {
+      if (stn === 'tower') return f.phase === 'luw' ? 'linedUp' : 'readyDep';
+      if (!f.clr) return 'clearance'; if (!f.pushOk) return 'push'; if (!f.taxiOk) return 'taxi'; return 'taxi';
+    }
+    if (f.askedDest && cityIn(t)) return 'clearance';
+    if (parseCallsign(t) || t.split(' ').length <= 7) return 'contact';
+    return 'unknown';
+  }
+
   // readbacks: the pilot repeats the instruction's numbers / key words
   isReadback(t) {
-    if (/\brequest/.test(t) || /\bsay again\b|\bmayday\b/.test(t)) return false;
-    const p = this.f.pending; return p.keys.some((k) => new RegExp(k.src).test(t)) || numbers(t).length > 0 || /\b(wilco|roger)\b/.test(t);
+    const p = this.f.pending, own = this.f.cs?.num?.split(' ')[0];
+    const nums = numbers(t).filter((n) => n !== own);   // the callsign's own digits are not a readback
+    if (p.keys.some((k) => new RegExp(k.src).test(t))) return true;
+    if (/\b(request|requesting|ready|radio check|say again|mayday|pushback|taxi|startup|takeoff|lined|qnh|weather|time check)\b/.test(t)) {
+      // the pilot moved on: the instruction counts as copied (a strict controller would insist; this one is kind)
+      this.accept(p); return false;
+    }
+    return nums.length > 0 || /\b(wilco|roger|copied|copy)\b/.test(t);
   }
+  accept(p) { const f = this.f; f.pending = null; f.rbTries = 0; if (p.kind === 'clearance') { f.clr = true; if (f.phase === 'new') f.phase = 'cleared'; } if (p.kind === 'freq' && f.phase === 'handoff') f.phase = 'tower'; }
   expect(kind, keys, next = '') { this.f.pending = { kind, keys: keys.map(([item, val, re, hard]) => ({ item, val, re: new RegExp(re), src: re, hard })), next }; }
   checkReadback(t) {
     const p = this.f.pending; const keys = p.keys.map((k) => ({ ...k, re: new RegExp(k.src) }));
@@ -162,7 +220,9 @@ export class AtcBrain {
       if (k.item === 'direction') { const opp = k.val === 'east' ? 'west' : 'east'; if (new RegExp(`\\b${opp}\\b`).test(t) && !new RegExp(`\\b${k.val}\\b`).test(t)) return { wrong: k }; continue; }
       if (k.re.test(t)) continue;
       if (k.hard === 'num') {   // a different number where this one belongs: wrong
-        const want = k.val.replace(/\D/g, ''), near = nums.find((n) => n.length === want.length && n !== want);
+        const want = k.val.replace(/\D/g, ''), diff = (n) => [...n].filter((ch, i) => ch !== want[i]).length;
+        if (want.length === 4 && nums.some((n) => n.length === 4 && diff(n) <= 1)) continue;   // one digit misheard in a squawk: fine
+        const near = nums.find((n) => n.length === want.length && n !== want);
         if (near) return { wrong: k };
       }
       if (k.hard) return { missing: k };
@@ -242,7 +302,7 @@ const H = {
     if (f.taxiOk) return { say: this.line('taxiAgain', this.vars(stn, { route: f.route })) };
     const rt = this.gen.route(int(2, 3)); f.route = rt.join(', '); f.taxiOk = true; f.phase = 'taxi';
     const hs = chance(0.3) ? this.gen.twy() : null;
-    this.expect('taxi', [['holding point runway', f.rwy, `\\b${f.rwy.slice(0, 2)}[lrc]?\\b`, 'num'], ...(hs ? [['hold short', hs, `\\bshort\\b|\\b${hs.split(' ')[0].toLowerCase()}\\b`, true]] : [])]);
+    this.expect('taxi', [['holding point runway', f.rwy, `\\b${f.rwy.slice(0, 2)}[lrc]?\\b|\\bholding\\b|\\btaxi\\b|\\bvia\\b`, false], ...(hs ? [['hold short', hs, `\\bshort\\b|\\b${hs.split(' ')[0].toLowerCase()}\\b`, true]] : [])]);
     this.schedule(int(55000, 90000), 'ground', 'toTower');   // reaching the holding point
     return { say: this.line('taxi', this.vars(stn, { route: f.route, hs: hs ? `, hold short of ${hs}` : '' })) };
   },
@@ -280,11 +340,11 @@ const H = {
 
   readback(t, stn) {
     const f = this.f, p = f.pending, r = this.checkReadback(t);
-    if (r.wrong || r.missing) {
+    if ((r.wrong || r.missing) && (f.rbTries = (f.rbTries || 0) + 1) <= 2) {   // corrected at most twice, then accepted
       const k = r.wrong || r.missing; const fix = k.item === 'direction' ? `facing ${k.val}` : k.item === 'squawk' ? `squawk ${dig(k.val)}` : k.item.includes('runway') ? `runway ${rwy(k.val)}` : `${k.item} ${k.val}`;
       return { say: this.line(r.wrong ? 'rbWrong' : 'rbMissing', this.vars(stn, { fix, item: k.item })) };
     }
-    f.pending = null;
+    f.pending = null; f.rbTries = 0;
     if (p.kind === 'clearance') { f.clr = true; f.phase = 'cleared'; return { say: this.line('rbCorrect', this.vars(stn, { next: pick([', report ready for start up', ', call for push and start', '', ', report ready']) })) }; }
     if (p.kind === 'freq' && f.phase === 'handoff') { f.phase = 'tower'; return null; }
     return chance(0.15) ? { say: this.line('rbCorrect', this.vars(stn)) } : null;   // routine readbacks mostly need no answer

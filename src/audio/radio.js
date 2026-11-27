@@ -13,33 +13,42 @@ export const STATIONS = { '121.8': 'ground', '118.7': 'tower' };   // frequency 
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ the voice: worker threads, loaded at page open
-const pool = { workers: [], jobs: new Map(), seq: 0, ready: false, pct: 0 };
+const pool = { workers: [], reply: null, jobs: new Map(), seq: 0, ready: false, replyReady: false, pct: 0 };
 export const voiceState = () => (pool.ready ? 'ready' : pool.workers.length ? 'loading ' + pool.pct + '%' : 'off');
+function makeWorker(onReady) {
+  const w = new Worker(new URL('./ttsWorker.js', import.meta.url), { type: 'module' }); w.load = 0;
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'ready') { onReady(); return; }
+    if (m.type === 'progress') { pool.pct = Math.max(pool.pct, m.pct); return; }
+    const job = pool.jobs.get(m.id); if (job) { pool.jobs.delete(m.id); w.load--; }
+    if (m.type === 'error') { if (m.msg !== 'cancelled') console.warn('radio voice', m.msg); job?.resolve(null); return; }
+    job?.resolve(m.pcm);
+  };
+  w.postMessage({ type: 'init', base: TTS }); return w;
+}
+// background chatter: one voice worker (two on machines with plenty of cores). Replies to the pilot: a worker of their
+// own, always free, so the controller answers at once instead of waiting for a background line to finish. It starts
+// once the first one is ready, reading the model from the browser's copy (no second download).
 export function preloadVoice() {
   if (pool.workers.length) return;
-  const n = (navigator.hardwareConcurrency || 2) >= 6 ? 2 : 1;   // two on machines with plenty of cores
+  const n = (navigator.hardwareConcurrency || 2) >= 6 ? 2 : 1;
   try {
-    for (let i = 0; i < n; i++) {
-      const w = new Worker(new URL('./ttsWorker.js', import.meta.url), { type: 'module' }); w.load = 0;
-      w.onmessage = (e) => {
-        const m = e.data;
-        if (m.type === 'ready') { pool.ready = true; return; }
-        if (m.type === 'progress') { pool.pct = Math.max(pool.pct, m.pct); return; }
-        const job = pool.jobs.get(m.id); if (job) { pool.jobs.delete(m.id); w.load--; }
-        if (m.type === 'error') { console.warn('radio voice', m.msg); job?.resolve(null); return; }
-        job?.resolve(m.pcm);
-      };
-      w.postMessage({ type: 'init', base: TTS }); pool.workers.push(w);
-    }
+    for (let i = 0; i < n; i++) pool.workers.push(makeWorker(() => {
+      pool.ready = true;
+      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; });
+    }));
   } catch (e) { console.warn('radio voice', e); }
 }
+// drop queued background lines (not the one being spoken): the pilot's exchange goes first
+function cancelBackground() { pool.workers.forEach((w) => w.postMessage({ type: 'cancel' })); }
 function speak(text, v, priority = false) {
-  if (!pool.workers.length) return Promise.resolve(null);
-  const id = ++pool.seq, w = pool.workers.reduce((a, b) => (b.load < a.load ? b : a)); w.load++;
+  const w = priority && pool.replyReady ? pool.reply : pool.workers.length ? pool.workers.reduce((a, b) => (b.load < a.load ? b : a)) : null;
+  if (!w) return Promise.resolve(null);
+  const id = ++pool.seq; w.load++;
   return new Promise((resolve) => { pool.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, priority, ...v }); });
 }
 
-export const voiceReady = () => pool.ready;
 export class RadioChatter {
   constructor(ctx, out) {
     this.ctx = ctx; this.flow = Math.random() < 0.5 ? 'west' : 'east'; this.gen = new AtcGen(this.flow);   // runway direction for this session
@@ -76,15 +85,24 @@ export class RadioChatter {
 
   // the frequency is busy with the pilot's own exchange: background traffic waits until hold time has passed
   async clear(st) { while (Date.now() < st.hold) await wait(200); }
-  holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) st.hold = Date.now() + Math.min(ms, 30000); }   // capped: a stuck call can never silence the frequency
+  holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) { st.hold = Date.now() + Math.min(ms, 30000); if (ms > 2000) { st.q.length = 0; cancelBackground(); } } }   // capped: a stuck call can never silence the frequency
   start0() { if (!this.started) this.start(); }
-  // the controller answers the pilot: own voice of that station, ahead of everything else in the voice queue
-  async atcSay(pos, text) {
-    this.start0(); const st = this.stations[pos]; if (!st || !pool.ready) return 0;   // voice not loaded yet: subtitles only
-    st.hold = Date.now() + 30000;   // never held for ever: worst case the frequency frees itself
-    const pcm = await Promise.race([speak(text, st.atc, true), wait(25000).then(() => null)]); if (!pcm) return 0;
-    const dur = this.transmit(st, this.toBuf(pcm), { strength: rnd(0.85, 1), rate: rnd(0.99, 1.01) });
-    await wait(dur * 1000); return dur;
+  // the controller answers the pilot: own voice of that station, ahead of all background speech. The reply is split
+  // at its commas and spoken piece by piece on one carrier, so it starts as soon as the first piece is ready.
+  async atcSay(pos, text, onWait) {
+    this.start0(); const st = this.stations[pos]; if (!st) return 0;
+    const keep = () => { st.hold = Date.now() + 20000; };
+    keep();
+    for (let i = 0; !pool.ready && i < 240; i++) { onWait?.(voiceState()); keep(); await wait(500); }   // first visit: voice still loading
+    if (!pool.ready) return 0;
+    cancelBackground(); st.q.length = 0;
+    const words = text.split(/(?<=,)\s+/), pieces = [];
+    for (const w of words) { const last = pieces[pieces.length - 1]; if (last && (last.split(' ').length < 4 || w.split(' ').length < 3)) pieces[pieces.length - 1] = last + ' ' + w; else pieces.push(w); }
+    const jobs = pieces.map((t) => speak(t, st.atc, true));   // queued in order, ahead of everything else
+    await wait(rnd(150, 400));
+    const k = this.carrier(st, { strength: rnd(0.85, 1), rate: rnd(0.99, 1.01) });
+    for (const j of jobs) { keep(); const pcm = await j; if (pcm) k.voice(this.toBuf(pcm)); }
+    const dur = k.end(); keep(); await wait(dur * 1000); return dur;
   }
 
   toBuf(pcm) { const b = this.ctx.createBuffer(1, pcm.length, 24000); b.copyToChannel(pcm, 0); return b; }
@@ -105,8 +123,8 @@ export class RadioChatter {
     for (;;) {
       if (st.g <= 0) { st.q.length = 0; await wait(600); continue; }   // nobody listening: nothing generated
       // keep two live exchanges in preparation while the voice is up; until then the starter set talks
-      if (pool.ready) while (st.q.length < 2) st.q.push(this.live(st));
       await this.clear(st);
+      if (pool.ready) while (st.q.length < 2) st.q.push(this.live(st));
       const ex = st.q.shift() || await this.canned(st);
       if (!ex) { await wait(500); continue; }
       const radio = this.radioFor();
@@ -123,35 +141,43 @@ export class RadioChatter {
     }
   }
 
-  // one transmission: carrier opens (squelch click + hiss), voice through the radio, carrier drops (squelch tail)
-  transmit(st, buf, who) {
-    const c = this.ctx, t0 = c.currentTime + 0.05, s = who.strength;
-    const lead = rnd(0.08, 0.22), rate = who.rate, voiceDur = buf.duration / rate, tailAt = t0 + lead + voiceDur + rnd(0.04, 0.14);
-    const tailLen = rnd(0.1, 0.22), end = tailAt + tailLen;
-    const nodes = [];
+  // a carrier: opens with a squelch click and hiss, carries one or more pieces of voice, drops with a squelch tail.
+  // Pieces can arrive while it is open (the controller's reply is spoken while the rest is still being generated).
+  carrier(st, who) {
+    const c = this.ctx, t0 = c.currentTime + 0.05, s = who.strength, nodes = [];
     const N = (n) => { nodes.push(n); return n; };
     const filt = (type, f, q, g) => { const b = N(c.createBiquadFilter()); b.type = type; b.frequency.value = f; b.Q.value = q; if (g != null) b.gain.value = g; return b; };
-    // voice: VHF AM audio is roughly 300 Hz - 3 kHz, compressed and a little driven
-    const src = N(c.createBufferSource()); src.buffer = buf; src.playbackRate.value = rate;
+    // voice path: VHF AM audio is roughly 300 Hz - 3 kHz, compressed and a little driven
     const hp = filt('highpass', rnd(300, 460), 0.8), lp = filt('lowpass', rnd(2500, 3300), 0.9), mid = filt('peaking', rnd(1200, 2100), 1, rnd(3, 8));
     const sh = N(c.createWaveShaper()); sh.curve = curve(rnd(1.6, 3.4) + (1 - s) * 2.5); sh.oversample = '2x';
-    const post = filt('lowpass', rnd(3200, 3800), 0.7);
-    const vg = N(c.createGain()); vg.gain.value = 0.55 * (0.55 + 0.45 * s);
-    src.connect(hp).connect(lp).connect(mid).connect(sh).connect(post).connect(vg).connect(st.out);
-    // weak signals fade a little
-    if (s < 0.7) { const o = N(c.createOscillator()), od = N(c.createGain()); o.frequency.value = rnd(3, 8); od.gain.value = (0.7 - s) * 0.5; o.connect(od).connect(vg.gain); o.start(t0); o.stop(end); }
-    // carrier hiss under the voice, louder on weak signals; squelch click at the start, noise burst at the end
-    const ns = N(c.createBufferSource()); ns.buffer = this.noise; ns.loop = true; ns.loopStart = rnd(0, 1);
+    const post = filt('lowpass', rnd(3200, 3800), 0.7), vg = N(c.createGain()); vg.gain.value = 0.55 * (0.55 + 0.45 * s);
+    hp.connect(lp).connect(mid).connect(sh).connect(post).connect(vg).connect(st.out);
+    let lfo = null;   // weak signals fade a little
+    if (s < 0.7) { lfo = N(c.createOscillator()); const od = N(c.createGain()); lfo.frequency.value = rnd(3, 8); od.gain.value = (0.7 - s) * 0.5; lfo.connect(od).connect(vg.gain); lfo.start(t0); }
+    // carrier hiss, louder on weak signals; squelch click at the start
+    const ns = N(c.createBufferSource()); ns.buffer = this.noise; ns.loop = true;
     const nh = filt('highpass', 380, 0.7), nl = filt('lowpass', rnd(2600, 3400), 0.7), ng = N(c.createGain());
     const hiss = (0.012 + (1 - s) * 0.05) * rnd(0.7, 1.3), g = ng.gain;
     g.setValueAtTime(0, t0); g.linearRampToValueAtTime(hiss * 6, t0 + 0.004); g.linearRampToValueAtTime(hiss, t0 + 0.03);
-    g.setValueAtTime(hiss, tailAt); g.linearRampToValueAtTime(hiss * rnd(5, 9), tailAt + 0.012);
-    g.setValueAtTime(hiss * rnd(4, 7), end - 0.02); g.linearRampToValueAtTime(0, end);
-    ns.connect(nh).connect(nl).connect(ng).connect(st.out);
-    ns.start(t0, rnd(0, 1.5)); ns.stop(end + 0.01); src.start(t0 + lead);
-    setTimeout(() => nodes.forEach((n) => { try { n.disconnect(); } catch { /* already gone */ } }), (end - c.currentTime + 0.3) * 1000);
-    return end - c.currentTime;
+    ns.connect(nh).connect(nl).connect(ng).connect(st.out); ns.start(t0, rnd(0, 1.5));
+    let cursor = t0 + rnd(0.08, 0.22);
+    return {
+      voice: (buf) => {   // plays after whatever is already queued on this carrier
+        cursor = Math.max(cursor, c.currentTime + 0.03);
+        const src = N(c.createBufferSource()); src.buffer = buf; src.playbackRate.value = who.rate; src.connect(hp); src.start(cursor);
+        cursor += buf.duration / who.rate + rnd(0.03, 0.1); return cursor;
+      },
+      end: () => {   // squelch tail, then everything is released
+        const tailAt = Math.max(cursor, c.currentTime + 0.02) + rnd(0.02, 0.1), end = tailAt + rnd(0.1, 0.22);
+        g.cancelScheduledValues(tailAt); g.setValueAtTime(hiss, tailAt); g.linearRampToValueAtTime(hiss * rnd(5, 9), tailAt + 0.012);
+        g.setValueAtTime(hiss * rnd(4, 7), end - 0.02); g.linearRampToValueAtTime(0, end); ns.stop(end + 0.01); lfo?.stop(end);
+        setTimeout(() => nodes.forEach((n) => { try { n.disconnect(); } catch { /* already gone */ } }), (end - c.currentTime + 0.3) * 1000);
+        return end - c.currentTime;
+      },
+    };
   }
+  // one complete transmission of a ready buffer; returns its length in seconds
+  transmit(st, buf, who) { const k = this.carrier(st, who); k.voice(buf); return k.end(); }
 }
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));

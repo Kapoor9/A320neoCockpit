@@ -67,7 +67,7 @@ async function stt({ id, pcm }) {
   const eo = await enc.run({ mel: new ort.Tensor('float32', m, [1, 80, FRAMES]) });
   const ck = eo.n_layer_cross_k, cv = eo.n_layer_cross_v, S = cfg.layers * cfg.ctx * cfg.state;
   let kc = new ort.Tensor('float32', new Float32Array(S), [cfg.layers, 1, cfg.ctx, cfg.state]), vc = new ort.Tensor('float32', new Float32Array(S), [cfg.layers, 1, cfg.ctx, cfg.state]);
-  let tok = [cfg.sot, cfg.noTs], off = 0; const out = [];
+  let tok = [...(cfg.prompt ? [cfg.sotPrev, ...cfg.prompt] : []), cfg.sot, cfg.noTs], off = 0; const out = [];   // radio vocabulary hint first
   for (let step = 0; step < 96; step++) {
     const r = await dec.run({ tokens: new ort.Tensor('int64', BigInt64Array.from(tok.map(BigInt)), [1, tok.length]), in_n_layer_self_k_cache: kc, in_n_layer_self_v_cache: vc, n_layer_cross_k: ck, n_layer_cross_v: cv, offset: new ort.Tensor('int64', BigInt64Array.from([BigInt(off)]), [1]) });
     off += tok.length; kc = r.out_n_layer_self_k_cache; vc = r.out_n_layer_self_v_cache;

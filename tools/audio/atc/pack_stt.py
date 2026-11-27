@@ -23,7 +23,15 @@ F *= (2 / (mp[2:82] - mp[:80]))[:, None]
 toks = [''] * 51864
 for l in open(D + 'tiny.en-tokens.txt', encoding='utf-8'):
     t, i = l.rstrip('\n').split(' '); toks[int(i)] = t
-cfg = {'enc': b64('enc', open(D + 'tiny.en-encoder.int8.onnx', 'rb').read()), 'dec': b64('dec', open('/tmp/dec_ext.onnx', 'rb').read()),
+# vocabulary hint: Whisper reads this as 'previous text', so radio words come out right (Delhi, not Deli)
+PROMPT = ' Delhi Ground, Delhi Tower, Indigo 245, Air India 101, SpiceJet, Akasa Air. Request pushback, taxi, startup, clearance, QNH, squawk 4521, runway, holding point, line up and wait, cleared for takeoff, wilco.'
+vocab = {base64.b64decode(t): i for i, t in enumerate(toks) if t and i < 50256}
+def encode(text):
+    b, out, i = text.encode(), [], 0
+    while i < len(b):
+        j = next(j for j in range(min(len(b), i + 24), i, -1) if b[i:j] in vocab); out.append(vocab[b[i:j]]); i = j
+    return out
+cfg = {'prompt': encode(PROMPT), 'sotPrev': 50360, 'enc': b64('enc', open(D + 'tiny.en-encoder.int8.onnx', 'rb').read()), 'dec': b64('dec', open('/tmp/dec_ext.onnx', 'rb').read()),
        'embQ': b64('embq', q.tobytes()), 'embRows': W.shape[0], 'embDim': W.shape[1],
        'embS': base64.b64encode(sc.tobytes()).decode(), 'mel': base64.b64encode(F.astype(np.float32).tobytes()).decode(), 'tokens': toks,
        'sot': 50257, 'noTs': 50362, 'eot': 50256, 'blank': 220, 'layers': 4, 'ctx': 448, 'state': 384}
