@@ -15,7 +15,9 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 // ------------------------------------------------------------------ the voice: worker threads, loaded at page open
 const pool = { workers: [], reply: null, jobs: new Map(), seq: 0, ready: false, replyReady: false, pct: 0 };
 export const voiceState = () => (pool.ready ? 'ready' : pool.workers.length ? 'loading ' + pool.pct + '%' : 'off');
-function makeWorker(onReady) {
+// cores: the reply voice gets about half the machine (it must be quick), the background chatter a quarter
+const CORES = navigator.hardwareConcurrency || 2;
+function makeWorker(onReady, threads) {
   const w = new Worker(new URL('./ttsWorker.js', import.meta.url), { type: 'module' }); w.load = 0;
   w.onmessage = (e) => {
     const m = e.data;
@@ -25,7 +27,7 @@ function makeWorker(onReady) {
     if (m.type === 'error') { if (m.msg !== 'cancelled') console.warn('radio voice', m.msg); job?.resolve(null); return; }
     job?.resolve(m.pcm);
   };
-  w.postMessage({ type: 'init', base: TTS }); return w;
+  w.postMessage({ type: 'init', base: TTS, threads }); return w;
 }
 // background chatter: one voice worker (two on machines with plenty of cores). Replies to the pilot: a worker of their
 // own, always free, so the controller answers at once instead of waiting for a background line to finish. It starts
@@ -37,8 +39,8 @@ export function preloadVoice() {
   try {
     pool.workers.push(makeWorker(() => {
       pool.ready = true;
-      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); });
-    }));
+      if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); }, Math.max(1, Math.min(6, Math.floor(CORES / 2))));
+    }, Math.max(1, Math.floor(CORES / 4))));
   } catch (e) { console.warn('radio voice', e); }
 }
 export const replyVoiceReady = () => pool.replyReady;

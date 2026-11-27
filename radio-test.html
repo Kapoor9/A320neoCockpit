@@ -38,7 +38,8 @@ stt.onmessage = (e) => { const m = e.data; if (m.type === 'progress') return;
   if (m.type === 'ready') { sttReady = true; log('speech recognition ready ' + s()); tryStt(); }
   else if (m.type === 'text') { log('speech recognition OK in ' + ((performance.now() - T2) / 1000).toFixed(1) + ' s, heard: "' + m.text + '"'); log('ALL OK'); }
   else log('speech recognition FAILED: ' + m.msg, 1); };
-tts.postMessage({ type: 'init', base: new URL('vendor/tts/', location.href).href });
+tts.postMessage({ type: 'init', base: new URL('vendor/tts/', location.href).href, threads: Math.max(1, Math.min(6, Math.floor((navigator.hardwareConcurrency || 2) / 2))) });
+log('isolated (multi-core): ' + crossOriginIsolated + ', cores ' + navigator.hardwareConcurrency);
 stt.postMessage({ type: 'init', ort: new URL('vendor/tts/ort.wasm.min.mjs', location.href).href, base: new URL('vendor/stt/', location.href).href });
 log('loading models (first visit downloads ~140 MB, later visits use the browser cache)…');
 </script></body></html>

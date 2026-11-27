@@ -30,10 +30,10 @@ function idb(op, key, val) {
 let ort, phonemize, session, cfg, voices, vocab;
 const queue = []; let busy = false;
 
-async function init(base) {
+async function init(base, threads) {
   ort = await import(base + 'ort.wasm.min.mjs');
   ({ phonemize } = await import(base + 'phonemizer.js'));
-  ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 3))) : 1;   // several cores when the page is isolated (sw-coi.js)
+  ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = self.crossOriginIsolated ? threads || 2 : 1;   // several cores when the page is isolated (sw-coi.js)
   cfg = await (await fetch(base + 'kokoro.json')).json(); vocab = cfg.vocab;
   // kept in the browser's own storage after the first visit: later visits skip the download
   const key = 'kokoro-int8-' + cfg.bytes;
@@ -93,7 +93,7 @@ async function pump() {
 
 self.onmessage = (e) => {
   const m = e.data;
-  if (m.type === 'init') init(m.base).catch((err) => self.postMessage({ type: 'error', msg: String(err?.message || err) }));
+  if (m.type === 'init') init(m.base, m.threads).catch((err) => self.postMessage({ type: 'error', msg: String(err?.message || err) }));
   else if (m.type === 'say') {   // replies to the pilot go ahead of background speech, in the order they were sent
     if (m.priority) { const i = queue.findIndex((q) => !q.priority); queue.splice(i < 0 ? queue.length : i, 0, m); } else queue.push(m);
     if (session) pump();
