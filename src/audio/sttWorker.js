@@ -11,8 +11,9 @@ async function bytes(url) {
   if (Uint8Array.fromBase64) return Uint8Array.fromBase64(s);
   const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
 }
+let got = 0; const TOTAL = 4;   // enc, dec, embq x2
 async function parts(base, name, n) {
-  const ps = await Promise.all([...Array(n).keys()].map((i) => bytes(`${base}${name}.${i}.txt`)));
+  const ps = await Promise.all([...Array(n).keys()].map(async (i) => { const b = await bytes(`${base}${name}.${i}.txt`); self.postMessage({ type: 'progress', pct: Math.min(99, Math.round((++got / TOTAL) * 100)) }); return b; }));
   const out = new Uint8Array(ps.reduce((s, p) => s + p.length, 0)); let o = 0; for (const p of ps) { out.set(p, o); o += p.length; } return out;
 }
 function idb(op, key, val) {   // same cache as the radio voice; failure just means no cache

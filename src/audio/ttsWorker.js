@@ -39,7 +39,7 @@ async function init(base) {
   const key = 'kokoro-int8-' + cfg.bytes;
   let model = await idb('get', key), vbytes = await idb('get', key + '-voices');
   if (!model || !vbytes) {
-    const parts = await Promise.all([...Array(cfg.parts).keys()].map((i) => bytes(base + 'kokoro.part' + i + '.txt')));
+    let done = 0; const parts = await Promise.all([...Array(cfg.parts).keys()].map(async (i) => { const b = await bytes(base + 'kokoro.part' + i + '.txt'); self.postMessage({ type: 'progress', pct: Math.round((++done / cfg.parts) * 100) }); return b; }));
     model = new Uint8Array(cfg.bytes); let o = 0; for (const p of parts) { model.set(p, o); o += p.length; }
     vbytes = await bytes(base + 'voices.f16.txt');
     idb('put', key, model); idb('put', key + '-voices', vbytes);

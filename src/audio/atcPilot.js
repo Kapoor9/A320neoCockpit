@@ -4,7 +4,7 @@
 // station's voice over the radio. While you and the controller talk, the other traffic on that frequency waits, and
 // it carries on ~1.5 s after the exchange. If the microphone cannot be used, SPACE opens a box to type the call.
 import { AtcBrain } from './atcBrain.js';
-import { STATIONS } from './radio.js';
+import { STATIONS, voiceState } from './radio.js';
 
 const ORT = new URL('../../vendor/tts/ort.wasm.min.mjs', import.meta.url).href;
 const STT = new URL('../../vendor/stt/', import.meta.url).href;
@@ -33,7 +33,7 @@ export class AtcPilot {
     window.addEventListener('keydown', (e) => this.key(e, true), { capture: true });
     window.addEventListener('keyup', (e) => this.key(e, false), { capture: true });
     setTimeout(() => this.loadEars(), 6000);   // speech recognition loads in the background after the voice
-    setInterval(() => this.tick(), 500);
+    setInterval(() => { this.tick(); if (!this.tx) this.show(); }, 500);
   }
   get radio() { return this.sys.sound?.radio; }
   get brain() { if (!this.radio) return null; this.b ??= new AtcBrain(this.radio.gen); return this.b; }
@@ -44,11 +44,15 @@ export class AtcPilot {
     if (this.ears) return;
     try {
       this.ears = new Worker(new URL('./sttWorker.js', import.meta.url), { type: 'module' });
-      this.ears.onmessage = (e) => { const m = e.data; if (m.type === 'ready') { this.earsReady = true; return; } const j = this.jobs.get(m.id); if (!j) { if (m.type === 'error') console.warn('radio ears', m.msg); return; } this.jobs.delete(m.id); j(m.type === 'text' ? m.text : ''); };
+      this.earsPct = 0; this.ears.onmessage = (e) => { const m = e.data; if (m.type === 'ready') { this.earsReady = true; this.show(); return; } if (m.type === 'progress') { this.earsPct = m.pct; return; } if (m.type === 'error' && !m.id) { this.earsFailed = m.msg; console.warn('radio ears', m.msg); return; } const j = this.jobs.get(m.id); if (!j) { if (m.type === 'error') console.warn('radio ears', m.msg); return; } this.jobs.delete(m.id); j(m.type === 'text' ? m.text : ''); };
       this.ears.postMessage({ type: 'init', ort: ORT, base: STT });
     } catch (e) { console.warn('radio ears', e); }
   }
-  hear(pcm) { this.loadEars(); const id = ++this.seq; return new Promise((r) => { this.jobs.set(id, r); this.ears.postMessage({ type: 'stt', id, pcm }, [pcm.buffer]); }); }
+  hear(pcm) {
+    this.loadEars(); const id = ++this.seq;
+    const job = new Promise((r) => { this.jobs.set(id, r); this.ears.postMessage({ type: 'stt', id, pcm }, [pcm.buffer]); });
+    return Promise.race([job, wait(this.earsReady ? 20000 : 90000).then(() => { this.jobs.delete(id); return ''; })]);   // never wait for ever
+  }
 
   // ---------------------------------------------------------------- which station hears you
   txStation() {
@@ -75,8 +79,10 @@ export class AtcPilot {
     if (this.micFailed) { this.box.style.display = 'block'; this.box.focus(); return; }
     this.sys.sound?.init?.();
     const ok = await this.ensureMic(); if (!ok) { this.micFailed = true; this.say('note', 'Microphone not available: type your call instead (Space opens the box).'); this.box.style.display = 'block'; this.box.focus(); return; }
+    if (this.earsFailed) { this.say('note', 'Speech recognition could not load here; type your call instead.'); this.micFailed = true; this.box.style.display = 'block'; this.box.focus(); return; }
+    if (!this.earsReady) this.say('note', `Speech recognition still loading (${this.earsPct}%), first visit only. Your call will be answered once it is ready.`);
     this.tx = { ch, chunks: [], t: performance.now() }; this.hud.classList.add('on');
-    if (ch.pos) this.radio?.holdFor(ch.pos, Infinity);   // frequency busy: background traffic waits
+    if (ch.pos) this.radio?.holdFor(ch.pos, 30000);   // frequency busy while you talk (capped)
   }
   async pttUp() {
     const tx = this.tx; if (!tx) return;
@@ -86,7 +92,7 @@ export class AtcPilot {
     let e = 0; for (let i = 0; i < pcm.length; i++) e += pcm[i] * pcm[i];
     if (pcm.length < 16000 * 0.35 || Math.sqrt(e / Math.max(1, pcm.length)) < 0.004) { this.release(tx.ch.pos, 400); return; }
     if (!this.earsReady) this.say('note', 'Speech recognition still loading…');
-    const text = (await this.hear(pcm)).replace(/\[[^\]]*\]|\([^)]*\)/g, '').trim();
+    const text = (await this.hear(pcm).catch(() => '')).replace(/\[[^\]]*\]|\([^)]*\)/g, '').trim();
     this.call(text, tx.ch);
   }
 
@@ -94,8 +100,8 @@ export class AtcPilot {
   async call(text, ch) {
     if (text) this.say('you', text);
     const pos = ch.pos, brain = this.brain;
-    if (!pos || !brain || !text) { this.release(pos, 400); return; }   // nobody on that frequency: silence, as in real life
-    this.radio.holdFor(pos, Infinity);
+    if (!pos || !brain || !text) { if (!text) this.say('note', 'Nothing heard: hold SPACE while you speak.'); this.release(pos, 400); return; }   // nobody on that frequency: silence, as in real life
+    this.radio.holdFor(pos, 30000);
     const r = brain.handle(text, pos, this.ctx()); this.show(ch);
     if (!r?.say) { this.release(pos, QUIET_AFTER); return; }
     await wait(rnd(600, 1600));   // the controller thinking / keying the mic
@@ -108,7 +114,7 @@ export class AtcPilot {
   async tick() {
     const brain = this.radio && this.brain; if (!brain || this.tx || this.busy) return;
     const p = brain.tick(this.ctx()); if (!p) return;
-    this.busy = true; this.radio.holdFor(p.stn, Infinity); await wait(rnd(300, 900));
+    this.busy = true; this.radio.holdFor(p.stn, 30000); await wait(rnd(300, 900));
     if (this.txStation().pos === p.stn) this.say('atc', p.say);
     try { await this.radio.atcSay(p.stn, p.say); } finally { this.busy = false; this.release(p.stn, QUIET_AFTER); }
   }

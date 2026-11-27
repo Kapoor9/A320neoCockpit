@@ -13,7 +13,8 @@ export const STATIONS = { '121.8': 'ground', '118.7': 'tower' };   // frequency 
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ------------------------------------------------------------------ the voice: worker threads, loaded at page open
-const pool = { workers: [], jobs: new Map(), seq: 0, ready: false };
+const pool = { workers: [], jobs: new Map(), seq: 0, ready: false, pct: 0 };
+export const voiceState = () => (pool.ready ? 'ready' : pool.workers.length ? 'loading ' + pool.pct + '%' : 'off');
 export function preloadVoice() {
   if (pool.workers.length) return;
   const n = (navigator.hardwareConcurrency || 2) >= 6 ? 2 : 1;   // two on machines with plenty of cores
@@ -23,6 +24,7 @@ export function preloadVoice() {
       w.onmessage = (e) => {
         const m = e.data;
         if (m.type === 'ready') { pool.ready = true; return; }
+        if (m.type === 'progress') { pool.pct = Math.max(pool.pct, m.pct); return; }
         const job = pool.jobs.get(m.id); if (job) { pool.jobs.delete(m.id); w.load--; }
         if (m.type === 'error') { console.warn('radio voice', m.msg); job?.resolve(null); return; }
         job?.resolve(m.pcm);
@@ -74,13 +76,13 @@ export class RadioChatter {
 
   // the frequency is busy with the pilot's own exchange: background traffic waits until hold time has passed
   async clear(st) { while (Date.now() < st.hold) await wait(200); }
-  holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) st.hold = ms === Infinity ? Infinity : Date.now() + ms; }
+  holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) st.hold = Date.now() + Math.min(ms, 30000); }   // capped: a stuck call can never silence the frequency
   start0() { if (!this.started) this.start(); }
   // the controller answers the pilot: own voice of that station, ahead of everything else in the voice queue
   async atcSay(pos, text) {
-    this.start0(); const st = this.stations[pos]; if (!st) return 0;
-    st.hold = Infinity;
-    const pcm = await speak(text, st.atc, true); if (!pcm) return 0;
+    this.start0(); const st = this.stations[pos]; if (!st || !pool.ready) return 0;   // voice not loaded yet: subtitles only
+    st.hold = Date.now() + 30000;   // never held for ever: worst case the frequency frees itself
+    const pcm = await Promise.race([speak(text, st.atc, true), wait(25000).then(() => null)]); if (!pcm) return 0;
     const dur = this.transmit(st, this.toBuf(pcm), { strength: rnd(0.85, 1), rate: rnd(0.99, 1.01) });
     await wait(dur * 1000); return dur;
   }
