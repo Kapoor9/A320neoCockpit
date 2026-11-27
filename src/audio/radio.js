@@ -23,6 +23,7 @@ function makeWorker(onReady, threads) {
     const m = e.data;
     if (m.type === 'ready') { onReady(); return; }
     if (m.type === 'progress') { pool.pct = Math.max(pool.pct, m.pct); return; }
+    if (m.type === 'step') return;
     const job = pool.jobs.get(m.id); if (job) { pool.jobs.delete(m.id); w.load--; }
     if (m.type === 'error') { if (m.msg !== 'cancelled') console.warn('radio voice', m.msg); job?.resolve(null); return; }
     job?.resolve(m.pcm);

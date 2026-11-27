@@ -33,7 +33,7 @@ export class AtcPilot {
     window.addEventListener('keydown', (e) => this.key(e, true), { capture: true });
     window.addEventListener('keyup', (e) => this.key(e, false), { capture: true });
     window.addEventListener('radio-voice-ready', () => this.loadEars(), { once: true });   // speech recognition loads after the voices
-    setTimeout(() => this.loadEars(), 120000);   // ...or after two minutes in any case
+    setTimeout(() => this.loadEars(), 15000);   // ...or 15 s after page open in any case
     setInterval(() => { this.tick(); if (!this.tx) this.show(); }, 500);
   }
   get radio() { return this.sys.sound?.radio; }
@@ -81,7 +81,7 @@ export class AtcPilot {
     this.sys.sound?.init?.();
     const ok = await this.ensureMic(); if (!ok) { this.micFailed = true; this.say('note', 'Microphone not available: type your call instead (Space opens the box).'); this.box.style.display = 'block'; this.box.focus(); return; }
     if (this.earsFailed) { this.say('note', 'Speech recognition could not load here; type your call instead.'); this.micFailed = true; this.box.style.display = 'block'; this.box.focus(); return; }
-    if (!this.earsReady) this.say('note', `Speech recognition still loading (${this.earsPct}%), first visit only. Your call will be answered once it is ready.`);
+    if (!this.earsReady) this.say('note', `Speech recognition still loading (${this.earsPct || 0}%), first visit only. Your call will be answered once it is ready.`);
     this.tx = { ch, chunks: [], t: performance.now() }; this.hud.classList.add('on');
     if (ch.pos) this.radio?.holdFor(ch.pos, 30000);   // frequency busy while you talk (capped)
   }

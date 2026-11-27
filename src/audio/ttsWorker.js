@@ -30,14 +30,19 @@ function idb(op, key, val) {
 let ort, phonemize, session, cfg, voices, vocab;
 const queue = []; let busy = false;
 
+const step = (msg) => self.postMessage({ type: 'step', msg });   // loading stages, for the self-test page
 async function init(base, threads) {
+  step('worker started');
   ort = await import(base + 'ort.wasm.min.mjs');
+  step('runtime loaded');
   ({ phonemize } = await import(base + 'phonemizer.js'));
+  step('phonemizer loaded');
   ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = self.crossOriginIsolated ? threads || 2 : 1;   // several cores when the page is isolated (sw-coi.js)
   cfg = await (await fetch(base + 'kokoro.json')).json(); vocab = cfg.vocab;
   // kept in the browser's own storage after the first visit: later visits skip the download
   const key = 'kokoro-int8-' + cfg.bytes;
   let model = await idb('get', key), vbytes = await idb('get', key + '-voices');
+  step(model && vbytes ? 'model from browser cache' : 'downloading model');
   if (!model || !vbytes) {
     let done = 0; const parts = await Promise.all([...Array(cfg.parts).keys()].map(async (i) => { const b = await bytes(base + 'kokoro.part' + i + '.txt'); self.postMessage({ type: 'progress', pct: Math.round((++done / cfg.parts) * 100) }); return b; }));
     model = new Uint8Array(cfg.bytes); let o = 0; for (const p of parts) { model.set(p, o); o += p.length; }
@@ -46,7 +51,9 @@ async function init(base, threads) {
   }
   const vb = new Uint16Array(vbytes.buffer, vbytes.byteOffset, vbytes.byteLength / 2);
   voices = Object.fromEntries(cfg.voices.map((n, i) => [n, vb.subarray(i * cfg.rows * cfg.dim, (i + 1) * cfg.rows * cfg.dim)]));
+  step('model in memory (' + model.length + ' bytes), creating session with ' + ort.env.wasm.numThreads + ' threads');
   session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+  step('session ready, warming up');
   try { await say({ id: 0, text: 'Roger.', voice: { a: cfg.voices[0] }, speed: 1, silent: true }); } catch { /* warm-up only */ }   // first run is slow: do it now
   self.postMessage({ type: 'ready' }); pump();
 }
