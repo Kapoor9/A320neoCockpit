@@ -48,8 +48,14 @@ export class CockpitAudio {
     comp.threshold.value = -10; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
     this.out.connect(comp).connect(c.destination);
     const bus = (v) => { const g = c.createGain(); g.gain.value = v; g.connect(this.out); return g; };
+    // engines: the takeoff recording has idle ~10 dB under CL / FLX and sits low overall - lifted ~8 dB, with a gentle
+    // compressor of their own so idle is clearly heard and the high-thrust modes stay clean (still ~6 dB louder)
+    const engComp = c.createDynamicsCompressor();
+    engComp.threshold.value = -14; engComp.ratio.value = 2; engComp.knee.value = 8; engComp.attack.value = 0.05; engComp.release.value = 0.4;
+    engComp.connect(this.out);
+    const engines = c.createGain(); engines.gain.value = 2.6; engines.connect(engComp);
     this.bus = {
-      ambience: bus(0.55), engines: bus(1.0), apu: bus(0.55),
+      ambience: bus(0.55), engines, apu: bus(0.55),
       warnings: bus(0.75), chimes: bus(0.7), clicks: bus(0.6),
     };
 
