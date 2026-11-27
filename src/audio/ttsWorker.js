@@ -4,6 +4,12 @@
 // weights, so there is no end of different voices.
 // Messages in: {type:'init', base}, {type:'say', id, text, voice:{a, b, w}, lang, speed}
 // Messages out: {type:'ready'} | {type:'audio', id, pcm (Float32Array, 24 kHz)} | {type:'error', id, msg}
+// the host serves web file types only: model parts and voices are stored as base64 text
+async function bytes(url) {
+  const s = (await (await fetch(url)).text()).trim();
+  if (Uint8Array.fromBase64) return Uint8Array.fromBase64(s);
+  const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+}
 let ort, phonemize, session, cfg, voices, vocab;
 const queue = []; let busy = false;
 
@@ -12,9 +18,9 @@ async function init(base) {
   ({ phonemize } = await import(base + 'phonemizer.js'));
   ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = Math.min(4, self.crossOriginIsolated ? (navigator.hardwareConcurrency || 2) - 1 : 1);
   cfg = await (await fetch(base + 'kokoro.json')).json(); vocab = cfg.vocab;
-  const parts = await Promise.all([...Array(cfg.parts).keys()].map(async (i) => new Uint8Array(await (await fetch(base + 'kokoro.part' + i)).arrayBuffer())));
+  const parts = await Promise.all([...Array(cfg.parts).keys()].map(async (i) => bytes(base + 'kokoro.part' + i + '.txt')));
   const model = new Uint8Array(cfg.bytes); let o = 0; for (const p of parts) { model.set(p, o); o += p.length; }
-  const vb = new Uint16Array(await (await fetch(base + 'voices.f16')).arrayBuffer());
+  const vb = new Uint16Array((await bytes(base + 'voices.f16.txt')).buffer);
   voices = Object.fromEntries(cfg.voices.map((n, i) => [n, vb.subarray(i * cfg.rows * cfg.dim, (i + 1) * cfg.rows * cfg.dim)]));
   session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
   try { await say({ id: 0, text: 'Roger.', voice: { a: cfg.voices[0] }, speed: 1, silent: true }); } catch { /* warm-up only */ }   // first run is slow: do it now
