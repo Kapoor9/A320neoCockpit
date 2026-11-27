@@ -244,14 +244,21 @@ class ThrustVoice {
     return { src, gain: g };
   }
 
-  // fade a voice in / out with the equal-power curves, starting at time `at`
-  _in(v, at, dur) { v.gain.gain.cancelScheduledValues(at); v.gain.gain.setValueAtTime(0, at); v.gain.gain.setValueCurveAtTime(XF_IN, at, dur); }
-  _out(v, at, dur) {
-    if (!v) return; const g = v.gain.gain; const now = this.c.currentTime; const from = Math.max(at, now);
-    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now);
-    const k = g.value; g.setValueCurveAtTime(XF_OUT.map((x) => x * k), from, dur);
-    try { v.src.stop(from + dur + 0.05); } catch { /* already stopped */ }
+  // Equal-power fades built from short linear steps (sin / cos shape). Plain ramps can be cut off and
+  // re-scheduled at any moment, which curve automation cannot (it refuses overlapping events -> silence).
+  _hold(g, t) { if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t); else { const v = g.value; g.cancelScheduledValues(t); g.setValueAtTime(v, t); } }
+  _shape(g, at, dur, from, to, rising) {
+    const n = 10; g.setValueAtTime(from, at);
+    for (let i = 1; i <= n; i++) { const x = (i / n) * Math.PI / 2; const k = rising ? Math.sin(x) : 1 - Math.cos(x); g.linearRampToValueAtTime(from + (to - from) * k, at + (dur * i) / n); }
   }
+  _in(v, at, dur) { const g = v.gain.gain; this._hold(g, this.c.currentTime); this._shape(g, Math.max(at, this.c.currentTime), dur, 0, 1, true); }
+  _out(v, at, dur) {
+    if (!v) return; const g = v.gain.gain; const now = this.c.currentTime;
+    if (at > now + 0.005) { g.setValueAtTime(1, at); this._shapeLater(g, at, dur); }      // later: queued after its fade-in
+    else { this._hold(g, now); this._shape(g, now, dur, g.value, 0, false); at = now; }   // now: from whatever level it has
+    try { v.src.stop(at + dur + 0.05); } catch { /* already stopped */ }
+  }
+  _shapeLater(g, at, dur) { const n = 10; for (let i = 1; i <= n; i++) { const x = (i / n) * Math.PI / 2; g.linearRampToValueAtTime(Math.cos(x), at + (dur * i) / n); } }
 
   _startLoop(detent, xf = 0.4, at = null) {
     const t = at ?? this.c.currentTime;
@@ -275,6 +282,7 @@ class ThrustVoice {
   }
 
   setTarget(detent) {
+    if (detent === this.target && this.running && this.voice) return;   // already there or on the way
     this.target = detent;
     if (!this.running) { this.state = detent; return; }
     // a hand-over already scheduled for an earlier target is cancelled
