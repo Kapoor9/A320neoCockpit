@@ -9,7 +9,9 @@ const NATO = 'Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliet Kil
 export const dig = (s) => [...String(s)].map((c) => D[c] ?? c).join(' ');
 export const rwy = (r) => dig(r.slice(0, 2)) + ({ L: ' left', R: ' right' }[r.slice(2)] || '');
 export const freq = (f, short) => { const [a, b] = f.split('.'); return dig(a) + (short ? ' ' : ' decimal ') + dig(b); };
-const R = Math.random, pick = (a) => a[Math.floor(R() * a.length)], chance = (p) => R() < p, int = (a, b) => a + Math.floor(R() * (b - a + 1));
+let RNG = Math.random;
+export const setRng = (f) => { RNG = f || Math.random; };   // the ATC brain plugs in its own seeded generator
+const R = () => RNG(), pick = (a) => a[Math.floor(R() * a.length)], chance = (p) => R() < p, int = (a, b) => a + Math.floor(R() * (b - a + 1));
 const wpick = (items, w) => { let t = R() * w.reduce((s, x) => s + x, 0); for (let i = 0; i < items.length; i++) { t -= w[i]; if (t < 0) return items[i]; } return items[0]; };
 
 // telephony, voice group, weight, digits

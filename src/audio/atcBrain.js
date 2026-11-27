@@ -4,9 +4,12 @@
 // The first call fixes the callsign for the flight; the flight is kept for this browser session only.
 // Everything is rules and phrase banks: no network, no outside service. To add a call: add a pattern in INTENTS and
 // an entry in the handler table (H) below; wording lives in BANK.
-import { dig, rwy, freq, GROUND, TOWER, DEPARTURE } from './atcPhrases.js';
+import { dig, rwy, freq, GROUND, TOWER, DEPARTURE, setRng } from './atcPhrases.js';
 
-const R = Math.random, pick = (a) => a[Math.floor(R() * a.length)], chance = (p) => R() < p, int = (a, b) => a + Math.floor(R() * (b - a + 1));
+// Every choice the controller makes (wording, squawk, route, runway roll...) comes from a seeded generator kept in the
+// flight state. Replaying the same state gives the same reply, so likely replies can be voiced before you call.
+let RNG = Math.random;
+const R = () => RNG(), pick = (a) => a[Math.floor(R() * a.length)], chance = (p) => R() < p, int = (a, b) => a + Math.floor(R() * (b - a + 1));
 const STORE = 'a320.atc.flight';
 const CITIES = ['Mumbai', 'Bengaluru', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Goa', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Srinagar', 'Guwahati', 'Kochi', 'Cochin', 'Amritsar', 'Chandigarh', 'Varanasi', 'Patna', 'Indore', 'Nagpur', 'Bhopal', 'Leh', 'Dehradun', 'Dubai', 'Doha', 'London', 'Heathrow', 'Frankfurt', 'Singapore', 'Bangkok', 'Kathmandu', 'Abu Dhabi', 'Riyadh', 'Paris', 'Tokyo', 'Colombo', 'Dhaka', 'Male', 'Muscat', 'Sharjah', 'Kuala Lumpur', 'Hong Kong', 'Istanbul', 'New York', 'Toronto'];
 const FIXES = ['PARVA', 'SIPRA', 'BUBIM', 'NIKAS', 'GUDUM', 'LUMAN', 'AKBAN', 'TELAP', 'RIDAV', 'OSKAN', 'MOLAD', 'KAMRI'];
@@ -29,8 +32,12 @@ export function normalize(raw) {
 // Speech recognition hears "deli ground", "texi", "push bag", "in the go 245": phrase fixes first, then every word is
 // matched to the radio vocabulary with a small spelling tolerance (1 letter on short words, 2 on long ones).
 const AIRLINE_WORDS = ['indigo', 'spicejet', 'akasa', 'vistara', 'emirates', 'qatari', 'etihad', 'speedbird', 'lufthansa', 'singapore', 'thai', 'saudia', 'united', 'virgin', 'allied', 'express', 'india', 'air', 'gulf', 'france', 'japan', 'china', 'british', 'american', 'delta', 'qantas', 'turkish', 'oman', 'kuwaiti', 'cathay', 'alliance'];
-const VOCAB = new Set(('delhi ground tower delivery departure approach request requesting clearance pushback push startup start taxi takeoff ready runway holding point short lined line wait cleared clear squawk qnh weather information atis radio check mayday emergency reject rejecting abort aborting stopping vacated stand gate bay frequency say again repeat roger wilco copy copied standby standing affirm affirmative negative approved facing east west north south via thousand feet climb flight level destination time wind temperature good morning afternoon evening day thank thanks namaste return back contact monitor engine engines running both with heading left right center centre ifr vfr metar active use in hold position traffic sight behind follow '
+// words a misheard word may be corrected TO: everyday radio words, callsigns, the alphabet, cities. Words that change
+// what happens in a serious way (mayday, reject, abort, stop, emergency) are never guessed: they must be heard clearly.
+const VOCAB = new Set(('delhi ground tower delivery departure request requesting clearance pushback startup taxi takeoff ready runway holding point short lined wait cleared squawk qnh weather information atis radio check vacated stand gate frequency wilco roger copy standby affirm negative approved facing east west destination temperature morning afternoon evening namaste contact monitor engines running heading metar position traffic '
   + NATO_WORDS + ' ' + AIRLINE_WORDS.join(' ') + ' ' + CITIES.join(' ').toLowerCase()).split(/\s+/));
+// everyday words that are never "corrected" even when close to a radio word (about/abort, where/tower, ...)
+const KEEP = new Set('about above after again also back been before being both bring call came come could does done down each even every from give going good have here into just keep know last like look make many maybe more most much must need next only other over please right said same some such take than thank thanks that them then there these they this those time today tomorrow very want well were what when where which while will with would your yours left right stop power water about after hello sorry truck catering weather'.split(' '));
 const PHRASES = [
   [/\b(deli|delly|dilly|dilli|dehli|delhis|daily|deli's|dili)\b(?= (ground|tower|delivery|departure))/g, 'delhi'],
   [/\bpush(ed)?\s+(bag|pack|bank|back|backed|pack)\b/g, 'pushback'], [/\bpush and start\b/g, 'pushback and startup'],
@@ -48,7 +55,7 @@ function lev(a, b) {
 }
 const fixCache = new Map();
 function fixWord(w) {
-  if (w.length < 4 || /\d/.test(w) || VOCAB.has(w)) return w;
+  if (w.length < 4 || /\d/.test(w) || VOCAB.has(w) || KEEP.has(w)) return w;
   if (fixCache.has(w)) return fixCache.get(w);
   let best = w, bd = w.length >= 7 ? 2 : 1;
   for (const v of VOCAB) { if (v.length < 4 || v.includes(' ')) continue; const d = lev(w, v); if (d < bd || (d === bd && best === w && d <= (w.length >= 7 ? 2 : 1))) { if (d <= (w.length >= 7 ? 2 : 1)) { best = v; bd = d; } } }
@@ -152,7 +159,12 @@ export class AtcBrain {
   }
   fresh() {
     const g = this.gen.f;
-    return { cs: null, phase: 'new', dest: null, rwy: pick(g.dep), used: {}, count: {}, pending: null, last: null, timers: [], qnh: g.qnh, atis: g.atis, temp: int(18, 36), vis: pick(['6', '8', '10', '5']) };
+    return { seed: (Math.random() * 2 ** 31) | 0, cs: null, phase: 'new', dest: null, rwy: pick(g.dep), used: {}, count: {}, pending: null, last: null, timers: [], qnh: g.qnh, atis: g.atis, temp: int(18, 36), vis: pick(['6', '8', '10', '5']) };
+  }
+  run(fn) {
+    const f = this.f, r = () => { let t = (f.seed = (f.seed + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    RNG = r; setRng(r);
+    try { return fn(); } finally { RNG = Math.random; setRng(null); }
   }
   save() { try { sessionStorage.setItem(STORE, JSON.stringify(this.f)); } catch { /* storage unavailable */ } }
   reset() { this.f = this.fresh(); this.save(); }
@@ -172,7 +184,8 @@ export class AtcBrain {
   }
 
   // the pilot's call -> {say, after?} ; ctx: live aircraft facts
-  handle(raw, stn, ctx) {
+  handle(raw, stn, ctx, dry = false) { return this.run(() => this.handle0(raw, stn, ctx, dry)); }
+  handle0(raw, stn, ctx, dry) {
     const t = understand(raw); const f = this.f;
     if (!t) return null;
     const gm = t.match(/\bgood (morning|afternoon|evening|day)\b|\bnamaste\b/); if (gm) f.greet = gm[1] || 'namaste';
@@ -185,7 +198,34 @@ export class AtcBrain {
     if (!intent) intent = this.guess(t, stn);
     f.count[intent] = (f.count[intent] || 0) + 1;
     const out = (H[intent] || H.unknown).call(this, t, stn, ctx);
-    this.save(); return out;
+    if (!dry) this.save(); return out;
+  }
+
+  // The replies the pilot most likely needs next, worked out on a copy of the flight (nothing changes): the radio voices
+  // them while the frequency is quiet, so the real answer plays at once. Most likely first.
+  predict(stn, ctx) {
+    const f = this.f, tries = [], G = stn === 'ground';
+    if (!f.cs) tries.push(['h', `delhi ${stn} indigo 1 radio check`], ['h', `delhi ${stn} indigo 1`]);   // first call: everything after the callsign
+    else {
+    if (f.pending) tries.push(['h', this.goodReadback()]);
+    if (G) {
+      if (!f.clr) { tries.push(['h', 'request clearance to ' + (f.dest || 'mumbai').toLowerCase()]); if (!f.dest) tries.push(['h', 'request clearance']); }
+      else if (!f.pushOk) tries.push(['h', 'request pushback'], ['h', 'request startup']);
+      else if (!f.taxiOk) tries.push(['h', 'request taxi']);
+    } else tries.push(['h', f.phase === 'luw' ? 'lined up ready' : 'holding point ready for departure']);
+    for (const x of f.timers) tries.push(['timer', x]);
+    tries.push(['h', 'delhi ' + stn + ' ' + f.cs.say.toLowerCase()], ['h', 'radio check'], ['h', 'say again']);
+    }
+    const out = [];
+    for (const [k, v] of tries) {
+      const saved = this.f; this.f = JSON.parse(JSON.stringify(saved));
+      try { const r = k === 'timer' ? this.run(() => PROACTIVE[v.fn].call(this)) : this.handle(v, stn, ctx, true); if (r?.say) out.push(r.say); } catch { /* a guess that does not apply */ } finally { this.f = saved; }
+    }
+    return [...new Set(out)];
+  }
+  goodReadback() {
+    const p = this.f.pending;
+    return p.keys.map((k) => (k.item === 'squawk' ? 'squawk ' + k.val : k.item.includes('runway') ? 'runway ' + k.val.slice(0, 2) : k.item === 'direction' ? 'facing ' + k.val : String(k.val).toLowerCase())).join(' ') + ' ' + (this.f.cs?.say.toLowerCase() || '');
   }
 
   // no clear request: use where the flight is to work out what the pilot most likely means
@@ -234,11 +274,11 @@ export class AtcBrain {
   // called every half second: controller-initiated calls (line up after landing traffic, cleared take-off, handoffs, stop!)
   tick(ctx) {
     const f = this.f, now = Date.now(); if (!f.cs) return null;
-    if (ctx.thrustTO && ['new', 'cleared', 'startup', 'push', 'taxi', 'tower', 'holdShort', 'luw'].includes(f.phase) && !f.stopCalled) { f.stopCalled = true; this.save(); return { stn: f.phase === 'tower' || f.phase === 'holdShort' || f.phase === 'luw' ? 'tower' : 'ground', say: this.line('notCleared', this.vars('tower')) }; }
+    if (ctx.thrustTO && ['new', 'cleared', 'startup', 'push', 'taxi', 'tower', 'holdShort', 'luw'].includes(f.phase) && !f.stopCalled) { f.stopCalled = true; const say = this.run(() => this.line('notCleared', this.vars('tower'))); this.save(); return { stn: f.phase === 'tower' || f.phase === 'holdShort' || f.phase === 'luw' ? 'tower' : 'ground', say }; }
     if (!ctx.thrustTO) f.stopCalled = false;
-    if (f.phase === 'takeoff' && ctx.thrustTO) { f.toHeld = (f.toHeld || 0) + 0.5; if (f.toHeld > 20) { f.phase = 'departed'; this.save(); return { stn: 'tower', say: this.line('toDep', this.vars('tower')) }; } }
+    if (f.phase === 'takeoff' && ctx.thrustTO) { f.toHeld = (f.toHeld || 0) + 0.5; if (f.toHeld > 20) { f.phase = 'departed'; const say = this.run(() => this.line('toDep', this.vars('tower'))); this.save(); return { stn: 'tower', say }; } }
     const due = f.timers.findIndex((x) => x.at <= now);
-    if (due >= 0) { const [x] = f.timers.splice(due, 1); const r = PROACTIVE[x.fn].call(this); this.save(); return r && { stn: x.stn, ...r }; }
+    if (due >= 0) { const [x] = f.timers.splice(due, 1); const r = this.run(() => PROACTIVE[x.fn].call(this)); this.save(); return r && { stn: x.stn, ...r }; }
     return null;
   }
 }

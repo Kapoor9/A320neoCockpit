@@ -41,17 +41,29 @@ export function preloadVoice() {
     pool.workers.push(makeWorker(() => {
       pool.ready = true;
       if (!pool.reply) pool.reply = makeWorker(() => { pool.replyReady = true; window.dispatchEvent(new Event('radio-voice-ready')); }, Math.max(1, Math.min(6, Math.floor(CORES / 2))));
-    }, Math.max(1, Math.floor(CORES / 4))));
+    }, Math.max(1, Math.floor(CORES / 3))));
   } catch (e) { console.warn('radio voice', e); }
 }
 export const replyVoiceReady = () => pool.replyReady;
 // drop queued background lines (not the one being spoken): the pilot's exchange goes first
-function cancelBackground() { pool.workers.forEach((w) => w.postMessage({ type: 'cancel' })); }
-function speak(text, v, priority = false) {
-  const w = priority && pool.replyReady ? pool.reply : pool.workers.length ? pool.workers.reduce((a, b) => (b.load < a.load ? b : a)) : null;
-  if (!w) return Promise.resolve(null);
+function cancelBackground() { pool.workers.forEach((w) => w.postMessage({ type: 'cancel', below: 1 })); }
+// prio 0: background chatter (chatter worker); 1: replies prepared in advance, 2: reply needed now (reply worker)
+function speakJob(text, v, prio = 0) {
+  const w = prio > 0 && pool.replyReady ? pool.reply : pool.workers.length ? pool.workers.reduce((a, b) => (b.load < a.load ? b : a)) : null;
+  if (!w) return { id: 0, w: null, p: Promise.resolve(null) };
   const id = ++pool.seq; w.load++;
-  return new Promise((resolve) => { pool.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, priority, ...v }); });
+  const p = new Promise((resolve) => { pool.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, priority: prio, ...v }); });
+  return { id, w, p };
+}
+const speak = (text, v, prio = 0) => speakJob(text, v, prio).p;
+const within = (p, ms) => Promise.race([p, wait(ms).then(() => null)]);
+
+// A reply in pieces: the callsign alone first (voiced once per flight, so a reply always starts at once), then the
+// rest at its commas, short enough that the next piece is ready before the one playing ends.
+export function replyPieces(text) {
+  const seg = text.split(/(?<=,)\s+/), out = [seg[0]];
+  for (const w of seg.slice(1)) { const last = out[out.length - 1]; if (out.length > 1 && (last.split(' ').length < 3 || w.split(' ').length < 2)) out[out.length - 1] = last + ' ' + w; else out.push(w); }
+  return out;
 }
 
 export class RadioChatter {
@@ -92,21 +104,42 @@ export class RadioChatter {
   async clear(st) { while (Date.now() < st.hold) await wait(200); }
   holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) { st.hold = Date.now() + Math.min(ms, 30000); if (ms > 2000) { st.q.length = 0; cancelBackground(); } } }   // capped: a stuck call can never silence the frequency
   start0() { if (!this.started) this.start(); }
-  // the controller answers the pilot: own voice of that station, ahead of all background speech. The reply is split
-  // at its commas and spoken piece by piece on one carrier, so it starts as soon as the first piece is ready.
-  async atcSay(pos, text, onWait) {
+  // ------------------------------------------------------------ the controller's own voice: prepared pieces
+  pieceKey(st, text) { return st.pos + '|' + text; }
+  // voice in advance the pieces of replies the pilot may need next (most likely first); already voiced ones are skipped
+  prewarm(pos, texts, skipFirst = false, fresh = false) {
+    this.start0(); const st = this.stations[pos]; if (!st || !pool.replyReady) return;
+    st.cache ??= new Map(); st.coming ??= new Map();
+    if (fresh) pool.reply.postMessage({ type: 'cancel', below: 2 });   // the flight moved on: older guesses are dropped
+    for (const text of texts) {
+      replyPieces(text).forEach((piece, i) => {
+        if (skipFirst && i === 0) return;
+        const k = this.pieceKey(st, piece); if (st.cache.has(k) || st.coming.has(k)) return;
+        const job = speakJob(piece, st.atc, 1); st.coming.set(k, job);
+        job.p.then((pcm) => { st.coming.delete(k); if (pcm) { st.cache.set(k, pcm); if (st.cache.size > 300) st.cache.delete(st.cache.keys().next().value); } });
+      });
+    }
+  }
+  // the controller answers: prepared pieces play at once, missing ones are voiced now at top priority while the earlier
+  // ones play. Nothing can hang: a piece that does not come in time is skipped (its text is on screen anyway).
+  async atcSay(pos, text) {
     this.start0(); const st = this.stations[pos]; if (!st) return 0;
-    const keep = () => { st.hold = Date.now() + 20000; };
+    st.cache ??= new Map(); st.coming ??= new Map();
+    const keep = () => { st.hold = Date.now() + 15000; };
     keep();
-    for (let i = 0; !pool.ready && i < 240; i++) { onWait?.(voiceState()); keep(); await wait(500); }   // first visit: voice still loading
+    for (let i = 0; !pool.ready && i < 120; i++) { keep(); await wait(500); }   // first visit: voice still loading
     if (!pool.ready) return 0;
     cancelBackground(); st.q.length = 0;
-    const words = text.split(/(?<=,)\s+/), pieces = [];
-    for (const w of words) { const last = pieces[pieces.length - 1]; if (last && (last.split(' ').length < 4 || w.split(' ').length < 3)) pieces[pieces.length - 1] = last + ' ' + w; else pieces.push(w); }
-    const jobs = pieces.map((t) => speak(t, st.atc, true));   // queued in order, ahead of everything else
-    await wait(rnd(150, 400));
+    const bump = new Map(), t0 = performance.now(), log = (this.timing = []);   // timing of the last reply, for testing
+    const jobs = replyPieces(text).map((piece) => {
+      const k = this.pieceKey(st, piece);
+      if (st.cache.has(k)) { log.push('ready: ' + piece); return Promise.resolve(st.cache.get(k)); }
+      const c = st.coming.get(k); if (c) { log.push('preparing: ' + piece); (bump.get(c.w) || bump.set(c.w, []).get(c.w)).push(c.id); return c.p; }
+      log.push('new: ' + piece); const j = speakJob(piece, st.atc, 2); j.p.then((pcm) => { if (pcm) st.cache.set(k, pcm); }); return j.p;
+    });
+    for (const [w, ids] of bump) w?.postMessage({ type: 'bump', ids });
     const k = this.carrier(st, { strength: rnd(0.85, 1), rate: rnd(0.99, 1.01) });
-    for (const j of jobs) { keep(); const pcm = await j; if (pcm) k.voice(this.toBuf(pcm)); }
+    for (let i = 0; i < jobs.length; i++) { keep(); const pcm = await within(jobs[i], 25000); log[i] += pcm ? ` (${((performance.now() - t0) / 1000).toFixed(1)}s)` : ' (SKIPPED)'; if (pcm) k.voice(this.toBuf(pcm)); }
     const dur = k.end(); keep(); await wait(dur * 1000); return dur;
   }
 
@@ -133,6 +166,7 @@ export class RadioChatter {
       const ex = st.q.shift() || await this.canned(st);
       if (!ex) { await wait(500); continue; }
       const radio = this.radioFor();
+      await within(Promise.all(ex.map((l) => l.buf)), 60000);   // whole exchange ready: no gaps between its lines
       try {
         for (let i = 0; i < ex.length; i++) {
           const buf = await ex[i].buf; if (!buf) continue;

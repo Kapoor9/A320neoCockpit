@@ -101,10 +101,18 @@ async function pump() {
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'init') init(m.base, m.threads).catch((err) => self.postMessage({ type: 'error', msg: String(err?.message || err) }));
-  else if (m.type === 'say') {   // replies to the pilot go ahead of background speech, in the order they were sent
-    if (m.priority) { const i = queue.findIndex((q) => !q.priority); queue.splice(i < 0 ? queue.length : i, 0, m); } else queue.push(m);
+  else if (m.type === 'say') {
+    // priority: 2 = the controller answering the pilot now, 1 = replies prepared in advance, 0 = background chatter.
+    // Higher goes first; equal keeps its order.
+    const pr = +m.priority || 0; m.priority = pr;
+    const i = queue.findIndex((q) => q.priority < pr); queue.splice(i < 0 ? queue.length : i, 0, m);
     if (session) pump();
-  } else if (m.type === 'cancel') {   // background lines not started yet are dropped
-    for (let i = queue.length - 1; i >= 0; i--) if (!queue[i].priority) { self.postMessage({ type: 'error', id: queue[i].id, msg: 'cancelled' }); queue.splice(i, 1); }
+  } else if (m.type === 'cancel') {   // queued jobs below a priority are dropped (not the one being spoken)
+    const below = m.below ?? 1;
+    for (let i = queue.length - 1; i >= 0; i--) if (queue[i].priority < below) { self.postMessage({ type: 'error', id: queue[i].id, msg: 'cancelled' }); queue.splice(i, 1); }
+  } else if (m.type === 'bump') {   // prepared pieces needed right now move to the front
+    const ids = new Set(m.ids), moved = queue.filter((q) => ids.has(q.id)); for (const q of moved) q.priority = 2;
+    for (let i = queue.length - 1; i >= 0; i--) if (ids.has(queue[i].id)) queue.splice(i, 1);
+    queue.unshift(...moved);
   }
 };

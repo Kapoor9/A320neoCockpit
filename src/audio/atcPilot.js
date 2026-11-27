@@ -4,7 +4,7 @@
 // station's voice over the radio. While you and the controller talk, the other traffic on that frequency waits, and
 // it carries on ~1.5 s after the exchange. If the microphone cannot be used, SPACE opens a box to type the call.
 import { AtcBrain } from './atcBrain.js';
-import { STATIONS, voiceState } from './radio.js';
+import { STATIONS, voiceState, replyVoiceReady } from './radio.js';
 
 const ORT = new URL('../../vendor/tts/ort.wasm.min.mjs', import.meta.url).href;
 const STT = new URL('../../vendor/stt/', import.meta.url).href;
@@ -35,6 +35,7 @@ export class AtcPilot {
     window.addEventListener('radio-voice-ready', () => this.loadEars(), { once: true });   // speech recognition loads after the voices
     setTimeout(() => this.loadEars(), 15000);   // ...or 15 s after page open in any case
     setInterval(() => { this.tick(); if (!this.tx) this.show(); }, 500);
+    setInterval(() => this.prepare(), 2000);
   }
   get radio() { return this.sys.sound?.radio; }
   get brain() { if (!this.radio) return null; this.b ??= new AtcBrain(this.radio.gen); return this.b; }
@@ -102,22 +103,37 @@ export class AtcPilot {
     if (text) this.say('you', text);
     const pos = ch.pos, brain = this.brain;
     if (!pos || !brain || !text) { if (!text) this.say('note', 'Nothing heard: hold SPACE while you speak.'); this.release(pos, 400); return; }   // nobody on that frequency: silence, as in real life
-    this.radio.holdFor(pos, 30000);
-    const r = brain.handle(text, pos, this.ctx()); this.show(ch);
+    this.radio.holdFor(pos, 20000);
+    let r = null;
+    try { r = brain.handle(text, pos, this.ctx()); } catch (e) { console.warn('atc', e); r = { say: (brain.callsign ? brain.f.cs.say + ', ' : '') + 'say again.' }; }
+    this.show(ch);
     if (!r?.say) { this.release(pos, QUIET_AFTER); return; }
-    await wait(rnd(600, 1600));   // the controller thinking / keying the mic
     this.busy = true; this.say('atc', r.say);
-    try { await this.radio.atcSay(pos, r.say); } finally { this.busy = false; this.release(pos, QUIET_AFTER); }
+    try {
+      await wait(rnd(250, 700));   // the controller keying the mic
+      await Promise.race([this.radio.atcSay(pos, r.say), wait(60000)]);
+    } catch (e) { console.warn('atc voice', e); } finally { this.busy = false; this.release(pos, QUIET_AFTER); this.prepKey = null; }
   }
   release(pos, ms) { if (pos) this.radio?.holdFor(pos, ms); }
+
+  // voice in advance what the controller will most likely say next, for the station you talk to first, then the other
+  prepare() {
+    try {
+      const brain = this.radio && this.brain; if (!brain || this.tx || this.busy || !replyVoiceReady()) return;
+      const ctx = this.ctx(), here = this.txStation().pos, key = JSON.stringify([brain.f.seed, brain.f.phase, brain.f.pending?.kind, brain.f.timers.length, brain.f.cs?.say, ctx.engines >= 2, here]);
+      if (key === this.prepKey) return; this.prepKey = key;
+      // at most 4 likely replies for the station you are on and 2 for the other, so the reply voice is never swamped
+      [here, here === 'tower' ? 'ground' : 'tower'].filter(Boolean).forEach((pos, i) => this.radio.prewarm(pos, brain.predict(pos, ctx).slice(0, i ? 2 : 4), !brain.f.cs, i === 0));
+    } catch (e) { console.warn('radio prepare', e); }
+  }
 
   // controller-initiated calls (line up, take-off clearance, handoffs, "stop!")
   async tick() {
     const brain = this.radio && this.brain; if (!brain || this.tx || this.busy) return;
-    const p = brain.tick(this.ctx()); if (!p) return;
+    let p = null; try { p = brain.tick(this.ctx()); } catch (e) { console.warn('atc', e); } if (!p) return;
     this.busy = true; this.radio.holdFor(p.stn, 30000); await wait(rnd(300, 900));
     if (this.txStation().pos === p.stn) this.say('atc', p.say);
-    try { await this.radio.atcSay(p.stn, p.say); } finally { this.busy = false; this.release(p.stn, QUIET_AFTER); }
+    try { await Promise.race([this.radio.atcSay(p.stn, p.say), wait(60000)]); } catch (e) { console.warn('atc voice', e); } finally { this.busy = false; this.release(p.stn, QUIET_AFTER); this.prepKey = null; }
   }
 
   // ---------------------------------------------------------------- microphone
