@@ -30,7 +30,7 @@ export class Systems {
       ap: { ap1: false, ap2: false, athr: false, cont: false, onceT: -99, athrOffT: -99 },
       // FCU: power-up state - speed, heading and V/S managed (dashes, dot), altitude 100 ft
       fcuS: { spd: 100, hdg: 0, alt: 100, vs: 0, spdSel: false, hdgSel: false, vsSel: false, prevSpd: 0, prevHdg: 0, prevVs: 0, mach: false, trk: false, baro: [1013, 1013], std: [false, false], inHg: [false, false] },
-      rmp: [0, 1].map(() => ({ ch: 'VHF1', freq: { VHF1: ['118.700', '121.800'], VHF2: ['121.500', '122.800'], VHF3: ['DATA', '131.725'], HF1: ['2.850', '3.016'], HF2: ['5.505', '6.604'] } })),
+      rmp: [0, 1].map(() => ({ ch: 'VHF1', freq: { VHF1: ['121.800', '118.700'], VHF2: ['121.500', '122.800'], VHF3: ['DATA', '131.725'], HF1: ['2.850', '3.016'], HF2: ['5.505', '6.604'] } })),
     };
     this.screensState = {};
     sim.on((c, ev, data) => this.onEvent(c, ev, data));

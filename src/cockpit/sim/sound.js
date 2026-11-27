@@ -9,6 +9,7 @@
 // Every control makes its own click (Korry pushbuttons use the recorded click); APU, engines, master warning /
 // caution and the signs chime follow the systems. Sound starts on the first click anywhere (browser rule).
 import { CockpitAudio } from '../../audio/audioEngine.js';
+import { RadioChatter, STATIONS } from '../../audio/radio.js';
 
 export class CockpitSound {
   constructor(sim, systems) {
@@ -87,6 +88,7 @@ export class CockpitSound {
     this.airOn = want; P.apuAir = apuAir;
     const engRun = engOn;
     P.both = both; P.ac = ac; P.engRun = engRun;
+    this.radioUpdate(S);
     if (!a.ready) return;
     // APU: start recording when the start begins, running loop if it is already running, wind-down when it stops
     const A = S.apu;
@@ -107,6 +109,23 @@ export class CockpitSound {
     a.masterWarning(!!S.crc && !!S.elec.dcEss);
     if (S.masterCaut && !P.mc && S.elec.dcEss) a.masterCaution();
     P.mc = S.masterCaut;
+  }
+  // VHF reception: VHF 1 (DC ESS, so it works on batteries) tuned by RMP 1, VHF 2 (DC 2) by RMP 2. A station is heard
+  // when a powered transceiver is on its frequency and that side's ACP has the reception knob out; the level is the
+  // reception knob times the LOUD SPKR knob (captain: ACP 1 on DC ESS, F/O: ACP 2 on DC 2).
+  radioUpdate(S) {
+    const a = this.audio; if (!a.out) return;
+    this.radio ??= new RadioChatter(a.ctx, a.out);
+    const E = S.elec, R = S.rmp || [], gains = { ground: 0, tower: 0 };
+    const vhf = [{ pw: E.dcEss, f: R[0]?.freq.VHF1[0], rx: 'rxVHF 1' }, { pw: E.dc2, f: R[1]?.freq.VHF2[0], rx: 'rxVHF 2' }];
+    for (const [acp, loud, pw] of [['acpPed', 'lighting-1.loud', E.dcEss], ['acpPed#2', 'lighting1.loud', E.dc2]]) {
+      if (!pw) continue; const spk = this.sim.val(loud) ?? 0.5;
+      for (const ch of vhf) {
+        const st = ch.pw && STATIONS[String(parseFloat(ch.f))]; const rx = this.sim.val(acp + '.' + ch.rx);
+        if (st && rx?.on) gains[st] = Math.max(gains[st], 1.6 * Math.pow(rx.vol * spk, 0.8));
+      }
+    }
+    this.radio.set(gains);
   }
   apOnce() { const a = this.audio; if (a.ready) a.apDisconnect(); }
   apWarning(on) { const a = this.audio; if (a.ready) a.apDisconnectContinuous(on); }
