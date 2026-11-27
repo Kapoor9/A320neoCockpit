@@ -16,6 +16,7 @@ import { registerPhysical } from './sim/physical.js';
 import { makeLighting } from './sim/lighting.js';
 import { PRESETS, applyPreset } from './sim/presets.js';
 import { CockpitSound } from './sim/sound.js';
+import { batchStatic, batchControls } from './batch.js';
 
 await loadFonts();
 
@@ -119,11 +120,9 @@ window.addEventListener('resize', resize); resize();
 
 // Render only when something changes: saves battery on laptops and phones
 let lastKey = '';
-// While the view moves: lower resolution and no ambient-occlusion/bloom passes, so it stays smooth.
-// As soon as it stops: one full-quality frame (high resolution, AO, bloom).
-let moving = false, still = 0, contentBusy = false, lastContent = 0;
-// screens / lights changing several times a second (engine start, alignment countdown): lighter frames meanwhile
-const contentChanged = () => { const n = performance.now(); if (n - lastContent < 500 && !contentBusy) { contentBusy = true; if (!moving) setQuality(false); } lastContent = n; dirty = Math.max(dirty, 1); };
+// Quality never drops: the chosen resolution, ambient occlusion and bloom are used for every frame, moving or not.
+// Smoothness comes from drawing less (static parts merged into batches, see batch.js) and only when something changes.
+const contentChanged = () => { dirty = Math.max(dirty, 1); };
 const setQuality = (full) => {
   const pr = full ? DPR_FULL : DPR_MOVE; if (renderer.getPixelRatio() !== pr) { renderer.setPixelRatio(pr); resize(); }
   const fx = full && QUALITY[qName].fx; if (gtao) gtao.enabled = fx; if (bloom) bloom.enabled = fx;
@@ -141,9 +140,7 @@ renderer.setAnimationLoop(() => {
   if (lighting && lighting.frame(now / 1000)) dirty = Math.max(dirty, 1);
   controls.update();
   const key = camera.position.toArray().concat(camera.quaternion.toArray(), [camera.fov]).map((v) => v.toFixed(5)).join();
-  if (key !== lastKey) { lastKey = key; if (!moving) { moving = true; setQuality(false); } still = 0; dirty = Math.max(dirty, 1); }
-  else if (moving && ++still > 8) { moving = false; setQuality(!contentBusy); dirty = 2; }
-  if (contentBusy && now - lastContent > 700) { contentBusy = false; if (!moving) { setQuality(true); dirty = Math.max(dirty, 1); } }
+  if (key !== lastKey) { lastKey = key; dirty = Math.max(dirty, 1); }
   if (dirty > 0) { composer ? composer.render() : renderer.render(scene, camera); dirty--; }
 });
 document.getElementById('loading')?.remove();
@@ -153,6 +150,10 @@ let screens = null; try { screens = paintDisplays(scene, refs); dirty = 3; } cat
 applySkyOcclusion(scene);
 // cockpit state, systems and interaction: every control is operable, the aircraft logic drives every light and screen
 sim = new Sim(); sim.attachPanels(); registerPhysical(sim, refs);
+// merge everything that never moves into batches (after every control is registered, before light pools exist)
+{ const keep = [...sim.controls.values()].map((c) => c.obj).concat(Object.values(refs.screens || {}), refs.dcdu || [], refs.clock ? [refs.clock] : []);
+  const rc = batchControls([...sim.controls.values()].map((c) => c.obj));
+  const r = batchStatic(scene, { keep }); console.info(`batched ${r.merged} static + ${rc.merged} control meshes into ${r.made + rc.made}`); renderer.shadowMap.needsUpdate = true; }
 lighting = makeLighting(scene, { dome, flood, invalidate: () => (dirty = Math.max(dirty, 2)) });
 if (screens) screens.onChange = contentChanged;
 systems = new Systems(sim, { ...lighting, screens }); sim.systems = systems;

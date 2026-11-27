@@ -37,6 +37,7 @@ function initialValue(d) {
     case 'rx': return { on: !!d.on, vol: d.init ?? 0.6 };
     case 'spring': return 0;
     case 'fcu': return 0;
+    case 'lever': return d.value ?? d.init ?? 0;   // levers, wheels, sticks: their own starting value
     default: return false;
   }
 }
