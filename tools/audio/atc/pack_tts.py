@@ -3,7 +3,7 @@ browser: the model split into parts under the host's file-size limit, the chosen
 python3 pack_tts.py <kokoro dir> <out dir>"""
 import sys, json, numpy as np, os
 KD, OUT = sys.argv[1], sys.argv[2]; os.makedirs(OUT, exist_ok=True)
-m = open(f'{KD}/kokoro-v1.0.int8.onnx', 'rb').read(); P = 30 * 1024 * 1024
+m = open(f'{KD}/kokoro-v1.0.int8.onnx', 'rb').read(); P = 18 * 1024 * 1024
 parts = [m[i:i + P] for i in range(0, len(m), P)]
 for i, p in enumerate(parts): open(f'{OUT}/kokoro.part{i}', 'wb').write(p)
 VOICES = ['hm_omega', 'hm_psi', 'hf_alpha', 'hf_beta',
