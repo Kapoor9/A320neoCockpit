@@ -9,10 +9,14 @@ const SOUND_DIR = new URL('../../public/sounds/', import.meta.url).href;
 // Positions in the takeoff recording (seconds) used for transitions.
 // up master  = the recording itself (0..12 s)
 // down master= the recording walked backwards from 7.2 s to 0.4 s at 1/1.4 speed
-const UP_FROM = { IDLE: 1.8, N45: 3.3, CL: 5.45 };   // idle→45 rise really starts at ~1.9 s
-const UP_TO = { N45: 3.0, CL: 5.45, FLX: 7.2 };      // 45 plateau: 2.8–3.3 s (flat pitch)
-const DOWN_FROM = { FLX: 7.2, CL: 5.45, N45: 3.0 };
-const DOWN_TO = { CL: 5.45, N45: 3.0, IDLE: 1.6 };
+// One point in the spool-up recording per mode (fan tone: IDLE ~434 Hz, N45 ~530, CL ~750, FLX ~870). Transitions
+// start and end exactly there, and each mode's loop is a frozen continuation of that same point
+// (tools/audio/build_thrust_loops.py), so arriving in a mode just carries on the sound it reached.
+const THRUST_POS = { IDLE: 1.6, N45: 3.0, CL: 5.45, FLX: 7.2 };
+const UP_FROM = THRUST_POS, UP_TO = THRUST_POS, DOWN_FROM = THRUST_POS, DOWN_TO = THRUST_POS;
+// equal-power crossfade curves (no loudness dip in the middle, unlike a linear fade between two noises)
+const XF_IN = new Float32Array(64).map((_, i) => Math.sin((i / 63) * Math.PI / 2));
+const XF_OUT = new Float32Array(64).map((_, i) => Math.cos((i / 63) * Math.PI / 2));
 const DOWN_SLOW = 1.4;
 const ORDER = ['IDLE', 'N45', 'CL', 'FLX'];
 const LOOP_FILE = { IDLE: 'eng_idle_loop', N45: 'eng_n45_loop', CL: 'eng_cl_loop', FLX: 'eng_flx_loop' };
@@ -240,14 +244,24 @@ class ThrustVoice {
     return { src, gain: g };
   }
 
-  _startLoop(detent, xf = 0.4) {
-    const t = this.c.currentTime;
+  // fade a voice in / out with the equal-power curves, starting at time `at`
+  _in(v, at, dur) { v.gain.gain.cancelScheduledValues(at); v.gain.gain.setValueAtTime(0, at); v.gain.gain.setValueCurveAtTime(XF_IN, at, dur); }
+  _out(v, at, dur) {
+    if (!v) return; const g = v.gain.gain; const now = this.c.currentTime; const from = Math.max(at, now);
+    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now);
+    const k = g.value; g.setValueCurveAtTime(XF_OUT.map((x) => x * k), from, dur);
+    try { v.src.stop(from + dur + 0.05); } catch { /* already stopped */ }
+  }
+
+  _startLoop(detent, xf = 0.4, at = null) {
+    const t = at ?? this.c.currentTime;
     const buf = this.a.buffers.get(LOOP_FILE[detent]);
     const v = this._mk(LOOP_FILE[detent], { loop: true, offset: Math.random() * buf.duration * 0.8, when: t, gain: 0 });
-    v.gain.gain.setValueAtTime(0, t); v.gain.gain.linearRampToValueAtTime(1, t + xf);
-    if (this.voice) this.a.fadeOut(this.voice, xf);
-    this.voice = v; this.state = detent; this.seg = null;
+    this._in(v, t, xf);
+    if (this.voice) this._out(this.voice, t, xf);
+    this.voice = v; this.state = detent; this.seg = null; this.pending = null;
     this.a.emit('thrust', { state: detent });
+    return v;
   }
 
   // Where in the recording the sound is right now (seconds).
@@ -263,41 +277,29 @@ class ThrustVoice {
   setTarget(detent) {
     this.target = detent;
     if (!this.running) { this.state = detent; return; }
-    const cur = this._currentPos();
-    const curIdx = ORDER.indexOf(this.state);
-    const tgtIdx = ORDER.indexOf(detent);
-    if (cur == null && curIdx === tgtIdx) return;
-
-    let fromPos, dir;
-    if (cur != null) {
-      const toUp = UP_TO[detent], toDown = DOWN_TO[detent];
-      dir = (toUp != null && toUp > cur) ? 1 : (toDown != null && toDown < cur) ? -1 : 0;
-      fromPos = cur;
-      if (dir === 0) { this._startLoop(detent, 0.5); return; }
-    } else {
-      dir = tgtIdx > curIdx ? 1 : -1;
-      fromPos = dir > 0 ? UP_FROM[this.state] : DOWN_FROM[this.state];
-    }
-    const toPos = dir > 0 ? UP_TO[detent] : DOWN_TO[detent];
-    const t = this.c.currentTime; const xf = 0.25;
+    // a hand-over already scheduled for an earlier target is cancelled
+    if (this.pending) { const p = this.pending; this.pending = null; if (p.at > this.c.currentTime) { try { p.v.src.stop(); } catch { /* not started */ } } else this._out(p.v, this.c.currentTime, 0.3); }
+    const cur = this._currentPos() ?? THRUST_POS[this.state];
+    const toPos = THRUST_POS[detent];
+    if (Math.abs(toPos - cur) < 0.02) { if (this.state !== detent) this._startLoop(detent, 0.5); return; }
+    const dir = toPos > cur ? 1 : -1, fromPos = cur;
+    const t = this.c.currentTime; const xs = 0.35, xa = 0.7;   // start / arrival crossfades
     let v, dur;
-    if (dir > 0) {
-      dur = toPos - fromPos;
-      v = this._mk('eng_up_master', { offset: fromPos, duration: dur + 0.6, when: t, gain: 0 });
-    } else {
-      const o = (7.2 - fromPos) * DOWN_SLOW; dur = (fromPos - toPos) * DOWN_SLOW;
-      v = this._mk('eng_down_master', { offset: o, duration: dur + 0.6, when: t, gain: 0 });
-    }
-    v.gain.gain.setValueAtTime(0, t); v.gain.gain.linearRampToValueAtTime(1, t + xf);
-    if (this.voice) this.a.fadeOut(this.voice, xf);
+    if (dir > 0) { dur = toPos - fromPos; v = this._mk('eng_up_master', { offset: fromPos, duration: dur + xa, when: t, gain: 0 }); }
+    else { const o = (7.2 - fromPos) * DOWN_SLOW; dur = (fromPos - toPos) * DOWN_SLOW; v = this._mk('eng_down_master', { offset: o, duration: dur + xa, when: t, gain: 0 }); }
+    // the recording takes over from where the sound is (same point, same pitch), equal-power
+    this._in(v, t, xs); if (this.voice) this._out(this.voice, t, xs);
     this.voice = v; this.state = 'MOVING';
     this.seg = { dir, fromPos, toPos, t0: t };
     this.a.emit('thrust', { state: 'MOVING', to: detent });
+    // arrival, on the audio clock: the mode's loop (a continuation of this very point) fades in across the
+    // moment of arrival while the recording fades out - no jump in pitch or level
+    const at = t + Math.max(xs, dur - xa / 2);
+    const loop = this._mk(LOOP_FILE[detent], { loop: true, offset: Math.random() * this.a.buffers.get(LOOP_FILE[detent]).duration * 0.8, when: at, gain: 0 });
+    this._in(loop, at, xa); this._out(v, at, xa);
+    this.pending = { v: loop, at };
     clearTimeout(this._segTimer);
-    const arriveXf = 0.45;
-    this._segTimer = setTimeout(() => {
-      if (this.voice === v) this._startLoop(detent, arriveXf);
-    }, Math.max(0, dur - arriveXf * 0.5) * 1000);
+    this._segTimer = setTimeout(() => { if (this.pending && this.pending.v === loop) { this.voice = loop; this.state = detent; this.seg = null; this.pending = null; this.a.emit('thrust', { state: detent }); } }, (at - t + xa) * 1000);
   }
 }
 
