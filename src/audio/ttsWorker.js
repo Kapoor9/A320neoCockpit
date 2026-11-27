@@ -10,6 +10,23 @@ async function bytes(url) {
   if (Uint8Array.fromBase64) return Uint8Array.fromBase64(s);
   const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
 }
+// IndexedDB: one store of byte arrays; any failure (private mode, quota) just means no cache
+function idb(op, key, val) {
+  return new Promise((res) => {
+    try {
+      const rq = indexedDB.open('a320-radio-voice', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('f');
+      rq.onerror = () => res(null);
+      rq.onsuccess = () => {
+        try {
+          const tx = rq.result.transaction('f', op === 'get' ? 'readonly' : 'readwrite'), st = tx.objectStore('f');
+          const r = op === 'get' ? st.get(key) : st.put(val, key);
+          r.onsuccess = () => res(op === 'get' ? r.result || null : true); r.onerror = () => res(null);
+        } catch { res(null); }
+      };
+    } catch { res(null); }
+  });
+}
 let ort, phonemize, session, cfg, voices, vocab;
 const queue = []; let busy = false;
 
@@ -18,9 +35,16 @@ async function init(base) {
   ({ phonemize } = await import(base + 'phonemizer.js'));
   ort.env.wasm.wasmPaths = base; ort.env.wasm.numThreads = Math.min(4, self.crossOriginIsolated ? (navigator.hardwareConcurrency || 2) - 1 : 1);
   cfg = await (await fetch(base + 'kokoro.json')).json(); vocab = cfg.vocab;
-  const parts = await Promise.all([...Array(cfg.parts).keys()].map(async (i) => bytes(base + 'kokoro.part' + i + '.txt')));
-  const model = new Uint8Array(cfg.bytes); let o = 0; for (const p of parts) { model.set(p, o); o += p.length; }
-  const vb = new Uint16Array((await bytes(base + 'voices.f16.txt')).buffer);
+  // kept in the browser's own storage after the first visit: later visits skip the download
+  const key = 'kokoro-int8-' + cfg.bytes;
+  let model = await idb('get', key), vbytes = await idb('get', key + '-voices');
+  if (!model || !vbytes) {
+    const parts = await Promise.all([...Array(cfg.parts).keys()].map((i) => bytes(base + 'kokoro.part' + i + '.txt')));
+    model = new Uint8Array(cfg.bytes); let o = 0; for (const p of parts) { model.set(p, o); o += p.length; }
+    vbytes = await bytes(base + 'voices.f16.txt');
+    idb('put', key, model); idb('put', key + '-voices', vbytes);
+  }
+  const vb = new Uint16Array(vbytes.buffer, vbytes.byteOffset, vbytes.byteLength / 2);
   voices = Object.fromEntries(cfg.voices.map((n, i) => [n, vb.subarray(i * cfg.rows * cfg.dim, (i + 1) * cfg.rows * cfg.dim)]));
   session = await ort.InferenceSession.create(model, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
   try { await say({ id: 0, text: 'Roger.', voice: { a: cfg.voices[0] }, speed: 1, silent: true }); } catch { /* warm-up only */ }   // first run is slow: do it now
