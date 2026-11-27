@@ -45,17 +45,49 @@ def seamless(a, L=0.5):
 def tone(a):
     m = a.mean(1)[:SR]; sp = np.abs(np.fft.rfft(m * np.hanning(len(m)))); f = np.fft.rfftfreq(len(m), 1 / SR); b = (f > 380) & (f < 1000); return f[b][np.argmax(sp[b])]
 
-# CL and FLX (loud, tonal): stitched grains crackle there, so these loops are built as one seamless piece instead -
-# noise shaped by the recording's own fine-grained spectrum around the point (fan tones included), made circular so
-# the loop has no joins at all; stereo keeps the recording's left / right balance with a little width.
-def spectral(p, half, dur=12.0):
-    seg = x[int((p - half) * SR):int((p + half) * SR)]; n = 8192; w = np.hanning(n)
+# All four loops are built the FLX way: one seamless piece of noise shaped by the recording's own fine-grained
+# spectrum around the point (fan tones included), made circular so the loop has no joins at all (grain-stitched loops
+# crackle). The fan tone is still moving at some points (CL sits mid-sweep), so each analysis frame is warped to the
+# arrival tone before averaging; otherwise the moving tone smears into a broadband 'blowing air' hiss. The low core
+# rumble (~250 Hz) does not move and is left as it is. Stereo keeps the recording's left / right balance.
+FAN = {'idle': 434, 'n45': 527, 'cl': 750, 'flx': 870}
+def spectrum(p, half, fan=None):
+    seg = x[int((p - half) * SR):int((p + half) * SR)]; n = 8192; w = np.hanning(n); fs = np.fft.rfftfreq(n, 1 / SR)
+    ramp = np.clip((fs - 300) / 150, 0, 1)                    # 0 below 300 Hz (rumble kept), 1 above 450 Hz (fan)
     mags = []
     for ch in range(2):
         acc = np.zeros(n // 2 + 1); k = 0
-        for i in range(0, len(seg) - n, n // 8): acc += np.abs(np.fft.rfft(seg[i:i + n, ch] * w)) ** 2; k += 1
+        for i in range(0, len(seg) - n, n // 8):
+            sp = np.abs(np.fft.rfft(seg[i:i + n, ch] * w)) ** 2
+            if fan:
+                m = np.abs(np.fft.rfft(seg[i:i + n].mean(1) * w)); b = (fs > fan * 0.88) & (fs < fan * 1.12)
+                j = np.flatnonzero(b)[np.argmax(m[b])]; a, c0, c = np.log(m[j - 1:j + 2] + 1e-12)
+                ft = fs[j] + (a - c) / (2 * (a - 2 * c0 + c) + 1e-12) * (fs[1] - fs[0])
+                r = 1 + ramp * (fan / ft - 1)                    # move this frame's fan tone onto the arrival tone
+                sp = np.interp(fs / r, fs, sp)
+            acc += sp; k += 1
         mags.append(np.sqrt(acc / k))
-    L = int(dur * SR); fb = np.fft.rfftfreq(L, 1 / SR); fs = np.fft.rfftfreq(n, 1 / SR)
+    return fs, mags
+
+# Above ~1.2 kHz the CL point (mid-acceleration) carries 6-10 dB more broadband intake hiss than FLX, which reads as
+# blowing air over the engine. Modes listed in AS_FLX get FLX's balance there: the smoothed difference to FLX
+# (both levelled on the ~250 Hz rumble) is taken off, only ever as a cut; the tones and rumble stay their own.
+AS_FLX = {'cl', 'n45'}
+def smooth_db(fs, m, oct=1 / 3):
+    db = 20 * np.log10(m + 1e-9); out = np.empty_like(db)
+    for i, f in enumerate(fs):
+        b = (fs >= max(f, 20) * 2 ** (-oct / 2)) & (fs <= max(f, 20) * 2 ** (oct / 2)); out[i] = db[b].mean() if b.any() else db[i]
+    return out
+
+def spectral(p, half, dur=12.0, fan=None, like=None):
+    fs, mags = spectrum(p, half, fan)
+    if like is not None:
+        lf, lm = like; ref = (fs > 200) & (fs < 320)
+        for ch in range(2):
+            a, b = smooth_db(fs, mags[ch]), smooth_db(fs, lm[ch]); a -= a[ref].mean(); b -= b[ref].mean()
+            cut = np.minimum(0, b - a) * np.clip((fs - 1000) / 400, 0, 1)
+            mags[ch] = mags[ch] * 10 ** (cut / 20)
+    L = int(dur * SR); fb = np.fft.rfftfreq(L, 1 / SR)
     common = np.fft.rfft(rng.standard_normal(L))
     out = np.zeros((L, 2), np.float32)
     for ch in range(2):
@@ -63,10 +95,12 @@ def spectral(p, half, dur=12.0):
         out[:, ch] = np.fft.irfft(spec * np.interp(fb, fs, mags[ch]), L)
     ref = x[int((p - 0.15) * SR):int((p + 0.15) * SR)]
     return out * (np.sqrt((ref ** 2).mean()) / np.sqrt((out ** 2).mean())), 1.0
-SMOOTH = {'cl': 0.22, 'flx': 0.22}   # half window for the spectrum
+SMOOTH = {'idle': 0.22, 'n45': 0.24, 'cl': 0.22}   # half window for the spectrum; FLX is kept as built
 
+FLX_SPEC = spectrum(POINTS['flx'][0], 0.22, FAN['flx'])
 for k, (p, half) in POINTS.items():
-    lp, c = spectral(p, SMOOTH[k]) if k in SMOOTH else seamless(freeze(p, half, 12.0))
+    if k not in SMOOTH: continue
+    lp, c = spectral(p, SMOOTH[k], fan=FAN[k], like=FLX_SPEC if k in AS_FLX else None)
     import wave
     w = wave.open('/tmp/_loop.wav', 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(lp, -1, 1) * 32767).astype(np.int16).tobytes()); w.close()
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', '/tmp/_loop.wav', '-c:a', 'pcm_s16le', f'{OUT}/eng_{k}_loop.wav'], check=True)
