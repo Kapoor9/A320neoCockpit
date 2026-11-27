@@ -3,7 +3,9 @@
 // - BAT 1 and BAT 2 on: about 0.9 s later the electrical power-up thump (~0.5 s), then the cockpit stays quiet.
 // - AC power arrives (EXT PWR, APU GEN or an engine generator): the relays close and the air (avionics
 //   ventilation) builds up over ~1.5 s and holds - recorded ramp, then a seamless loop of the same air.
-// - AC lost: the air runs down. With engines running the older cockpit ambience recording joins in.
+// - APU start: the recorded start fades over its last 2 s into the same air (no separate APU running roar).
+// - Engine start: the air dies away within ~1.5 s (packs and ventilation give way to the start), the start
+//   recording takes over and blends into the engine running sound. AC lost: the air runs down.
 // Every control makes its own click (Korry pushbuttons use the recorded click); APU, engines, master warning /
 // caution and the signs chime follow the systems. Sound starts on the first click anywhere (browser rule).
 import { CockpitAudio } from '../../audio/audioEngine.js';
@@ -60,29 +62,31 @@ export class CockpitSound {
     // batteries: the power-up thump ~0.9 s after both are on (as in the recording); nothing after it
     if (both && !P.both && a.buffers.has('bat_power_up')) this.batVoice = a.play('bat_power_up', { bus: 'ambience', when: t + 0.9 });   // scheduled on the audio clock
     if (!both && P.both && this.batVoice) { try { this.batVoice.src.stop(); } catch { /* already played */ } this.batVoice = null; }
-    // AC: relays and the air building up (recorded), handed over to the air loop once it holds
-    if (ac && !P.ac) {
-      const ramp = this.sample('ext_pwr_on', 1); const hand = ramp ? 1.9 : 0;
-      if (!this.air && a.buffers.has('ac_air_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ac_air_loop'); src.loop = true; src.connect(this.airLevel); src.start(t, Math.random() * 12); this.air = src; }
-      this.airTone.frequency.cancelScheduledValues(t); this.airTone.frequency.setValueAtTime(12000, t);
-      this.airLevel.gain.cancelScheduledValues(t); this.airLevel.gain.setValueAtTime(this.airLevel.gain.value, t);
-      if (ramp) { this.airLevel.gain.setValueAtTime(0, t + hand - 0.4); this.airLevel.gain.linearRampToValueAtTime(1, t + hand + 0.2); } else this.airLevel.gain.setTargetAtTime(1, t, 0.5);
+    // the air: on with AC or a running APU, gone while an engine is starting or running
+    const engOn = (S.eng || []).some((e) => e.starting || e.running);
+    const apuAir = a.apuState === 'running';
+    const want = (ac || apuAir) && !engOn;
+    if (!this.air && a.buffers.has('ac_air_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ac_air_loop'); src.loop = true; src.connect(this.airLevel); src.start(t, Math.random() * 12); this.air = src; }
+    const g = this.airLevel.gain, f = this.airTone.frequency;
+    if (want && !this.airOn) {
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); f.cancelScheduledValues(t); f.setValueAtTime(12000, t);
+      if (ac && !P.ac && !engOn) { const ramp = this.sample('ext_pwr_on', 1); if (ramp) { g.setValueAtTime(0, t + 1.5); g.linearRampToValueAtTime(1, t + 2.1); } else g.setTargetAtTime(1, t, 0.5); }   // relays + recorded build-up, then the loop
+      else if (apuAir && !P.apuAir) g.linearRampToValueAtTime(1, t + 2.0);   // APU start fading out over these same 2 s
+      else g.setTargetAtTime(1, t, 0.6);
     }
-    if (!ac && P.ac) {   // fans run down: quieter and duller over a few seconds
-      this.airLevel.gain.cancelScheduledValues(t); this.airLevel.gain.setValueAtTime(this.airLevel.gain.value, t); this.airLevel.gain.setTargetAtTime(0, t, 1.0);
-      this.airTone.frequency.cancelScheduledValues(t); this.airTone.frequency.setValueAtTime(12000, t); this.airTone.frequency.setTargetAtTime(400, t, 0.8);
+    if (!want && this.airOn) {
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); f.cancelScheduledValues(t); f.setValueAtTime(f.value, t);
+      if (engOn) { g.setTargetAtTime(0, t, 0.4); f.setTargetAtTime(600, t, 0.5); }   // engine start: gone within ~1.5 s
+      else { g.setTargetAtTime(0, t, 1.0); f.setTargetAtTime(400, t, 0.8); }          // power lost: fans run down
     }
-    if (ac && !this.air && a.buffers.has('ac_air_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ac_air_loop'); src.loop = true; src.connect(this.airLevel); src.start(t, Math.random() * 12); this.air = src; this.airLevel.gain.setTargetAtTime(1, t, 0.5); }
-    // engines running: the cockpit ambience recording joins under the air
-    const engRun = (S.eng || []).some((e) => e.running);
-    if (engRun && !this.amb && a.buffers.has('ambience_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ambience_loop'); src.loop = true; src.connect(this.ambLevel); src.start(t, Math.random() * 8); this.amb = src; }
-    if (engRun !== P.engRun) this.ambLevel.gain.setTargetAtTime(engRun ? 0.8 : 0, t, 2);
+    this.airOn = want; P.apuAir = apuAir;
+    const engRun = engOn;
     P.both = both; P.ac = ac; P.engRun = engRun;
     if (!a.ready) return;
     // APU: start recording when the start begins, running loop if it is already running, wind-down when it stops
     const A = S.apu;
-    if (A.starting && !P.apuStarting) a.apuStart();
-    if (A.avail && !A.shutting && !P.apuRun && !A.starting && a.apuState !== 'running' && a.apuState !== 'starting') { a.apuState = 'running'; a.apuVoice = a.play('apu_run_loop', { bus: 'apu', loop: true, fadeIn: 1.5 }); }
+    if (A.starting && !P.apuStarting) a.apuStart({ runLoop: false });
+    if (A.avail && !A.shutting && !P.apuRun && !A.starting && a.apuState !== 'running' && a.apuState !== 'starting') a.apuState = 'running';   // already running (preset): its sound is the air
     const winding = A.shutting && A.cool <= 0 && A.n > 0;
     if (winding && !P.apuStop) a.apuStop();
     P.apuStarting = A.starting; P.apuRun = A.avail; P.apuStop = winding;

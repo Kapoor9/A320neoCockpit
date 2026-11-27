@@ -146,18 +146,22 @@ export class CockpitAudio {
   }
 
   // ---------------- APU
-  apuStart() {
+  // runLoop false: the start recording fades out over its last 2 s and the caller blends in its own air
+  // (the cockpit uses the ventilation air rather than a separate APU running loop)
+  apuStart({ runLoop = true } = {}) {
     if (this.apuState === 'starting' || this.apuState === 'running') return;
     this.fadeOut(this.apuVoice, 0.5);
     const c = this.ctx; const buf = this.buffers.get('apu_start');
     this.apuState = 'starting'; this.emit('apu', 'starting');
-    this.apuVoice = this.play('apu_start', { bus: 'apu', fadeIn: 0.3 });
+    const start = this.apuVoice = this.play('apu_start', { bus: 'apu', fadeIn: 0.3 });
     const xf = 2.0; const tEnd = c.currentTime + buf.duration;
-    const run = this.play('apu_run_loop', { bus: 'apu', loop: true, when: tEnd - xf, gain: 0 });
-    run.gain.gain.setValueAtTime(0, tEnd - xf); run.gain.gain.linearRampToValueAtTime(1, tEnd);
+    let run = null;
+    if (runLoop) { run = this.play('apu_run_loop', { bus: 'apu', loop: true, when: tEnd - xf, gain: 0 }); run.gain.gain.setValueAtTime(0, tEnd - xf); run.gain.gain.linearRampToValueAtTime(1, tEnd); }
     this._apuTimer = setTimeout(() => {
+      if (!runLoop) this.fadeOut(start, xf);
       this.apuVoice = run; this.apuState = 'running'; this.emit('apu', 'avail');
     }, (buf.duration - xf) * 1000);
+    return tEnd;
   }
   apuStop() {
     if (!this.apuState || this.apuState === 'off') return;
