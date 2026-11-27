@@ -27,7 +27,10 @@ Any static server works, e.g. `python3 -m http.server` in this folder, then open
 
 - `src/cockpit/` — the 3D flight deck: dimensions (`dims.js`), geometry (`build.js`), camera (`camera.js`)
 - `vendor/three/` — the Three.js 3D library (MIT licence)
-- `src/audio/` — the audio engine (ambience, engines, APU, warnings, clicks)
+- `src/audio/` — the audio engine (ambience, engines, APU, warnings, clicks) and the live VHF radio chatter
+  (`radio.js`, `atcPhrases.js`, `ttsWorker.js`)
+- `vendor/tts/` — the in-browser voice for the radio: Kokoro-82M int8 model (split in parts), voices, onnxruntime-web,
+  phonemizer (rebuild with `tools/audio/atc/pack_tts.py`)
 - `public/sounds/` — the sounds the site plays (loops as WAV so they join with no gap, the rest as MP3)
 - `assets/raw-audio/` — original recordings, untouched
 - `tools/audio/` — scripts that turned the recordings into loops and made the synthesised sounds
@@ -56,3 +59,8 @@ moving down walks back through the recording 1.4× slower.
 Aircraft and cockpit design: **Airbus** (A320neo). All geometry in this repository is
 original, modelled in code from real-aircraft references; no third-party model files,
 meshes or textures are included.
+
+Radio voices: [Kokoro-82M](https://github.com/thewh1teagle/kokoro-onnx) (Apache-2.0), run with
+[onnxruntime-web](https://github.com/microsoft/onnxruntime) (MIT); phonemes by eSpeak NG through
+[phonemizer.js](https://github.com/xenova/phonemizer.js). The ATC exchanges are generated at random in the browser;
+stands, taxiways, fixes and SIDs are invented.

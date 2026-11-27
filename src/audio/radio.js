@@ -1,23 +1,24 @@
-// VHF radio chatter: Delhi Ground (121.800) and Delhi Tower (118.700).
-// The exchanges are generated offline (tools/audio/atc: random ICAO phraseology spoken by neural voices, every crew
-// with a voice of its own) and stored clean. The radio sound is made here, new for every transmission: carrier
-// hiss and squelch, band-limited and slightly overdriven voice, signal strength, a touch of fading on weak
-// transmissions, a squelch tail at the end - so even the same words never come out the same way.
-// Each station runs on its own timeline whether or not you listen (tune in and you may land mid-exchange).
-// Exchanges are dealt from a shuffled deck that is remembered between visits: nothing repeats until a pool is used up.
+// VHF radio chatter: Delhi Ground (121.800) and Delhi Tower (118.700), generated live in the browser.
+// Every exchange is made up on the spot (src/audio/atcPhrases.js: random ICAO phraseology) and spoken by a neural
+// voice running in a worker thread (src/audio/ttsWorker.js: Kokoro-82M on onnxruntime-web) - no recordings, no
+// end to it, and every crew has a voice of its own. The radio sound is added here, new for every transmission:
+// carrier hiss and squelch, band-limited and overdriven voice, signal strength, fading on weak transmissions, a
+// squelch tail - not every call comes through clean, as on a real frequency.
+// The next exchange is generated while the current one plays; nothing is generated for a station nobody listens to.
+import { AtcGen, crewVoice, controllerVoice } from './atcPhrases.js';
 
-const DIR = new URL('../../public/sounds/atc/', import.meta.url).href;
+const TTS = new URL('../../vendor/tts/', import.meta.url).href;
 export const STATIONS = { '121.8': 'ground', '118.7': 'tower' };   // frequency (MHz, as the RMP shows it) -> position
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 export class RadioChatter {
   constructor(ctx, out) {
-    this.ctx = ctx; this.flow = Math.random() < 0.5 ? 'west' : 'east';   // runway direction for this session
+    this.ctx = ctx; this.gen = new AtcGen(Math.random() < 0.5 ? 'west' : 'east');   // runway direction for this session
     this.bus = ctx.createGain(); this.bus.gain.value = 1.5;
     // cockpit loudspeaker: small cone, a little boxy
     const spk = ctx.createBiquadFilter(); spk.type = 'peaking'; spk.frequency.value = 950; spk.Q.value = 0.9; spk.gain.value = 2.5;
     this.bus.connect(spk).connect(out);
-    this.stations = {}; this.started = false;
+    this.stations = {}; this.started = false; this.jobs = new Map(); this.seq = 0;
     const n = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = n.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.noise = n;
@@ -32,53 +33,58 @@ export class RadioChatter {
     }
   }
 
-  async start() {
+  start() {
     this.started = true;
+    // one voice worker, two on machines with plenty of cores (lines of an exchange are then spoken in parallel)
+    const n = (navigator.hardwareConcurrency || 2) >= 6 ? 2 : 1; this.workers = [];
     try {
-      const man = await (await fetch(DIR + 'atc.json')).json();
-      const flows = [...new Set(Object.keys(man.pools).map((k) => k.split('-')[0]))];
-      if (!flows.includes(this.flow)) this.flow = flows[Math.floor(Math.random() * flows.length)];
-      await Promise.all(['ground', 'tower'].map(async (pos) => {
-        const key = this.flow + '-' + pos, pool = man.pools[key]; if (!pool) return;
-        const blob = await (await fetch(DIR + pool.file)).arrayBuffer();
-        const out = this.ctx.createGain(); out.gain.value = 0; out.connect(this.bus);
-        const st = this.stations[pos] = { key, pool, blob, out, g: 0, deck: this.deck(key, pool.exchanges.length) };
-        setTimeout(() => this.run(st), rnd(1200, 4500));
-      }));
-    } catch (e) { console.warn('radio', e); }
+      for (let i = 0; i < n; i++) {
+        const w = new Worker(new URL('./ttsWorker.js', import.meta.url), { type: 'module' }); w.load = 0;
+        w.onmessage = (e) => {
+          const m = e.data;
+          if (m.type === 'ready') { this.ready = true; return; }
+          const job = this.jobs.get(m.id); if (job) { this.jobs.delete(m.id); w.load--; }
+          if (m.type === 'error') { console.warn('radio voice', m.msg); job?.resolve(null); return; }
+          if (!job) return;
+          const b = this.ctx.createBuffer(1, m.pcm.length, 24000); b.copyToChannel(m.pcm, 0); job.resolve(b);
+        };
+        w.postMessage({ type: 'init', base: TTS }); this.workers.push(w);
+      }
+    } catch (e) { console.warn('radio', e); if (!this.workers.length) return; }
+    for (const pos of ['ground', 'tower']) {
+      const out = this.ctx.createGain(); out.gain.value = 0; out.connect(this.bus);
+      const st = this.stations[pos] = { pos, out, g: 0, atc: controllerVoice() };
+      this.run(st);
+    }
   }
 
-  deck(key, n) {
-    let used = [];
-    try { used = JSON.parse(localStorage.getItem('a320.atc.' + key) || '[]'); } catch { /* storage unavailable */ }
-    let left = [...Array(n).keys()].filter((i) => !used.includes(i));
-    if (!left.length) { used = []; left = [...Array(n).keys()]; }
-    for (let i = left.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [left[i], left[j]] = [left[j], left[i]]; }
-    return { left, used };
+  say(text, v) {
+    const id = ++this.seq;
+    const w = this.workers.reduce((a, b) => (b.load < a.load ? b : a)); w.load++;
+    return new Promise((resolve) => { this.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, ...v }); });
   }
-  draw(st) {
-    const d = st.deck; if (!d.left.length) st.deck = this.deck(st.key, st.pool.exchanges.length);
-    const i = st.deck.left.pop(); st.deck.used.push(i);
-    try { localStorage.setItem('a320.atc.' + st.key, JSON.stringify(st.deck.used)); } catch { /* storage unavailable */ }
-    return st.pool.exchanges[i];
+  // a new exchange: the lines go to the voice worker at once and are spoken in order
+  prepare(st) {
+    const ex = st.pos === 'ground' ? this.gen.ground() : this.gen.tower(); const crew = crewVoice(ex.cs.grp);
+    const radio = { atc: { strength: rnd(0.8, 1), rate: rnd(0.985, 1.015) }, plt: { strength: Math.random() < 0.3 ? rnd(0.3, 0.65) : rnd(0.68, 1), rate: rnd(0.97, 1.035) } };
+    return ex.lines.map(([who, text]) => ({ who, text, radio: radio[who], buf: this.say(text, who === 'atc' ? st.atc : crew) }));
   }
 
   async run(st) {
+    let next = null;
     for (;;) {
+      if (st.g <= 0 || !this.ready) { next = null; await wait(800); continue; }   // nobody listening: nothing generated
+      const ex = next || this.prepare(st); next = null; let first = true;
       try {
-        const ex = this.draw(st);
-        // the pilot's radio for the whole exchange: near / far, clean / scratchy
-        const crew = { strength: Math.random() < 0.25 ? rnd(0.35, 0.65) : rnd(0.7, 1), rate: rnd(0.97, 1.035) };
-        const atc = { strength: rnd(0.85, 1), rate: rnd(0.985, 1.015) };
-        for (let i = 0; i < ex.lines.length; i++) {
-          const L = ex.lines[i];
-          const buf = await this.ctx.decodeAudioData(st.blob.slice(L.off, L.off + L.len));
-          const dur = await this.transmit(st, buf, L.who === 'atc' ? atc : crew);
-          await wait(dur * 1000 + (i < ex.lines.length - 1 ? rnd(350, 1500) : 0));
+        for (let i = 0; i < ex.length; i++) {
+          const L = ex[i], buf = await L.buf; if (!buf) continue;
+          if (first) { first = false; if (st.g > 0) next = this.prepare(st); }   // generate the next exchange while this one plays
+          const dur = this.transmit(st, buf, L.radio);
+          await wait(dur * 1000 + (i < ex.length - 1 ? rnd(350, 1500) : 0));
         }
       } catch (e) { console.warn('radio', e); }
       // frequency quiet time: often a short pause, sometimes long
-      await wait(Math.random() < 0.3 ? rnd(1500, 5000) : rnd(7000, 32000));
+      await wait(Math.random() < 0.3 ? rnd(1500, 5000) : rnd(6000, 28000));
     }
   }
 
@@ -109,7 +115,7 @@ export class RadioChatter {
     ns.connect(nh).connect(nl).connect(ng).connect(st.out);
     ns.start(t0, rnd(0, 1.5)); ns.stop(end + 0.01); src.start(t0 + lead);
     setTimeout(() => nodes.forEach((n) => { try { n.disconnect(); } catch { /* already gone */ } }), (end - c.currentTime + 0.3) * 1000);
-    return Promise.resolve(end - c.currentTime);
+    return end - c.currentTime;
   }
 }
 
