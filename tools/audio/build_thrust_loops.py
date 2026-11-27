@@ -45,8 +45,28 @@ def seamless(a, L=0.5):
 def tone(a):
     m = a.mean(1)[:SR]; sp = np.abs(np.fft.rfft(m * np.hanning(len(m)))); f = np.fft.rfftfreq(len(m), 1 / SR); b = (f > 380) & (f < 1000); return f[b][np.argmax(sp[b])]
 
+# CL and FLX (loud, tonal): stitched grains crackle there, so these loops are built as one seamless piece instead -
+# noise shaped by the recording's own fine-grained spectrum around the point (fan tones included), made circular so
+# the loop has no joins at all; stereo keeps the recording's left / right balance with a little width.
+def spectral(p, half, dur=12.0):
+    seg = x[int((p - half) * SR):int((p + half) * SR)]; n = 8192; w = np.hanning(n)
+    mags = []
+    for ch in range(2):
+        acc = np.zeros(n // 2 + 1); k = 0
+        for i in range(0, len(seg) - n, n // 8): acc += np.abs(np.fft.rfft(seg[i:i + n, ch] * w)) ** 2; k += 1
+        mags.append(np.sqrt(acc / k))
+    L = int(dur * SR); fb = np.fft.rfftfreq(L, 1 / SR); fs = np.fft.rfftfreq(n, 1 / SR)
+    common = np.fft.rfft(rng.standard_normal(L))
+    out = np.zeros((L, 2), np.float32)
+    for ch in range(2):
+        own = np.fft.rfft(rng.standard_normal(L)); spec = 0.85 * common + 0.53 * own
+        out[:, ch] = np.fft.irfft(spec * np.interp(fb, fs, mags[ch]), L)
+    ref = x[int((p - 0.15) * SR):int((p + 0.15) * SR)]
+    return out * (np.sqrt((ref ** 2).mean()) / np.sqrt((out ** 2).mean())), 1.0
+SMOOTH = {'cl': 0.22, 'flx': 0.22}   # half window for the spectrum
+
 for k, (p, half) in POINTS.items():
-    lp, c = seamless(freeze(p, half, 12.0))
+    lp, c = spectral(p, SMOOTH[k]) if k in SMOOTH else seamless(freeze(p, half, 12.0))
     import wave
     w = wave.open('/tmp/_loop.wav', 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(lp, -1, 1) * 32767).astype(np.int16).tobytes()); w.close()
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', '/tmp/_loop.wav', '-c:a', 'pcm_s16le', f'{OUT}/eng_{k}_loop.wav'], check=True)

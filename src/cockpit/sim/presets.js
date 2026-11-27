@@ -23,6 +23,16 @@ export const PRESETS = {
   },
 };
 
+// engines running at idle, parked: the quick way to check engine sounds, thrust levers and the screens
+PRESETS.running = {
+  controls: { ...PRESETS.ready.controls, 'engPanel.master1': 1, 'engPanel.master2': 1, 'engPanel.mode': 1, 'airCond.apuBleed': false, 'extLt.nose': 1, 'thrust.lever1': 0, 'thrust.lever2': 0 },
+  sys: (s, t) => {
+    PRESETS.ready.sys(s, t);
+    s.eng.forEach((e) => Object.assign(e, { running: true, starting: false, t: 61, n1: 19.6, n2: 60.2, egt: 460, ff: 240, oilP: 74, oilT: 75, fadec: true, ign: false, fuel: true, startValve: false, rev: false }));
+    s.engStartedT = t - 150; s.engStartedAt = [t - 150, t - 150]; s.hyd = { G: 3000, B: 3000, Y: 3000, ptu: false }; s.resAir = true;
+  },
+};
+
 export function applyPreset(sim, systems, name) {
   const p = PRESETS[name]; if (!p) return;
   for (const c of sim.controls.values()) {   // back to the normal setting, then the preset's differences
@@ -33,7 +43,7 @@ export function applyPreset(sim, systems, name) {
   }
   for (const [id, v] of Object.entries(p.controls)) { const c = sim.get(id); if (c) c.value = v; }
   for (const c of sim.controls.values()) sim.visual(c, true);
-  p.sys(systems.s, systems.t); systems.s.sdManual = null; systems.screensState = name === 'ready' ? Object.fromEntries(Object.keys(systems.screensState).map((k) => [k, { on: true, test: 0, brt: 1 }])) : {};
-  systems.tick(0.1); if (name === 'ready') for (const st of Object.values(systems.screensState)) st.test = 0;
+  p.sys(systems.s, systems.t); systems.s.sdManual = null; systems.screensState = name !== 'cold' ? Object.fromEntries(Object.keys(systems.screensState).map((k) => [k, { on: true, test: 0, brt: 1 }])) : {};
+  systems.tick(0.1); if (name !== 'cold') for (const st of Object.values(systems.screensState)) st.test = 0;
   sim.dirty = true;
 }

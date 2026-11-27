@@ -164,4 +164,5 @@ Object.assign(window.cockpit, { sim, systems, interaction, preset: (n) => applyP
 { const st = document.getElementById('state') || bar;
   const b = document.createElement('button'); b.textContent = 'Cold & dark'; b.title = 'Everything off, ground power available'; b.onclick = () => { applyPreset(sim, systems, 'cold'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(b);
   const snd = document.createElement('button'); snd.textContent = 'Sound: on'; snd.onclick = () => { const on = !systems.sound.enabled; systems.sound.setEnabled(on); snd.textContent = 'Sound: ' + (on ? 'on' : 'off'); }; st.appendChild(snd);
-  const r = document.createElement('button'); r.textContent = 'Ready for start'; r.title = 'APU running, IRS aligned'; r.onclick = () => { applyPreset(sim, systems, 'ready'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(r); }
+  const er = document.createElement('button'); er.textContent = 'Engines running'; er.title = 'Both engines at idle, parked'; er.onclick = () => { applyPreset(sim, systems, 'running'); renderer.shadowMap.needsUpdate = true; };
+  const r = document.createElement('button'); r.textContent = 'Ready for start'; r.title = 'APU running, IRS aligned'; r.onclick = () => { applyPreset(sim, systems, 'ready'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(r); st.appendChild(er); }
