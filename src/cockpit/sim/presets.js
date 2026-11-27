@@ -8,7 +8,7 @@ export const PRESETS = {
       'adirs.irSel1': 0, 'adirs.irSel2': 0, 'adirs.irSel3': 0, ...LIGHTS_OFF, 'signsIntLt.seatBelts': 1, 'signsIntLt.noSmoking': 1, 'signsIntLt.emerExit': 2, 'signsIntLt.dome': 2,
       'parkBrake.handle': 1, 'atc.xpdrMode': 0, 'atc.tcasMode': 0, 'fuel.xfeed': false, 'engPanel.master1': 0, 'engPanel.master2': 0, 'engPanel.mode': 1,
       'floodLt-1.floodMain': 0, 'floodLt1.floodPed': 0 },
-    sys: (s) => { s.extOn = false; Object.assign(s.apu, { flap: 0, n: 0, egt: 20, starting: false, avail: false, shutting: false, cool: 0 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 0, align: 0, aligned: false, onBat: 0, test: 0 })); s.batV = [25.8, 25.8]; s.hyd = { G: 0, B: 0, Y: 0, ptu: false }; s.masks = false; s.agentDisch.clear(); },
+    sys: (s) => { s.extOn = false; Object.assign(s.apu, { flap: 0, n: 0, egt: 20, starting: false, avail: false, shutting: false, cool: 0 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 0, align: 0, aligned: false, onBat: 0, test: 0 })); s.batV = [26.6, 26.6]; s.hyd = { G: 0, B: 0, Y: 0, ptu: false }; s.masks = false; s.agentDisch.clear(); },
   },
   // before engine start: APU running with its generator and bleed, IRs aligned, beacon on, seat belts on
   ready: {

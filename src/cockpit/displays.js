@@ -214,7 +214,7 @@ export function paintDisplays(scene, refs) {
     },
   });
 }
-const EMPTY = { eng: [], warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [25.8, 25.8], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
+const EMPTY = { eng: [], warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [26.6, 26.6], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
 const sdKey = (S) => [S.sdPage, Math.round(S.apu.n), Math.round(S.apu.egt / 5), S.apu.avail, S.apu.bleed, S.apu.flap > 0.98, S.apu.shutting, S.elec, S.batV.map((v) => v.toFixed(0)), S.extAvail,
   Math.round(S.hyd.G / 50), Math.round(S.hyd.B / 50), Math.round(S.hyd.Y / 50), S.hyd.ptu, S.fuel.xfeedOpen >= 1, S.fuel.pumps, S.packs, S.xbleedOpen, new Date().getUTCMinutes(),
   (S.eng || []).map((e) => [e.fadec, Math.round(e.oilP), Math.round(e.oilT), e.ign, e.startValve, e.starting, e.running]), S.bleedPsi];

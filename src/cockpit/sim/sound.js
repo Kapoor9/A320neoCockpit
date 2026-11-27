@@ -1,15 +1,17 @@
 // Connects the cockpit systems to the audio engine (src/audio/audioEngine.js, the owner's recordings).
-// - Batteries on: a short electrical power-up (relays closing, inverter whine rising, ~0.5 s) that blends into
-//   the cockpit ambience. On batteries alone the ambience is quieter and duller; when AC arrives the avionics
-//   ventilation spins up and it opens out to full. All power gone: it winds down.
-// - Every control makes its own click; APU, engines, master warning / caution and the signs chime follow the systems.
-// Sound starts on the first click anywhere (browsers only allow audio after a user gesture).
+// Power-up follows the owner's sim-cockpit recording (assets/raw-audio/sim_power_up.flac):
+// - BAT 1 and BAT 2 on: about 0.9 s later the electrical power-up thump (~0.5 s), then the cockpit stays quiet.
+// - AC power arrives (EXT PWR, APU GEN or an engine generator): the relays close and the air (avionics
+//   ventilation) builds up over ~1.5 s and holds - recorded ramp, then a seamless loop of the same air.
+// - AC lost: the air runs down. With engines running the older cockpit ambience recording joins in.
+// Every control makes its own click (Korry pushbuttons use the recorded click); APU, engines, master warning /
+// caution and the signs chime follow the systems. Sound starts on the first click anywhere (browser rule).
 import { CockpitAudio } from '../../audio/audioEngine.js';
 
 export class CockpitSound {
   constructor(sim, systems) {
     this.sim = sim; this.sys = systems; this.audio = new CockpitAudio(); this.enabled = true;
-    this.prev = { dc: false, ac: false, apuStarting: false, apuRun: false, apuStop: false, mw: false, mc: false, eng: [false, false], engRun: [false, false] };
+    this.prev = { both: false, ac: false, apuStarting: false, apuRun: false, apuStop: false, mc: false, eng: [false, false], engRun: false };
     const start = () => { if (this.enabled) this.init(); };
     window.addEventListener('pointerdown', start, { capture: true });
     window.addEventListener('keydown', start, { capture: true });
@@ -19,12 +21,12 @@ export class CockpitSound {
     if (this.audio.ctx) { if (this.audio.ctx.state === 'suspended') this.audio.ctx.resume(); return; }
     this.audio.init().catch((e) => console.warn('audio', e));   // creates the context now (inside the gesture), loads in the background
     const c = this.audio.ctx; if (!c) return;
-    // ambience chain: loop -> level -> low-pass (opens when AC fans run) -> ambience bus
+    // air (AC ventilation) chain and engine-running ambience chain, each with its own level
+    this.airLevel = c.createGain(); this.airLevel.gain.value = 0;
+    this.airTone = c.createBiquadFilter(); this.airTone.type = 'lowpass'; this.airTone.frequency.value = 12000; this.airTone.Q.value = 0.4;
+    this.airLevel.connect(this.airTone);
     this.ambLevel = c.createGain(); this.ambLevel.gain.value = 0;
-    this.ambTone = c.createBiquadFilter(); this.ambTone.type = 'lowpass'; this.ambTone.frequency.value = 900; this.ambTone.Q.value = 0.5;
-    this.ambLevel.connect(this.ambTone);
-    const hookBus = () => { if (this.audio.bus) this.ambTone.connect(this.audio.bus.ambience); else setTimeout(hookBus, 30); }; hookBus();
-    this.powerBuf = makePowerUp(c); this.powerDownBuf = makePowerDown(c);
+    const hookBus = () => { if (this.audio.bus) { this.airTone.connect(this.audio.bus.ambience); this.ambLevel.connect(this.audio.bus.ambience); } else setTimeout(hookBus, 30); }; hookBus();
   }
   setEnabled(on) { this.enabled = on; const c = this.audio.ctx; if (!c) { if (on) this.init(); return; } on ? c.resume() : c.suspend(); }
 
@@ -36,12 +38,12 @@ export class CockpitSound {
     if (ev === 'guard') type = c.guardOpen ? 'guard_open' : 'guard_close';
     else if (ev === 'push' || ev === 'pull') type = 'knob_pushpull';
     else if (ev === 'turn') type = 'knob_detent';
-    else if (ev === 'down') type = id.startsWith('mcdu') ? 'mcdu_key' : 'pushbutton';
+    else if (ev === 'down') type = id.startsWith('mcdu') ? 'mcdu_key' : c.ctl?.kind === 'pb' ? 'korry' : 'pushbutton';
     else if (ev === 'change') {
       if (id.startsWith('engPanel.master')) type = 'eng_master';
       else if (id.startsWith('thrust.')) type = Number.isInteger(c.value) && [-14, 0, 22, 33, 45].includes(c.value) ? 'thrust_detent' : null;
       else if (/^(flaps|speedbrake|gear\.lever|parkBrake)/.test(id)) type = 'lever_heavy';
-      else if (k === 'alt' || k === 'latch' || k === 'radio') type = 'pushbutton';
+      else if (k === 'alt' || k === 'latch' || k === 'radio') type = c.ctl?.kind === 'pb' ? 'korry' : 'pushbutton';
       else if (k === 'tog') type = 'toggle';
       else if (k === 'sel') type = 'selector';
       else if (k === 'rx') type = 'knob_pushpull';
@@ -52,20 +54,30 @@ export class CockpitSound {
 
   // ------------------------------------------------------------------ follow the systems (called by Systems.tick, 10 Hz)
   update(S) {
-    const a = this.audio, c = a.ctx; if (!c || !this.ambLevel) return;
-    const t = c.currentTime, P = this.prev; const dc = !!S.elec.dcEss, ac = !!S.elec.ac;
-    // power up / down
-    if (dc && !P.dc) { this.oneShot(this.powerBuf, 0.55); this.ambLevel.gain.cancelScheduledValues(t); this.ambLevel.gain.setTargetAtTime(ac ? 1 : 0.42, t + 0.18, 0.22); }
-    if (!dc && P.dc) { this.oneShot(this.powerDownBuf, 0.45); this.ambLevel.gain.cancelScheduledValues(t); this.ambLevel.gain.setTargetAtTime(0, t, 0.35); }
-    if (dc && ac !== P.ac) {   // avionics ventilation: spins up over a few seconds with AC, runs down without
-      this.ambLevel.gain.setTargetAtTime(ac ? 1 : 0.42, t, ac ? 1.0 : 0.8);
-      this.ambTone.frequency.setTargetAtTime(ac ? 9000 : 900, t, ac ? 1.2 : 0.8);
+    const a = this.audio, c = a.ctx; if (!c || !this.airLevel || !a.bus) return;
+    const t = c.currentTime, P = this.prev; const ac = !!S.elec.ac;
+    const both = !!(this.sim.val('elec.bat1') && this.sim.val('elec.bat2'));
+    // batteries: the power-up thump ~0.9 s after both are on (as in the recording); nothing after it
+    if (both && !P.both && a.buffers.has('bat_power_up')) this.batVoice = a.play('bat_power_up', { bus: 'ambience', when: t + 0.9 });   // scheduled on the audio clock
+    if (!both && P.both && this.batVoice) { try { this.batVoice.src.stop(); } catch { /* already played */ } this.batVoice = null; }
+    // AC: relays and the air building up (recorded), handed over to the air loop once it holds
+    if (ac && !P.ac) {
+      const ramp = this.sample('ext_pwr_on', 1); const hand = ramp ? 1.9 : 0;
+      if (!this.air && a.buffers.has('ac_air_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ac_air_loop'); src.loop = true; src.connect(this.airLevel); src.start(t, Math.random() * 12); this.air = src; }
+      this.airTone.frequency.cancelScheduledValues(t); this.airTone.frequency.setValueAtTime(12000, t);
+      this.airLevel.gain.cancelScheduledValues(t); this.airLevel.gain.setValueAtTime(this.airLevel.gain.value, t);
+      if (ramp) { this.airLevel.gain.setValueAtTime(0, t + hand - 0.4); this.airLevel.gain.linearRampToValueAtTime(1, t + hand + 0.2); } else this.airLevel.gain.setTargetAtTime(1, t, 0.5);
     }
-    if (!P.dc && dc) this.ambTone.frequency.setValueAtTime(ac ? 9000 : 900, t);
-    if (dc && !this.amb && a.buffers.has('ambience_loop')) {   // the loop itself runs from the first power-up on
-      const src = c.createBufferSource(); src.buffer = a.buffers.get('ambience_loop'); src.loop = true; src.connect(this.ambLevel); src.start(t, Math.random() * 8); this.amb = src;
+    if (!ac && P.ac) {   // fans run down: quieter and duller over a few seconds
+      this.airLevel.gain.cancelScheduledValues(t); this.airLevel.gain.setValueAtTime(this.airLevel.gain.value, t); this.airLevel.gain.setTargetAtTime(0, t, 1.0);
+      this.airTone.frequency.cancelScheduledValues(t); this.airTone.frequency.setValueAtTime(12000, t); this.airTone.frequency.setTargetAtTime(400, t, 0.8);
     }
-    P.dc = dc; P.ac = ac;
+    if (ac && !this.air && a.buffers.has('ac_air_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ac_air_loop'); src.loop = true; src.connect(this.airLevel); src.start(t, Math.random() * 12); this.air = src; this.airLevel.gain.setTargetAtTime(1, t, 0.5); }
+    // engines running: the cockpit ambience recording joins under the air
+    const engRun = (S.eng || []).some((e) => e.running);
+    if (engRun && !this.amb && a.buffers.has('ambience_loop')) { const src = c.createBufferSource(); src.buffer = a.buffers.get('ambience_loop'); src.loop = true; src.connect(this.ambLevel); src.start(t, Math.random() * 8); this.amb = src; }
+    if (engRun !== P.engRun) this.ambLevel.gain.setTargetAtTime(engRun ? 0.8 : 0, t, 2);
+    P.both = both; P.ac = ac; P.engRun = engRun;
     if (!a.ready) return;
     // APU: start recording when the start begins, running loop if it is already running, wind-down when it stops
     const A = S.apu;
@@ -87,27 +99,5 @@ export class CockpitSound {
     if (S.masterCaut && !P.mc && dc) a.masterCaution();
     P.mc = S.masterCaut;
   }
-  oneShot(buf, gain) { const c = this.audio.ctx; if (!c || !this.audio.bus) return; const s = c.createBufferSource(); s.buffer = buf; const g = c.createGain(); g.gain.value = gain; s.connect(g).connect(this.audio.bus.ambience); s.start(); }
-}
-
-// ~0.5 s electrical power-up: two relay clunks, a soft thump, the static inverter whine rising and settling,
-// and a breath of fan noise that hands over to the ambience loop
-function makePowerUp(c) {
-  const sr = c.sampleRate, n = Math.round(sr * 0.6), b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
-  let lp = 0, lp2 = 0, seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
-  for (let i = 0; i < n; i++) {
-    const t = i / sr; let v = 0;
-    for (const [t0, a0] of [[0.0, 1.0], [0.045, 0.7], [0.11, 0.45]]) { const u = t - t0; if (u >= 0 && u < 0.05) { const e = Math.exp(-u * 160); lp += (rnd() - lp) * 0.35; v += lp * e * a0 * 0.9 + Math.sin(2 * Math.PI * 95 * u) * e * a0 * 0.6; } }   // contactor clunks
-    const w = Math.min(1, Math.max(0, (t - 0.08) / 0.32)); const f = 320 + 80 * w;                                    // inverter whine coming up to 400 Hz
-    v += (Math.sin(2 * Math.PI * f * t) * 0.05 + Math.sin(2 * Math.PI * 2 * f * t) * 0.025 + Math.sin(2 * Math.PI * 3 * f * t) * 0.012) * w * (1 - Math.max(0, (t - 0.42) / 0.18));
-    lp2 += (rnd() - lp2) * 0.08; v += lp2 * 0.35 * w * (1 - Math.max(0, (t - 0.4) / 0.2));                             // first breath of air
-    d[i] = v * (i > n - 400 ? (n - i) / 400 : 1);
-  }
-  return b;
-}
-function makePowerDown(c) {
-  const sr = c.sampleRate, n = Math.round(sr * 0.7), b = c.createBuffer(1, n, sr), d = b.getChannelData(0); let lp = 0, seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
-  let ph = 0; for (let i = 0; i < n; i++) { const t = i / sr; const f = 400 * Math.exp(-t * 2.2); ph += (2 * Math.PI * f) / sr; const e = Math.exp(-t * 4);
-    let v = Math.sin(ph) * 0.05 * e + Math.sin(2 * ph) * 0.02 * e; if (t < 0.05) { lp += (rnd() - lp) * 0.35; v += lp * Math.exp(-t * 150) * 0.8; } d[i] = v; }
-  return b;
+  sample(name, gain) { const a = this.audio; if (!a.buffers.has(name)) return null; return a.play(name, { bus: 'ambience', gain }); }
 }

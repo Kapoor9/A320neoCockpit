@@ -19,7 +19,7 @@ const LOOP_FILE = { IDLE: 'eng_idle_loop', N45: 'eng_n45_loop', CL: 'eng_cl_loop
 
 const CLICK_TYPES = [
   'pushbutton', 'toggle', 'guard_open', 'guard_close', 'knob_detent', 'knob_pushpull',
-  'selector', 'eng_master', 'thrust_detent', 'mcdu_key', 'sidestick_btn', 'lever_heavy',
+  'selector', 'eng_master', 'thrust_detent', 'mcdu_key', 'sidestick_btn', 'lever_heavy', 'korry',
 ];
 
 export class CockpitAudio {
@@ -50,7 +50,7 @@ export class CockpitAudio {
     };
 
     const names = [
-      'ambience_loop', 'apu_start', 'apu_run_loop', 'apu_stop',
+      'ambience_loop', 'ac_air_loop', 'bat_power_up', 'ext_pwr_on', 'apu_start', 'apu_run_loop', 'apu_stop',
       'eng_start', 'eng_shutdown', 'eng_up_master', 'eng_down_master',
       ...Object.values(LOOP_FILE),
       'master_warning_loop', 'master_caution', 'fire_test_full',

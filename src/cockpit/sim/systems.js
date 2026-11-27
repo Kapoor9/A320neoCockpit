@@ -16,7 +16,7 @@ export class Systems {
       ground: true, gs: 0,
       extAvail: true, extOn: false,                                   // ground power unit connected; EXT PWR selected
       apu: { flap: 0, n: 0, egt: 20, starting: false, avail: false, cool: 0, availT: 0, shutting: false, bleed: false },
-      elec: {}, batV: [25.8, 25.8],
+      elec: {}, batV: [26.6, 26.6],
       adirs: [0, 1, 2].map(() => ({ mode: 0, align: 0, aligned: false, onBat: 0, test: 0 })),
       hyd: { G: 0, B: 0, Y: 0, ptu: false },
       fuel: { xfeedOpen: 0, fob: 19080 },
@@ -168,7 +168,7 @@ export class Systems {
     // battery voltage (always readable: hot bus): resting ~25.8 V, charging ~28 V, slowly drains on load
     for (const [i, on] of [[0, bat1], [1, bat2]]) {
       const charging = on && E.dc1; const load = on && !E.dc1;
-      S.batV[i] = approach(S.batV[i], charging ? 28.2 : load ? 25.2 : 25.8, charging ? 0.05 : 0.01, dt);
+      S.batV[i] = approach(S.batV[i], charging ? 28.3 : load ? 26.0 : 26.6, charging ? 0.05 : 0.02, dt);   // as read in the owner's sim-cockpit recording
     }
     E.batAmp = [0, 1].map((i) => ([bat1, bat2][i] && E.dc1 ? Math.max(0, Math.round((28.2 - S.batV[i]) * 40)) : ([bat1, bat2][i] ? -12 : 0)));
     // --- ADIRS: OFF / NAV / ATT; alignment about 7 min in NAV, 30 s in ATT; ON BAT while on battery power
@@ -271,14 +271,19 @@ export class Systems {
   // ------------------------------------------------------------------ annunciator lights
   lights() {
     const sim = this.sim, S = this.s, E = S.elec, A = S.apu;
-    const pw = E.dcEss;                                    // annunciator lights: DC power
-    const test = pw && this.v('signsIntLt.annLt') === 0;   // ANN LT TEST: everything lights
+    // annunciator lights: most need the normal DC buses (from AC through the TRs); on batteries alone only the
+    // panels on the battery / essential buses light (electrical, APU, fire, ADIRS, engine panel, emergency)
+    const pwAll = E.dc1 || E.dc2, pwEss = E.dcEss;
+    const ESS = /^(elec|apu|fire|adirs|engPanel|emerElec|evac|cargoSmoke)\./;
+    const pwFor = (id) => (ESS.test(id) ? pwEss : pwAll);
+    const pw = pwAll;
+    const test = pwEss && this.v('signsIntLt.annLt') === 0;   // ANN LT TEST: everything lights
     sim.annLt = this.v('signsIntLt.annLt') === 2 ? 0.45 : 1;
     const flash = Math.floor(this.t * 2) % 2 === 0;
-    const setL = (id, top, bot) => { const c = sim.get(id); if (c) { c.lights.top = test ? 1 : (pw ? +!!top : 0); c.lights.bot = test ? 1 : (pw ? +!!bot : 0); } };
+    const setL = (id, top, bot) => { const c = sim.get(id); if (c) { const p = pwFor(id); c.lights.top = test ? 1 : (p ? +!!top : 0); c.lights.bot = test ? 1 : (p ? +!!bot : 0); } };
     // generic rule for every alternate-action pushbutton: the lower legend shows its state
     for (const c of sim.controls.values()) {
-      if (c.kind === 'alt') { const on = c.def.lit === 'out' ? !c.value : c.def.lit === 'in' ? c.value : false; c.lights.top = test ? 1 : 0; c.lights.bot = test ? 1 : pw && on ? 1 : 0; }
+      if (c.kind === 'alt') { const on = c.def.lit === 'out' ? !c.value : c.def.lit === 'in' ? c.value : false; c.lights.top = test ? 1 : 0; c.lights.bot = test ? 1 : pwFor(c.id) && on ? 1 : 0; }
       else if (c.kind === 'latch' || c.kind === 'radio') { c.lights.top = test ? 1 : pw && c.value ? 1 : 0; c.lights.bot = c.lights.top; }
       else if (c.kind === 'ind' || c.kind === 'mom') { c.lights.top = test ? 1 : 0; c.lights.bot = test ? 1 : 0; }
     }

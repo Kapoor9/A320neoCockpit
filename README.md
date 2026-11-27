@@ -37,6 +37,9 @@ Any static server works, e.g. `python3 -m http.server` in this folder, then open
 All recorded sounds (engine start, takeoff thrust, ambience, autopilot disconnect,
 fire test / master warning, seat-belt chime) are the owner's own recordings.
 Clicks, APU, engine shutdown and the master caution chime are synthesised.
+The Korry pushbutton click, the battery power-up thump and the EXT PWR relays with the air
+building up come from the owner's sim-cockpit recording (`assets/raw-audio/sim_power_up.flac`,
+cut by `tools/audio/sim_power_cuts.py`).
 
 ### Engine thrust model
 The takeoff recording is mapped to thrust positions: IDLE 0–2.2 s, 45 % 2.5–3.4 s,
