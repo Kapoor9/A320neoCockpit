@@ -96,12 +96,44 @@ const PHASES = [
     ],
     check: [['APU BLEED', 'ON'], ['ENGINES', 'OFF', (v) => !v('engPanel.master1') && !v('engPanel.master2')], ['SEAT BELTS', 'OFF', (v) => v('signsIntLt.seatBelts') === 1], ['EXT LT', 'AS RQRD'], ['FUEL PUMPS', 'OFF'], ['PARK BRK & CHOCKS', 'AS RQRD']] },
 
+  { name: 'RADIO CALLS', note: 'Hold SPACE to talk on the frequency your RMP is tuned to (VHF 1: Ground 121.800; press TRANSFER for Tower 118.700). Any airline and number works as a callsign. Wrong readbacks get corrected; Ground and Tower also call you on their own.', steps: [], check: [], get calls() { return CALLS; } },
   { name: 'SECURING THE AIRCRAFT', note: 'Leaving the aircraft.',
     steps: [
       ['ovhd', 'ADIRS', 'IR 1, 2 and 3: OFF.', (v) => [1, 2, 3].every((i) => v('adirs.irSel' + i) === 0)],
       ['ovhd', 'APU / ELEC', 'APU MASTER SW: off (or EXT PWR on). Then BAT 1 and BAT 2: off last.', (v) => !v('elec.bat1') && !v('elec.bat2')],
     ],
     check: [['OXYGEN', 'OFF', (v) => !v('oxygen.crewOxy')], ['EMER EXIT LT', 'OFF', (v) => v('signsIntLt.emerExit') === 2], ['EFBs', 'OFF'], ['BATTERIES', 'OFF', (v) => !v('elec.bat1') && !v('elec.bat2')]] },
+];
+
+// radio calls you can make (hold SPACE): [station, what to say]
+const CALLS = [
+  ['GROUND 121.800', 'Delhi Ground, Indigo 245, good morning  (first call: your callsign is kept for the flight)'],
+  ['GROUND', 'Delhi Ground, Indigo 245, radio check 121.8'],
+  ['GROUND', 'Indigo 245, request QNH  /  request weather  /  request information'],
+  ['GROUND', 'Indigo 245, request time check'],
+  ['GROUND', 'Indigo 245, request clearance to Mumbai  (or: ready to copy, then say the destination)'],
+  ['GROUND', 'Read back the clearance: cleared to Mumbai, PARVA 2 Alpha, runway 29 right, climb 4000 feet, squawk 4521, Indigo 245'],
+  ['GROUND', 'Indigo 245, request start up'],
+  ['GROUND', 'Indigo 245, stand 12, request push back  /  ready for push and start'],
+  ['GROUND', 'Read back: push back approved, facing east, Indigo 245'],
+  ['GROUND', 'Indigo 245, request taxi  (with both engines running)'],
+  ['GROUND', 'Read back: holding point runway 29 right via Alpha, Bravo, Indigo 245'],
+  ['GROUND', 'Indigo 245, request runway 28'],
+  ['GROUND', 'Indigo 245, say Tower frequency'],
+  ['GROUND', 'Read back the handoff: 118.7, Indigo 245, good day'],
+  ['GROUND', 'Indigo 245, request taxi back to stand'],
+  ['GROUND', 'Delhi Ground, Indigo 245, vacated runway 28 via November 4  (after landing)'],
+  ['ANY', 'Say again  /  say again for Indigo 245'],
+  ['ANY', 'Roger  /  Wilco  /  Standing by  (no reply needed)'],
+  ['TOWER 118.700', 'Delhi Tower, Indigo 245, holding point runway 29 right, ready for departure'],
+  ['TOWER', 'Read back: holding short runway 29 right, Indigo 245'],
+  ['TOWER', 'Read back: line up and wait runway 29 right, Indigo 245'],
+  ['TOWER', 'Indigo 245, lined up, ready  /  request take off'],
+  ['TOWER', 'Read back: cleared for take off runway 29 right, Indigo 245'],
+  ['TOWER', 'Indigo 245, rejecting take off  /  stopping'],
+  ['TOWER', 'Read back the handoff: 126.35, Indigo 245, good day'],
+  ['ANY', 'Mayday mayday mayday, Indigo 245, engine fire  (emergency)'],
+  ['ANY', 'Thank you, good day  (sign-off after a handoff)'],
 ];
 
 const CSS = `
@@ -133,6 +165,7 @@ const CSS = `
 .cl-item .rs{font-weight:700;white-space:nowrap}
 .cl-item.ok .bx::after{content:'\\2713';position:absolute;left:0;top:-5px;font:700 15px Arial;color:#1f5ea8}
 .cl-item .bx{width:12px;height:12px;border:1.5px solid #14171a;position:relative}
+#cl-body .cl-call{padding:5px 4px;border-bottom:1px dotted #b9b2a0;font-size:11.5px}#cl-body .cl-call b{display:block;font:700 9.5px "B612",Arial;letter-spacing:.05em;color:#7a4b00}
 #cl-foot{border-top:1px solid #b9b2a0;padding:6px 12px;font-size:10px;color:#5a5f63}
 `;
 
@@ -175,6 +208,10 @@ export class Checklist {
         this.body.appendChild(r); this.rows.push({ r, fn, key, step: true });
       });
     }
+    if (p.calls) p.calls.forEach(([stn, say]) => {
+      const r = document.createElement('div'); r.className = 'cl-call';
+      const a = document.createElement('b'); a.textContent = stn; const t = document.createElement('span'); t.textContent = say; r.append(a, t); this.body.appendChild(r);
+    });
     if (p.check.length) {
       const s = document.createElement('div'); s.className = 'sub'; s.textContent = 'CHECKLIST'; this.body.appendChild(s);
       p.check.forEach(([item, resp, fn], i) => {

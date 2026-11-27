@@ -31,10 +31,10 @@ export function preloadVoice() {
     }
   } catch (e) { console.warn('radio voice', e); }
 }
-function speak(text, v) {
+function speak(text, v, priority = false) {
   if (!pool.workers.length) return Promise.resolve(null);
   const id = ++pool.seq, w = pool.workers.reduce((a, b) => (b.load < a.load ? b : a)); w.load++;
-  return new Promise((resolve) => { pool.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, ...v }); });
+  return new Promise((resolve) => { pool.jobs.set(id, { resolve }); w.postMessage({ type: 'say', id, text, priority, ...v }); });
 }
 
 export const voiceReady = () => pool.ready;
@@ -67,9 +67,22 @@ export class RadioChatter {
     this.started = true;
     for (const pos of ['ground', 'tower']) {
       const out = this.ctx.createGain(); out.gain.value = 0; out.connect(this.bus);
-      const st = this.stations[pos] = { pos, out, g: 0, atc: controllerVoice(), q: [], used: new Set() };
+      const st = this.stations[pos] = { pos, out, g: 0, atc: controllerVoice(), q: [], used: new Set(), hold: 0 };
       this.run(st);
     }
+  }
+
+  // the frequency is busy with the pilot's own exchange: background traffic waits until hold time has passed
+  async clear(st) { while (Date.now() < st.hold) await wait(200); }
+  holdFor(pos, ms) { this.start0(); const st = this.stations[pos]; if (st) st.hold = ms === Infinity ? Infinity : Date.now() + ms; }
+  start0() { if (!this.started) this.start(); }
+  // the controller answers the pilot: own voice of that station, ahead of everything else in the voice queue
+  async atcSay(pos, text) {
+    this.start0(); const st = this.stations[pos]; if (!st) return 0;
+    st.hold = Infinity;
+    const pcm = await speak(text, st.atc, true); if (!pcm) return 0;
+    const dur = this.transmit(st, this.toBuf(pcm), { strength: rnd(0.85, 1), rate: rnd(0.99, 1.01) });
+    await wait(dur * 1000); return dur;
   }
 
   toBuf(pcm) { const b = this.ctx.createBuffer(1, pcm.length, 24000); b.copyToChannel(pcm, 0); return b; }
@@ -91,12 +104,14 @@ export class RadioChatter {
       if (st.g <= 0) { st.q.length = 0; await wait(600); continue; }   // nobody listening: nothing generated
       // keep two live exchanges in preparation while the voice is up; until then the starter set talks
       if (pool.ready) while (st.q.length < 2) st.q.push(this.live(st));
+      await this.clear(st);
       const ex = st.q.shift() || await this.canned(st);
       if (!ex) { await wait(500); continue; }
       const radio = this.radioFor();
       try {
         for (let i = 0; i < ex.length; i++) {
           const buf = await ex[i].buf; if (!buf) continue;
+          await this.clear(st);   // the pilot keyed the mic: the next line waits until the frequency is free again
           const dur = this.transmit(st, buf, radio[ex[i].who]);
           await wait(dur * 1000 + (i < ex.length - 1 ? rnd(250, 1000) : 0));
         }

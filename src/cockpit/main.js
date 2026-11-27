@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { buildCockpit, makeSky, SUN_DIR } from './build.js';
 import { CockpitCamera, VIEWS } from './camera.js';
 import { preloadVoice } from '../audio/radio.js';
+import { AtcPilot } from '../audio/atcPilot.js';
 import { Checklist } from './checklist.js';
 import { paintDisplays } from './displays.js';
 import { loadFonts } from './labels.js';
@@ -161,13 +162,14 @@ if (screens) screens.onChange = contentChanged;
 systems = new Systems(sim, { ...lighting, screens }); sim.systems = systems;
 const interaction = new Interaction(sim, camera, canvas, scene);
 systems.sound = new CockpitSound(sim, systems);
+systems.atc = new AtcPilot(sim, systems);   // hold SPACE to talk to Delhi Ground / Tower
 applyPreset(sim, systems, 'cold');
 setTimeout(preloadVoice, 1500);   // the radio voice loads in the background from the start, so it is ready when the batteries go on
 Object.assign(window.cockpit, { sim, systems, interaction, preset: (n) => applyPreset(sim, systems, n) });
 { const st = document.getElementById('state') || bar;
   const checklist = new Checklist(sim, systems, controls);
   const cl = document.createElement('button'); cl.textContent = 'Checklist'; cl.title = 'A320 normal checklist and start-up procedure'; cl.onclick = () => checklist.toggle(); st.appendChild(cl);
-  const b = document.createElement('button'); b.textContent = 'Cold & dark'; b.title = 'Everything off, ground power available'; b.onclick = () => { applyPreset(sim, systems, 'cold'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(b);
+  const b = document.createElement('button'); b.textContent = 'Cold & dark'; b.title = 'Everything off, ground power available'; b.onclick = () => { applyPreset(sim, systems, 'cold'); systems.atc.newFlight(); renderer.shadowMap.needsUpdate = true; }; st.appendChild(b);
   const snd = document.createElement('button'); snd.textContent = 'Sound: on'; snd.onclick = () => { const on = !systems.sound.enabled; systems.sound.setEnabled(on); snd.textContent = 'Sound: ' + (on ? 'on' : 'off'); }; st.appendChild(snd);
   const er = document.createElement('button'); er.textContent = 'Engines running'; er.title = 'Both engines at idle, parked'; er.onclick = () => { applyPreset(sim, systems, 'running'); renderer.shadowMap.needsUpdate = true; };
   const r = document.createElement('button'); r.textContent = 'Ready for start'; r.title = 'APU running, IRS aligned'; r.onclick = () => { applyPreset(sim, systems, 'ready'); renderer.shadowMap.needsUpdate = true; }; st.appendChild(r); st.appendChild(er); }

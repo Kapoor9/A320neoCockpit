@@ -94,5 +94,5 @@ async function pump() {
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'init') init(m.base).catch((err) => self.postMessage({ type: 'error', msg: String(err?.message || err) }));
-  else if (m.type === 'say') { queue.push(m); if (session) pump(); }
+  else if (m.type === 'say') { m.priority ? queue.unshift(m) : queue.push(m); if (session) pump(); }   // replies to the pilot jump the queue
 };

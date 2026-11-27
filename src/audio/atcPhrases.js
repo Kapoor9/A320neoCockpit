@@ -6,9 +6,9 @@
 
 const D = { 0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'niner' };
 const NATO = 'Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliet Kilo Lima Mike November'.split(' ').concat(['Papa', 'Sierra', 'Tango', 'Victor', 'Whiskey', 'Yankee', 'Zulu']);
-const dig = (s) => [...String(s)].map((c) => D[c] ?? c).join(' ');
-const rwy = (r) => dig(r.slice(0, 2)) + ({ L: ' left', R: ' right' }[r.slice(2)] || '');
-const freq = (f, short) => { const [a, b] = f.split('.'); return dig(a) + (short ? ' ' : ' decimal ') + dig(b); };
+export const dig = (s) => [...String(s)].map((c) => D[c] ?? c).join(' ');
+export const rwy = (r) => dig(r.slice(0, 2)) + ({ L: ' left', R: ' right' }[r.slice(2)] || '');
+export const freq = (f, short) => { const [a, b] = f.split('.'); return dig(a) + (short ? ' ' : ' decimal ') + dig(b); };
 const R = Math.random, pick = (a) => a[Math.floor(R() * a.length)], chance = (p) => R() < p, int = (a, b) => a + Math.floor(R() * (b - a + 1));
 const wpick = (items, w) => { let t = R() * w.reduce((s, x) => s + x, 0); for (let i = 0; i < items.length; i++) { t -= w[i]; if (t < 0) return items[i]; } return items[0]; };
 

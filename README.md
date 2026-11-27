@@ -31,6 +31,8 @@ Any static server works, e.g. `python3 -m http.server` in this folder, then open
   (`radio.js`, `atcPhrases.js`, `ttsWorker.js`)
 - `vendor/tts/` — the in-browser voice for the radio: Kokoro-82M int8 model (split in parts), voices, onnxruntime-web,
   phonemizer (rebuild with `tools/audio/atc/pack_tts.py`)
+- `vendor/stt/` — in-browser speech recognition of your radio calls: Whisper tiny.en int8 (rebuild with
+  `tools/audio/atc/pack_stt.py`); the controller you talk to is `src/audio/atcBrain.js`, push-to-talk `src/audio/atcPilot.js`
 - `public/sounds/` — the sounds the site plays (loops as WAV so they join with no gap, the rest as MP3)
 - `assets/raw-audio/` — original recordings, untouched
 - `tools/audio/` — scripts that turned the recordings into loops and made the synthesised sounds
@@ -63,4 +65,6 @@ meshes or textures are included.
 Radio voices: [Kokoro-82M](https://github.com/thewh1teagle/kokoro-onnx) (Apache-2.0), run with
 [onnxruntime-web](https://github.com/microsoft/onnxruntime) (MIT); phonemes by eSpeak NG through
 [phonemizer.js](https://github.com/xenova/phonemizer.js). The ATC exchanges are generated at random in the browser;
-stands, taxiways, fixes and SIDs are invented.
+stands, taxiways, fixes and SIDs are invented. Your own radio calls are recognised by
+[Whisper](https://github.com/openai/whisper) tiny.en (MIT), int8 ONNX export from
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0), and answered by rule-based ATC logic in the page.
