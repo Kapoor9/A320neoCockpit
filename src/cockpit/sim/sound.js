@@ -29,7 +29,7 @@ export class CockpitSound {
     // the recorded air is ~95 % below 250 Hz, which laptop / phone speakers hardly play: lift its upper part and its
     // level so the rush is heard on any speaker. The EXT PWR build-up goes through the same tone so it joins seamlessly.
     this.airHi = c.createBiquadFilter(); this.airHi.type = 'highshelf'; this.airHi.frequency.value = 600; this.airHi.gain.value = 9;
-    this.airMake = c.createGain(); this.airMake.gain.value = 2.2;
+    this.airMake = c.createGain(); this.airMake.gain.value = 1.0;
     this.airLevel.connect(this.airTone).connect(this.airHi).connect(this.airMake);
     this.rampIn = c.createGain(); this.rampIn.gain.value = 1; this.rampIn.connect(this.airHi);
     this.ambLevel = c.createGain(); this.ambLevel.gain.value = 0;
@@ -104,10 +104,12 @@ export class CockpitSound {
     });
     if (S.eng) { const tla = Math.max(...S.eng.map((E, i) => (E.running ? S.tla[i] : 0))); a.setThrust(tla < 6 ? 'IDLE' : tla < 17 ? 'N45' : tla < 28 ? 'CL' : 'FLX'); }
     // master warning (continuous repetitive chime) and master caution (single chime)
-    a.masterWarning(!!S.masterWarn && dc);
-    if (S.masterCaut && !P.mc && dc) a.masterCaution();
+    a.masterWarning(!!S.crc && !!S.elec.dcEss);
+    if (S.masterCaut && !P.mc && S.elec.dcEss) a.masterCaution();
     P.mc = S.masterCaut;
   }
+  apOnce() { const a = this.audio; if (a.ready) a.apDisconnect(); }
+  apWarning(on) { const a = this.audio; if (a.ready) a.apDisconnectContinuous(on); }
   airSample(name) { const a = this.audio, c = a.ctx; if (!a.buffers.has(name)) return null; const s = c.createBufferSource(); s.buffer = a.buffers.get(name); s.connect(this.rampIn); s.start(); return s; }   // through the air's tone
   sample(name, gain) { const a = this.audio; if (!a.buffers.has(name)) return null; return a.play(name, { bus: 'ambience', gain }); }
 }

@@ -86,7 +86,7 @@ export function makeSidestick(M, side = -1) {
     if (vtx.z < -0.035 && vtx.z > -0.06 && (!topP || vtx.y > topP.p.y)) topP = { p: vtx.clone(), n: new THREE.Vector3().fromBufferAttribute(gn, i) };
   }
   const btnMat = new THREE.MeshStandardMaterial({ color: 0xc0281e, roughness: 0.4 });
-  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 28), btnMat));
+  const btn = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 28), btnMat)); g.userData.apBtn = btn;   // autopilot disconnect / takeover pushbutton
   btn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), inb.n.clone().normalize());
   btn.position.copy(inb.p).addScaledVector(inb.n, 0.0015); stick.add(btn);
   const pad = rbox(0.026, 0.005, 0.026, 0.005, gripMat);
@@ -198,14 +198,21 @@ export function makeThrustQuadrant(M, atlas) {
     const arm = rbox(0.009, 0.03, armLen, 0.004, M.metal);   // broad lever blade running in the gate slot arm.position.set(0, 0, armLen / 2); arm.rotation.x = 0; pivot.add(arm);
     // handle: a broad rounded paddle; the two meet in the middle to form one bar
     const blk = new THREE.MeshStandardMaterial({ color: 0x111315, roughness: 0.3, metalness: 0.1 });
-    const neck = rbox(0.016, 0.02, 0.03, 0.004, blk); neck.position.set(0, -0.004, armLen - 0.004); pivot.add(neck);
-    const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.0125, 0.03, 8, 24).rotateZ(Math.PI / 2), blk); grip.position.set(s * 0.004, 0.0, armLen + 0.012); grip.castShadow = true; pivot.add(grip);
-    for (const k of [-1, 1]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.0126, 0.0009, 8, 32).rotateY(Math.PI / 2), M.panelDark); band.position.set(s * 0.004 + k * 0.01, 0, armLen + 0.012); pivot.add(band); }
-    // A/THR instinctive disconnect pushbutton: red, set into the outboard end of the grip
+    // longer neck rising from the blade to the handle
+    const gz = armLen + 0.04;   // handle position along the lever
+    const neck = rbox(0.016, 0.02, 0.072, 0.004, blk); neck.position.set(0, -0.004, armLen + 0.004); pivot.add(neck);
+    // handle: the two halves meet in the middle with only a thin seam, reading as one bar with a border line;
+    // flat inner end, rounded outer end
+    const HL = 0.044, R = 0.0125; const cx = s * (0.0006 + HL / 2) - s * 0.0285;   // inner end 0.6 mm from the centre line
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, HL, 32).rotateZ(Math.PI / 2), blk); body.position.set(cx, 0, gz); body.castShadow = true; pivot.add(body);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2).rotateZ(-s * Math.PI / 2), blk); cap.position.set(cx + s * HL / 2, 0, gz); cap.castShadow = true; pivot.add(cap);
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.002, R * 1.002, 0.0012, 32).rotateZ(Math.PI / 2), M.panelDark); seam.position.set(cx - s * (HL / 2 - 0.0006), 0, gz); pivot.add(seam);
+    for (const k of [0.3, 0.75]) { const band = new THREE.Mesh(new THREE.TorusGeometry(R + 0.0001, 0.0009, 8, 32).rotateY(Math.PI / 2), M.panelDark); band.position.set(cx + s * (k - 0.5) * HL, 0, gz); pivot.add(band); }
+    // A/THR instinctive disconnect pushbutton: red, set into the outboard end of the handle
     const b = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.004, 20).rotateZ(Math.PI / 2), btnMat));
-    b.position.set(s * (0.004 + 0.0275), 0, armLen + 0.012); pivot.add(b);
+    b.position.set(cx + s * (HL / 2 + R - 0.0012), 0, gz); pivot.add(b); pivot.userData.athrBtn = b;
     // reverse thrust latch lever in front of the handle
-    const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(0, 0.02, armLen - 0.012); latch.rotation.x = 0.5; pivot.add(latch);
+    const latch = rbox(0.028, 0.006, 0.018, 0.0025, M.metal); latch.position.set(0, 0.02, gz - 0.03); latch.rotation.x = 0.5; pivot.add(latch);
     pivot.rotation.x = 0; levers.push(pivot);
   }
   const set = (deg) => levers.forEach((l) => (l.rotation.x = -THREE.MathUtils.degToRad(deg)));

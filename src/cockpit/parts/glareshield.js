@@ -147,7 +147,7 @@ export function efisPanel(M, A, side) {
   for (const [x, y] of tg) { const rec = new THREE.Mesh(new THREE.CircleGeometry(0.0056, 32), new THREE.MeshBasicMaterial({ color: 0x0b0c0d })); rec.position.set(x, y, 0.0003); p.add(rec);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.0058, 0.0006, 8, 32), new THREE.MeshStandardMaterial({ color: 0x1a1d1f, roughness: 0.4 })); rim.position.set(x, y, 0.0006); p.add(rim); }
   // flight directors on: FD bar lit green
-  const fd = p.userData.controls.FD; if (fd && fd.userData.bar) fd.userData.bar.forEach((s) => { s.material = new THREE.MeshStandardMaterial({ color: 0x6dff7a, emissive: 0x3ce04e, emissiveIntensity: 1.2, roughness: 0.3 }); });
+  // FD bars are lit by the systems (sim/systems.js), only when powered and selected
   // QNH window and the baro knob: grey PULL STD knob inside its black in Hg / hPa selector ring, lit amber surround
   const [qx, qy] = C(196, 212); const ww = 132 * S, wh = 65 * S;
   const fr = new THREE.Mesh(new THREE.PlaneGeometry(ww + 0.002, wh + 0.002), new THREE.MeshBasicMaterial({ color: 0x0a0b0c })); fr.position.set(qx, qy, 0.0004); p.add(fr);

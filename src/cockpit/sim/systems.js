@@ -27,6 +27,7 @@ export class Systems {
       masks: false, evac: false, extLtFlash: 0, mcduScratch: ['', ''],
       eng: [0, 1].map(() => ({ n1: 0, n2: 0, egt: 20, ff: 0, oilP: 0, oilT: 20, starting: false, running: false, t: 0, ign: false, fuel: false, startValve: false, rev: false })),
       tla: [0, 0], engStartedT: null, toConfigT: null,
+      ap: { ap1: false, ap2: false, athr: false, cont: false, onceT: -99, athrOffT: -99 },
       // FCU: power-up state - speed, heading and V/S managed (dashes, dot), altitude 100 ft
       fcuS: { spd: 100, hdg: 0, alt: 100, vs: 0, spdSel: false, hdgSel: false, vsSel: false, prevSpd: 0, prevHdg: 0, prevVs: 0, mach: false, trk: false, baro: [1013, 1013], std: [false, false], inHg: [false, false] },
       rmp: [0, 1].map(() => ({ ch: 'VHF1', freq: { VHF1: ['118.700', '121.800'], VHF2: ['121.500', '122.800'], VHF3: ['DATA', '131.725'], HF1: ['2.850', '3.016'], HF2: ['5.505', '6.604'] } })),
@@ -46,8 +47,9 @@ export class Systems {
       else if (id === 'apu.apuStart') { if (this.v('apu.apuMaster') && this.dc() && !S.apu.avail && !S.apu.starting && S.apu.flap > 0.95) S.apu.starting = true; }
       else if (id.startsWith('ecamCP.ecp_') && /CLR/.test(id)) { for (const w of S.warnings) S.warnAck.add(w.text); }
       else if (id === 'ecamCP.TOCONFIG') S.toConfigT = this.t;
+      else if (/^FCU\.(AP1|AP2|ATHR)$/.test(id) || /\.apDisc$/.test(id) || /^thrust\.athrDisc/.test(id)) this.autoflight(id);
       else if (id === 'ecamCP.ecp_ALL') { const P = ['ENG', 'BLEED', 'PRESS', 'ELEC', 'HYD', 'FUEL', 'APU', 'COND', 'DOOR', 'WHEEL', 'F/CTL']; const i = P.indexOf(S.sdManual); S.sdManual = P[(i + 1) % P.length]; this.syncSdKeys(); }
-      else if (/^glareSide-?1\.master(Warn|Caut)$/.test(id)) { for (const w of S.warnings) S.warnAck.add(w.text); }
+      else if (/^glareSide-?1\.master(Warn|Caut)$/.test(id)) { for (const w of S.warnings) S.warnAck.add(w.text); if (/Warn$/.test(id)) S.ap.cont = false; }
       else if (/^atc\.atc[0-9]$/.test(id)) { S.sqEntry = (S.sqEntry + id.slice(-1)).slice(-4); if (S.sqEntry.length === 4) { S.squawk = S.sqEntry; S.sqEntry = ''; } }
       else if (id === 'atc.atcCLR') S.sqEntry = '';
       else if (id === 'rudderTrim.rudReset') S.rudTrimReset = true;
@@ -91,6 +93,29 @@ export class Systems {
       vs: F.vsSel || F.prevVs > now ? (F.vs < 0 ? '-' : '+') + String(Math.abs(F.vs) / 100).padStart(2, '0') + 'oo' : '-----', trk: F.trk, mach: F.mach, baro,
     };
     this.s.rmpAct = this.s.rmp.map((R) => R.freq[R.ch]?.[0] || ''); this.s.rmpStby = this.s.rmp.map((R) => R.freq[R.ch]?.[1] || '');
+  }
+
+  // ------------------------------------------------------------------ autopilot / autothrust engage and disconnect
+  // FCU AP 1 / AP 2: push to engage, push again to disconnect. Disconnecting from the FCU is not the instinctive way:
+  // the cavalry charge repeats with MASTER WARN and red AP OFF until the sidestick pushbutton or MASTER WARN is pressed.
+  // Sidestick pushbutton: instinctive disconnect - the cavalry charge sounds once (a second press silences it),
+  // MASTER WARN for 3 s, AP OFF for 9 s. A/THR: FCU pushbutton or the red buttons on the thrust levers - single
+  // chime and amber A/THR OFF.
+  autoflight(id) {
+    const S = this.s, P = S.ap, fcu = S.elec.dcEss;
+    if (id === 'FCU.AP1' || id === 'FCU.AP2') {
+      if (!fcu) return; const k = id === 'FCU.AP1' ? 'ap1' : 'ap2';
+      if (P[k]) { P[k] = false; if (!P.ap1 && !P.ap2) { P.cont = true; this.sound?.apWarning(true); } }
+      else { P[k] = true; if (k === 'ap1') P.ap2 = false; else P.ap1 = false; P.cont = false; this.sound?.apWarning(false); }
+    } else if (/\.apDisc$/.test(id)) {
+      if (P.cont) { P.cont = false; this.sound?.apWarning(false); return; }
+      if (P.ap1 || P.ap2) { P.ap1 = P.ap2 = false; P.onceT = this.t; this.sound?.apOnce(); }
+      else if (this.t - P.onceT < 9) this.sound?.apOnce();   // second press: silences the remaining tones
+    } else if (id === 'FCU.ATHR' || /^thrust\.athrDisc/.test(id)) {
+      if (!fcu) return;
+      if (P.athr) { P.athr = false; P.athrOffT = this.t; }
+      else if (id === 'FCU.ATHR') P.athr = true;
+    }
   }
   syncSdKeys() { for (const p of ['ENG', 'BLEED', 'PRESS', 'ELEC', 'HYD', 'FUEL', 'APU', 'COND', 'DOOR', 'WHEEL', 'F/CTL']) { const k = this.c('ecamCP.ecp_' + p); if (k) k.value = this.s.sdManual === p; } }
 
@@ -231,6 +256,9 @@ export class Systems {
     if (S.fire.test.ENG1) W.push({ text: 'ENG 1 FIRE', lvl: 3 }); if (S.fire.test.ENG2) W.push({ text: 'ENG 2 FIRE', lvl: 3 }); if (S.fire.test.APU) W.push({ text: 'APU FIRE', lvl: 3 });
     if (S.cargoTest) W.push({ text: 'CARGO SMOKE', lvl: 3 });
     if (S.evac) W.push({ text: 'EVAC', lvl: 3 });
+    const AP = S.ap;
+    if (AP.cont || this.t - AP.onceT < 9) W.push({ text: 'AUTO FLT AP OFF', lvl: 3, ap: true });
+    if (this.t - AP.athrOffT < 9) W.push({ text: 'AUTO FLT A/THR OFF', lvl: 2 });
     S.warnings = W.filter((w) => !w.memo);
     // memos (green), in the order the E/WD lists them
     if (S.anyIrAligning) Mm.push({ t: `IRS IN ALIGN ${S.irAlignMin} MN`, c: S.eng.some((e) => e.running || e.starting) ? 'a' : 'g' });
@@ -259,7 +287,9 @@ export class Systems {
     if (S.masks) Mm.push({ t: 'PAX OXY MASKS DEPLOYED', c: 'a' });
     S.memos = Mm;
     // master warning / caution lights (flashing red / steady amber until acknowledged)
-    S.masterWarn = S.warnings.some((w) => w.lvl === 3 && !S.warnAck.has(w.text));
+    // MASTER WARN: unacknowledged red warnings; the instinctive AP disconnect flashes it for 3 s only
+    S.masterWarn = S.warnings.some((w) => w.lvl === 3 && !S.warnAck.has(w.text) && (!w.ap || AP.cont || this.t - AP.onceT < 3));
+    S.crc = S.warnings.some((w) => w.lvl === 3 && !w.ap && !S.warnAck.has(w.text));   // continuous repetitive chime (not for AP OFF: it has the cavalry charge)
     S.masterCaut = S.warnings.some((w) => w.lvl === 2 && !S.warnAck.has(w.text));
     for (const k of [...S.warnAck]) if (!S.warnings.some((w) => w.text === k)) S.warnAck.delete(k);
     // SD: APU page from APU MASTER ON until 10 s after AVAIL; otherwise the selected page, else DOOR on the ground
@@ -293,7 +323,11 @@ export class Systems {
     setL('apu.apuMaster', false, this.v('apu.apuMaster'));
     for (const n of ['1', '2']) setL('elec.gen' + n, this.v('elec.gen' + n) && !E.gen[+n - 1], !this.v('elec.gen' + n));   // GEN FAULT: pushbutton ON, generator not on line (engine stopped)
     setL('fuel.xfeed', S.fuel.xfeedOpen >= 1, this.v('fuel.xfeed'));
-    setL('hyd.eng1Pump', this.v('hyd.eng1Pump') && S.eng[0].running && S.hyd.G < 1450, !this.v('hyd.eng1Pump')); setL('hyd.eng2Pump', this.v('hyd.eng2Pump') && S.eng[1].running && S.hyd.Y < 1450, !this.v('hyd.eng2Pump'));
+    // HYD: ENG PUMP FAULT with the pushbutton ON and the pump at low pressure (engine stopped included), PTU FAULT while the
+    // reservoirs have no air pressure (they are pressurised from bleed air) - as seen in the owner's sim before engine start
+    S.resAir = !!(S.resAir || A.bleed || S.eng.some((e) => e.running));
+    setL('hyd.eng1Pump', this.v('hyd.eng1Pump') && !(S.eng[0].running && S.hyd.G > 1450), !this.v('hyd.eng1Pump')); setL('hyd.eng2Pump', this.v('hyd.eng2Pump') && !(S.eng[1].running && S.hyd.Y > 1450), !this.v('hyd.eng2Pump'));
+    setL('hyd.ptu', this.v('hyd.ptu') && !S.resAir, !this.v('hyd.ptu'));
     setL('airCond.apuBleed', false, this.v('airCond.apuBleed'));
     for (const n of ['1', '2']) setL('antiIce.eng' + n, false, this.v('antiIce.eng' + n));
     setL('antiIce.wing', false, this.v('antiIce.wing'));
@@ -318,6 +352,7 @@ export class Systems {
     const clr = S.warnings.length > 0; setL('ecamCP.ecp_CLR0', clr, clr); setL('ecamCP.ecp_CLR3', clr, clr);
     // autobrake: ON when armed
     for (const k of ['abrkLO', 'abrkMED', 'abrkMAX']) setL('gearBrake.' + k, false, this.v('gearBrake.' + k));
+    for (const [id, on] of [['FCU.AP1', S.ap.ap1], ['FCU.AP2', S.ap.ap2], ['FCU.ATHR', S.ap.athr]]) { const c = sim.get(id); if (c) c.lights.top = test ? 1 : (E.dcEss && on ? 1 : 0); }
     // FCU / EFIS / RMP / ACP keys need their own power
     for (const c of sim.controls.values()) if ((c.id.startsWith('FCU.') || c.id.startsWith('EFIS')) && (c.kind === 'latch' || c.kind === 'radio')) { c.lights.top = test ? 1 : (E.dcEss && c.value ? 1 : 0); }
     // battery voltage readouts
@@ -362,7 +397,7 @@ export class Systems {
       env.screens.set(name, { on: st.on, test: st.test, brt, sys: S });
     }
     // small segment windows: FCU, baro, RMPs, transponder, rudder trim, battery readouts
-    this.sound?.update(S);
+    try { this.sound?.update(S); } catch (e) { if (!this._sndErr) { this._sndErr = true; console.error('sound', e); } }   // sound must never stop the systems
     env.screens.small?.({ fcu: E.dcEss, rmp1: E.dcEss && this.v('rmp1.pwr') === 0, rmp2: E.dc2 && this.v('rmp2.pwr') === 0, atc: E.ac, rudTrim: E.dcEss, test: E.dcEss && this.v('signsIntLt.annLt') === 0, sys: S });
   }
 }

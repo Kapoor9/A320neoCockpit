@@ -7,8 +7,11 @@ export const PRESETS = {
     controls: { 'elec.bat1': false, 'elec.bat2': false, 'apu.apuMaster': false, 'airCond.apuBleed': false, 'hyd.yellowElec': false,
       'adirs.irSel1': 0, 'adirs.irSel2': 0, 'adirs.irSel3': 0, ...LIGHTS_OFF, 'signsIntLt.seatBelts': 1, 'signsIntLt.noSmoking': 1, 'signsIntLt.emerExit': 2, 'signsIntLt.dome': 2,
       'parkBrake.handle': 1, 'atc.xpdrMode': 0, 'atc.tcasMode': 0, 'fuel.xfeed': false, 'engPanel.master1': 0, 'engPanel.master2': 0, 'engPanel.mode': 1,
-      'floodLt-1.floodMain': 0, 'floodLt1.floodPed': 0 },
-    sys: (s) => { s.extOn = false; Object.assign(s.apu, { flap: 0, n: 0, egt: 20, starting: false, avail: false, shutting: false, cool: 0 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 0, align: 0, aligned: false, onBat: 0, test: 0 })); s.batV = [26.6, 26.6]; s.hyd = { G: 0, B: 0, Y: 0, ptu: false }; s.masks = false; s.agentDisch.clear(); },
+      'floodLt-1.floodMain': 0, 'floodLt1.floodPed': 0,
+      // parked: fuel pumps OFF, MODE SEL released (MAN), crew oxygen OFF, CVR GND CTL off, packs and probe heat as left
+      'fuel.ltk1': false, 'fuel.ltk2': false, 'fuel.ctr1': false, 'fuel.ctr2': false, 'fuel.rtk1': false, 'fuel.rtk2': false, 'fuel.fuelMode': false,
+      'oxygen.crewOxy': false, 'rcdr.gndCtl': false, 'airCond.pack1': false, 'airCond.pack2': false, 'EFIS1.FD': false, 'EFIS2.FD': false },
+    sys: (s) => { s.extOn = false; Object.assign(s.apu, { flap: 0, n: 0, egt: 20, starting: false, avail: false, shutting: false, cool: 0 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 0, align: 0, aligned: false, onBat: 0, test: 0 })); s.batV = [26.6, 26.6]; s.hyd = { G: 0, B: 0, Y: 0, ptu: false }; s.masks = false; s.agentDisch.clear(); s.resAir = false; Object.assign(s.ap, { ap1: false, ap2: false, athr: false, cont: false, onceT: -99, athrOffT: -99 }); },
   },
   // before engine start: APU running with its generator and bleed, IRs aligned, beacon on, seat belts on
   ready: {
@@ -16,7 +19,7 @@ export const PRESETS = {
       'adirs.irSel1': 1, 'adirs.irSel2': 1, 'adirs.irSel3': 1, ...LIGHTS_OFF, 'extLt.beacon': 0, 'extLt.navLogo': 1, 'extLt.strobe': 1,
       'signsIntLt.seatBelts': 0, 'signsIntLt.noSmoking': 1, 'signsIntLt.emerExit': 1, 'signsIntLt.dome': 2,
       'parkBrake.handle': 1, 'atc.xpdrMode': 0, 'atc.tcasMode': 0, 'engPanel.master1': 0, 'engPanel.master2': 0, 'engPanel.mode': 1 },
-    sys: (s, t) => { s.extOn = false; Object.assign(s.apu, { flap: 1, n: 100, egt: 520, starting: false, avail: true, shutting: false, availT: t - 60 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 1, align: 0, aligned: true, onBat: 0, test: 0 })); s.batV = [28.2, 28.2]; },
+    sys: (s, t) => { s.extOn = false; Object.assign(s.apu, { flap: 1, n: 100, egt: 520, starting: false, avail: true, shutting: false, availT: t - 60 }); s.adirs.forEach((ir) => Object.assign(ir, { mode: 1, align: 0, aligned: true, onBat: 0, test: 0 })); s.batV = [28.3, 28.3]; s.resAir = true; },
   },
 };
 

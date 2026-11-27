@@ -27,18 +27,21 @@ export function registerPhysical(sim, refs) {
 
   // ---- thrust levers: continuous travel with detents (REV - IDLE - CL - FLX/MCT - TOGA); release near a detent snaps into it
   const T = refs.thrust;
+  const both = (s, v) => { for (const k of [1, 2]) { const o = s.get('thrust.lever' + k); if (o && o.value !== v) s.set(o, v); } };
   if (T) T.levers.forEach((lv, i) => {
     const det = Object.entries(DETENT_DEG).filter(([k]) => k !== 'N45');
     R(`thrust.lever${i + 1}`, lv, {
       kind: 'lever', name: `THRUST LEVER ${i + 1}`, value: DETENT_DEG.IDLE,
       status: (v) => { const d = det.find(([, a]) => Math.abs(a - v) < 0.6); return d ? (d[0] === 'FLX' ? 'FLX / MCT' : d[0] === 'TOGA' ? 'TO GA' : d[0]) : v.toFixed(0) + '°'; },
       apply: (c, s, now) => s.animate(lv.rotation, 'x', -c.value * D2R, now, 16),
-      drag: { start: (s, c) => (c.d0 = c.value), move: (s, c, dR, dU) => { const v = clamp(c.d0 + dU * 0.22, DETENT_DEG.REV, DETENT_DEG.TOGA); if (v !== c.value) s.set(c, v); },
-        end: (s, c) => { const d = det.reduce((b, [, a]) => (Math.abs(a - c.value) < Math.abs(b - c.value) ? a : b), 99); if (Math.abs(d - c.value) < 3.5) s.set(c, d); } },
-      wheel: (s, c, dir) => { const list = det.map(([, a]) => a).sort((a, b) => a - b); const nx = dir > 0 ? list.find((a) => a > c.value + 0.1) : [...list].reverse().find((a) => a < c.value - 0.1); if (nx !== undefined) s.set(c, nx); },
+      // the two levers are moved together, as one handle
+      drag: { start: (s, c) => (c.d0 = c.value), move: (s, c, dR, dU) => { const v = clamp(c.d0 + dU * 0.22, DETENT_DEG.REV, DETENT_DEG.TOGA); if (v !== c.value) both(s, v); },
+        end: (s, c) => { const d = det.reduce((b, [, a]) => (Math.abs(a - c.value) < Math.abs(b - c.value) ? a : b), 99); if (Math.abs(d - c.value) < 3.5) both(s, d); } },
+      wheel: (s, c, dir) => { const list = det.map(([, a]) => a).sort((a, b) => a - b); const nx = dir > 0 ? list.find((a) => a > c.value + 0.1) : [...list].reverse().find((a) => a < c.value - 0.1); if (nx !== undefined) both(s, nx); },
     });
   });
 
+  if (T) T.levers.forEach((lv, i) => { if (lv.userData.athrBtn) sim.register(`thrust.athrDisc${i + 1}`, lv.userData.athrBtn, { kind: 'mom', name: 'A/THR INSTINCTIVE DISCONNECT' }); });
   // ---- flaps: 0 1 2 3 FULL (lift the trigger and move: drag the handle)
   const fl = refs.flaps?.userData.lever; const flY = [0.045, 0.022, 0, -0.022, -0.045];
   R('flaps.lever', fl, steps('FLAPS', ['0', '1', '2', '3', 'FULL'], 0, (c, s, now) => s.animate(fl.position, 'y', flY[c.value], now, 14)));
@@ -76,6 +79,7 @@ export function registerPhysical(sim, refs) {
     R(id, sk, { kind: 'lever', name: 'SIDESTICK', value: [0, 0], status: (v) => (v[0] || v[1] ? `pitch ${(-v[1] * 57).toFixed(0)}° roll ${(v[0] * 57).toFixed(0)}°` : 'neutral'),
       apply: (c, s, now) => { s.animate(sk.rotation, 'x', c.value[1], now, 18); s.animate(sk.rotation, 'z', -c.value[0], now, 18); },
       drag: { move: (s, c, dR, dU, dx, dy) => s.set(c, [clamp(dx * 0.004, -0.3, 0.3), clamp(dy * 0.004, -0.28, 0.28)]), end: (s, c) => s.set(c, [0, 0]) } }); }
+  for (const [id, st] of [['sidestick.capt.apDisc', refs.sidestickCpt], ['sidestick.fo.apDisc', refs.sidestickFo]]) if (st?.userData.apBtn) sim.register(id, st.userData.apBtn, { kind: 'mom', name: 'AUTOPILOT DISCONNECT (sidestick)' });
   // ---- nose wheel steering tillers: turn while held, self-centring
   for (const [id, t] of [['tiller.capt', refs.tillerCpt], ['tiller.fo', refs.tillerFo]]) { const arm = t?.userData.arm; if (!arm) continue;
     R(id, arm, { kind: 'lever', name: 'STEERING HANDWHEEL', value: 0, status: (v) => (v ? `${Math.round(v * 57.3)}°` : 'centred'),

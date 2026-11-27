@@ -121,7 +121,9 @@ window.addEventListener('resize', resize); resize();
 let lastKey = '';
 // While the view moves: lower resolution and no ambient-occlusion/bloom passes, so it stays smooth.
 // As soon as it stops: one full-quality frame (high resolution, AO, bloom).
-let moving = false, still = 0;
+let moving = false, still = 0, contentBusy = false, lastContent = 0;
+// screens / lights changing several times a second (engine start, alignment countdown): lighter frames meanwhile
+const contentChanged = () => { const n = performance.now(); if (n - lastContent < 500 && !contentBusy) { contentBusy = true; if (!moving) setQuality(false); } lastContent = n; dirty = Math.max(dirty, 1); };
 const setQuality = (full) => {
   const pr = full ? DPR_FULL : DPR_MOVE; if (renderer.getPixelRatio() !== pr) { renderer.setPixelRatio(pr); resize(); }
   const fx = full && QUALITY[qName].fx; if (gtao) gtao.enabled = fx; if (bloom) bloom.enabled = fx;
@@ -134,13 +136,14 @@ setQuality(true);
 let tPrev = performance.now(), sysAcc = 0;
 renderer.setAnimationLoop(() => {
   const now = performance.now(), dt = Math.min(0.1, (now - tPrev) / 1000); tPrev = now;
-  if (systems) { sysAcc += dt; while (sysAcc >= 0.1) { systems.tick(0.1); sysAcc -= 0.1; } }
-  if (sim && sim.update(dt)) dirty = Math.max(dirty, 1);
+  if (systems) { sysAcc += dt; while (sysAcc >= 0.1) { try { systems.tick(0.1); } catch (e) { if (!window._sysErr) { window._sysErr = true; console.error('systems', e); } } sysAcc -= 0.1; } }
+  if (sim && sim.update(dt)) contentChanged();
   if (lighting && lighting.frame(now / 1000)) dirty = Math.max(dirty, 1);
   controls.update();
   const key = camera.position.toArray().concat(camera.quaternion.toArray(), [camera.fov]).map((v) => v.toFixed(5)).join();
   if (key !== lastKey) { lastKey = key; if (!moving) { moving = true; setQuality(false); } still = 0; dirty = Math.max(dirty, 1); }
-  else if (moving && ++still > 8) { moving = false; setQuality(true); dirty = 2; }
+  else if (moving && ++still > 8) { moving = false; setQuality(!contentBusy); dirty = 2; }
+  if (contentBusy && now - lastContent > 700) { contentBusy = false; if (!moving) { setQuality(true); dirty = Math.max(dirty, 1); } }
   if (dirty > 0) { composer ? composer.render() : renderer.render(scene, camera); dirty--; }
 });
 document.getElementById('loading')?.remove();
@@ -151,7 +154,7 @@ applySkyOcclusion(scene);
 // cockpit state, systems and interaction: every control is operable, the aircraft logic drives every light and screen
 sim = new Sim(); sim.attachPanels(); registerPhysical(sim, refs);
 lighting = makeLighting(scene, { dome, flood, invalidate: () => (dirty = Math.max(dirty, 2)) });
-if (screens) screens.onChange = () => (dirty = Math.max(dirty, 2));
+if (screens) screens.onChange = contentChanged;
 systems = new Systems(sim, { ...lighting, screens }); sim.systems = systems;
 const interaction = new Interaction(sim, camera, canvas, scene);
 systems.sound = new CockpitSound(sim, systems);

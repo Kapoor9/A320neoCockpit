@@ -10,7 +10,8 @@ const FONT = '"B612", "B612 Mono", sans-serif';
 function canvas(n = 512) { const cv = document.createElement('canvas'); cv.width = cv.height = n * 2; const c = cv.getContext('2d'); c.scale(2, 2); c.fillStyle = C.bg; c.fillRect(0, 0, n, n); c.lineCap = 'round'; return [cv, c]; }
 function txt(c, s, x, y, col, px, align = 'center') { c.fillStyle = col; c.font = `600 ${px}px ${FONT}`; c.textAlign = align; c.textBaseline = 'middle'; c.fillText(s, x, y); }
 
-function pfd(side) {
+const FIELD_ELEV = 780;   // ft, the airfield the cockpit stands on
+function pfd(side, baro = null) {
   const [cv, c] = canvas();
   const G = '#4d5258', thin = 1.4;
   // FMA: five columns
@@ -41,12 +42,17 @@ function pfd(side) {
   c.fillStyle = G; c.fillRect(24, 100, 78, 300); c.strokeStyle = C.w; c.lineWidth = thin; c.beginPath(); c.moveTo(24, 100); c.lineTo(102, 100); c.moveTo(102, 100); c.lineTo(102, 400); c.moveTo(24, 400); c.lineTo(102, 400); c.stroke();
   for (let v = 40; v <= 100; v += 10) { const y = cy - (v - 40) * 2.6 - 0; if (y < 104 || Math.abs(y - cy) < 12) continue; c.beginPath(); c.moveTo(90, y); c.lineTo(102, y); c.stroke(); if (v % 20 === 0) txt(c, String(v).padStart(3, '0'), 58, y, C.w, 18); }
   c.fillStyle = C.y; c.fillRect(18, cy - 2, 96, 4); c.beginPath(); c.moveTo(102, cy); c.lineTo(114, cy - 7); c.lineTo(114, cy + 7); c.closePath(); c.fill();
-  // altitude tape with the yellow-framed readout window and the drum
-  c.fillStyle = G; c.fillRect(398, 100, 62, 300); c.strokeStyle = C.w; c.beginPath(); c.moveTo(398, 100); c.lineTo(460, 100); c.moveTo(398, 400); c.lineTo(460, 400); c.moveTo(398, 100); c.lineTo(398, 400); c.stroke();
-  for (let k = -5; k <= 5; k++) { const y = cy + k * 30; c.beginPath(); c.moveTo(398, y); c.lineTo(408, y); c.stroke(); if (k % 2 === 0 && k) txt(c, String(-k * 5 * 10 / 10 * 10 < 0 ? '' : '').padStart(0), 0, 0, C.w, 1); }
-  txt(c, '005', 426, cy - 60, C.w, 17); txt(c, '995', 426, cy + 60, C.w, 17);
-  c.fillStyle = '#000'; c.fillRect(402, cy - 20, 48, 40); c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(402, cy - 20, 48, 40); txt(c, '00', 424, cy, C.g, 21);
-  c.fillStyle = '#000'; c.fillRect(450, cy - 30, 22, 60); c.strokeRect(450, cy - 30, 22, 60); txt(c, '20', 461, cy - 18, C.g, 14); txt(c, '00', 461, cy, C.g, 16); txt(c, '80', 461, cy + 18, C.g, 14);
+  // altitude tape: ticks every 100 ft, labels every 500 ft (in hundreds), yellow-framed window with the
+  // hundreds and the tens drum; indicated altitude follows the baro setting (airfield elevation 780 ft, QNH 1013)
+  const alt = baro && baro.std ? FIELD_ELEV : FIELD_ELEV + ((baro ? baro.hpa : 1013) - 1013) * 27.3;
+  c.fillStyle = G; c.fillRect(398, 100, 62, 300); c.strokeStyle = C.w; c.lineWidth = thin; c.beginPath(); c.moveTo(398, 100); c.lineTo(460, 100); c.moveTo(398, 400); c.lineTo(460, 400); c.moveTo(398, 100); c.lineTo(398, 400); c.stroke();
+  c.save(); c.beginPath(); c.rect(398, 100, 62, 300); c.clip();
+  for (let a = Math.floor((alt - 600) / 100) * 100; a <= alt + 600; a += 100) { const y = cy - (a - alt) * 0.3; c.beginPath(); c.moveTo(398, y); c.lineTo(408, y); c.stroke(); if (a % 500 === 0 && Math.abs(y - cy) > 24) txt(c, String(Math.max(0, a / 100)).padStart(3, '0'), 430, y, C.w, 17); }
+  c.restore();
+  const a10 = Math.round(alt / 20) * 20; const hund = Math.floor(a10 / 100), tens = ((a10 % 100) + 100) % 100;
+  c.fillStyle = '#000'; c.fillRect(402, cy - 20, 48, 40); c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(402, cy - 20, 48, 40); txt(c, String(hund).padStart(2, '0'), 426, cy, C.g, 21);
+  c.fillStyle = '#000'; c.fillRect(450, cy - 30, 22, 60); c.strokeRect(450, cy - 30, 22, 60);
+  const dr = (v) => String(((v % 100) + 100) % 100).padStart(2, '0'); txt(c, dr(tens + 20), 461, cy - 18, C.g, 14); txt(c, dr(tens), 461, cy, C.g, 16); txt(c, dr(tens - 20), 461, cy + 18, C.g, 14);
   // V/S scale
   c.fillStyle = G; c.beginPath(); c.moveTo(476, 120); c.lineTo(500, 140); c.lineTo(500, 360); c.lineTo(476, 380); c.closePath(); c.fill();
   c.strokeStyle = C.w; c.lineWidth = thin; for (const k of [-3, -2, -1, 0, 1, 2, 3]) { const y = cy - k * 34; c.beginPath(); c.moveTo(478, y); c.lineTo(k ? 486 : 492, y); c.stroke(); if (k && Math.abs(k) !== 3) txt(c, String(Math.abs(k)), 471, y, C.w, 12); }
@@ -55,7 +61,8 @@ function pfd(side) {
   c.fillStyle = G; c.fillRect(150, 432, 212, 40); c.strokeStyle = C.w; c.lineWidth = thin; c.strokeRect(150, 432, 212, 40);
   for (let hdg = 30; hdg <= 80; hdg += 5) { const x = cx + (hdg - 54) * 4.2; if (x < 152 || x > 360) continue; c.beginPath(); c.moveTo(x, 432); c.lineTo(x, hdg % 10 ? 440 : 446); c.stroke(); if (hdg % 10 === 0) txt(c, String(hdg / 10), x, 458, C.w, 17); }
   c.fillStyle = C.y; c.fillRect(cx - 2, 420, 4, 30);
-  txt(c, 'QNH', 410, 498, C.c, 15, 'right'); txt(c, '1013', 452, 498, C.c, 16, 'right');
+  if (baro && baro.std) { c.strokeStyle = C.y; c.lineWidth = 2; c.strokeRect(404, 486, 50, 24); txt(c, 'STD', 429, 498, C.c, 17); }
+  else { txt(c, 'QNH', 410, 498, C.c, 15, 'right'); txt(c, baro ? baro.txt : '1013', 458, 498, C.c, 16, 'right'); }
   return cv;
 }
 function nd() {
@@ -174,8 +181,8 @@ export function paintDisplays(scene, refs) {
   const S = refs.screens || {};
   const ir = (sys, i) => sys.adirs[i].aligned || (sys.adirs[i].mode === 2 && sys.adirs[i].aligned);
   const units = {
-    PFD1: [make(S.PFD1, pfd(-1)), (sys) => [ir(sys, 0)], (sys) => flags(pfd(-1), 'pfd', ir(sys, 0))],
-    PFD2: [make(S.PFD2, pfd(1)), (sys) => [ir(sys, 1)], (sys) => flags(pfd(1), 'pfd', ir(sys, 1))],
+    PFD1: [make(S.PFD1, pfd(-1)), (sys) => [ir(sys, 0), baroOf(sys, 0)], (sys) => flags(pfd(-1, baroOf(sys, 0)), 'pfd', ir(sys, 0))],
+    PFD2: [make(S.PFD2, pfd(1)), (sys) => [ir(sys, 1), baroOf(sys, 1)], (sys) => flags(pfd(1, baroOf(sys, 1)), 'pfd', ir(sys, 1))],
     ND1: [make(S.ND1, nd()), (sys) => [ir(sys, 0)], (sys) => flags(nd(), 'nd', ir(sys, 0))],
     ND2: [make(S.ND2, nd()), (sys) => [ir(sys, 1)], (sys) => flags(nd(), 'nd', ir(sys, 1))],
     EWD: [make(S.EWD, ewdDraw(EMPTY)), (sys) => [sys.warnings.map((w) => w.text), sys.memos.map((m) => m.t + m.c), Math.round(sys.fuel.fob / 20), sys.toMemo, (sys.eng || []).map((e) => [e.fadec, e.n1.toFixed(1), Math.round(e.egt), e.n2.toFixed(1), Math.round(e.ff / 10), e.starting, e.ign, e.rev, e.running && sys.t - (sys.engStartedAt?.[0] ?? -99) < 10])], (sys) => ewdDraw(sys)],
@@ -203,7 +210,7 @@ export function paintDisplays(scene, refs) {
       if (!st.on) { if (u.mesh.material !== offMat) { u.mesh.material = offMat; u.last = null; mgr.onChange(); } return; }
       const ei = u.bright * 1.35 * (0.25 + 0.75 * st.brt); if (u.mesh.material !== u.mat || u.mat.emissiveIntensity !== ei) { u.mesh.material = u.mat; u.mat.emissiveIntensity = ei; mgr.onChange(); }
       if (st.test > 0) show(u, name === 'ISIS' ? 'init' + Math.ceil(st.test) : 'test', () => (name === 'ISIS' ? isisInit(st.test) : selfTest(name.startsWith('DCDU') ? 256 : 512)));
-      else { const k = JSON.stringify(keyFn(st.sys)); if (u.last !== k) { u.last = k; u.tex.image = draw(st.sys); u.tex.needsUpdate = true; mgr.onChange(); } }
+      else { const k = JSON.stringify(keyFn(st.sys)); const now = performance.now(); if (u.last !== k && !(u.drawnAt && now - u.drawnAt < 250 && u.last && !u.last.startsWith('test') && u.last !== 'init')) { u.last = k; u.drawnAt = now; u.tex.image = draw(st.sys); u.tex.needsUpdate = true; mgr.onChange(); } }
     },
     small(st) {
       const S2 = st.sys; const pw = (u, on) => { if (!u) return; const m = on ? u.mat : offMat; if (u.mesh.material !== m) { u.mesh.material = m; mgr.onChange(); } };
@@ -214,6 +221,7 @@ export function paintDisplays(scene, refs) {
     },
   });
 }
+const baroOf = (sys, i) => { const F = sys.fcuS; if (!F) return null; return { std: F.std[i], hpa: F.baro[i], txt: F.inHg[i] ? (F.baro[i] * 0.02953).toFixed(2) : String(F.baro[i]) }; };
 const EMPTY = { eng: [], warnings: [], memos: [], fuel: { fob: 19080, pumps: [] }, apu: { n: 0, egt: 20, avail: false, flap: 0 }, elec: { batAmp: [0, 0] }, batV: [26.6, 26.6], hyd: { G: 0, B: 0, Y: 0 }, packs: [] };
 const sdKey = (S) => [S.sdPage, Math.round(S.apu.n), Math.round(S.apu.egt / 5), S.apu.avail, S.apu.bleed, S.apu.flap > 0.98, S.apu.shutting, S.elec, S.batV.map((v) => v.toFixed(0)), S.extAvail,
   Math.round(S.hyd.G / 50), Math.round(S.hyd.B / 50), Math.round(S.hyd.Y / 50), S.hyd.ptu, S.fuel.xfeedOpen >= 1, S.fuel.pumps, S.packs, S.xbleedOpen, new Date().getUTCMinutes(),

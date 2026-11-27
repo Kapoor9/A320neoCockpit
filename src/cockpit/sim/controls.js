@@ -116,7 +116,7 @@ panel('maint', { bluePumpOvrd: P('BLUE PUMP OVRD', false), oxyTmrReset: M('OXYGE
 // ------------------------------------------------------------------ glareshield
 panel('FCU', {
   spdMach: M('SPD / MACH'), kSPD: F('SPD knob'), kHDG: F('HDG knob'), LOC: L('LOC'), hdgvs: M('HDG-V/S / TRK-FPA'),
-  AP1: L('AP 1'), AP2: L('AP 2'), ATHR: L('A/THR'), kALT: F('ALT knob'), EXPED: L('EXPED'), metric: M('METRIC ALT'), kVS: F('V/S knob'), APPR: L('APPR'),
+  AP1: M('AP 1'), AP2: M('AP 2'), ATHR: M('A/THR'), kALT: F('ALT knob'), EXPED: L('EXPED'), metric: M('METRIC ALT'), kVS: F('V/S knob'), APPR: L('APPR'),
 });
 for (const s of ['1', '2']) panel('EFIS' + s, {
   FD: L('FD', true), LS: L('LS'), CSTR: G('CSTR', 'nd', { toggle: true }), WPT: G('WPT', 'nd', { toggle: true }), 'VOR.D': G('VOR.D', 'nd', { toggle: true }),
